@@ -17,6 +17,7 @@ limitations under the License.
 package builder
 
 import (
+	"github.com/davecgh/go-spew/spew"
 	"time"
 
 	"github.com/tektoncd/pipeline/pkg/apis/config"
@@ -560,6 +561,7 @@ func TaskResourceBindingRef(name string) TaskResourceBindingOp {
 
 // TaskResourceBindingResourceSpec set the PipelineResourceResourceSpec to the TaskResourceBinding.
 func TaskResourceBindingResourceSpec(spec *v1alpha1.PipelineResourceSpec) TaskResourceBindingOp {
+	spew.Dump(spec)
 	return func(b *v1alpha1.TaskResourceBinding) {
 		b.ResourceSpec = spec
 	}
