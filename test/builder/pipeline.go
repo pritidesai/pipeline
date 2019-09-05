@@ -307,9 +307,6 @@ func PipelineRunResourceBinding(name string, ops ...PipelineResourceBindingOp) P
 	return func(prs *v1alpha1.PipelineRunSpec) {
 		r := &v1alpha1.PipelineResourceBinding{
 			Name: name,
-			ResourceRef: v1alpha1.PipelineResourceRef{
-				Name: name,
-			},
 		}
 		spew.Dump(r)
 		for _, op := range ops {
