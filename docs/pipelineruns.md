@@ -33,7 +33,7 @@ following fields:
     `PipelineRun` resource object, for example a `name`.
   - [`spec`][kubernetes-overview] - Specifies the configuration information for
     your `PipelineRun` resource object.
-    - `pipelineRef` - Specifies the [`Pipeline`](pipelines.md) you want to run.
+    - [`pipelineRef` or `pipelineSpec`](#specifiying-a-pipeline) - Specifies the [`Pipeline`](pipelines.md) you want to run.
 - Optional:
 
   - [`resources`](#resources) - Specifies which
@@ -54,6 +54,103 @@ following fields:
 
 [kubernetes-overview]:
   https://kubernetes.io/docs/concepts/overview/working-with-objects/kubernetes-objects/#required-fields
+
+### Specifying a pipeline
+
+Since a `PipelineRun` is an invocation of a [`Pipeline`](pipelines.md), you must sepcify
+what `Pipeline` to invoke.
+
+You can do this by providing a reference to an existing `Pipeline`:
+
+```yaml
+spec:
+  pipelineRef:
+    name: myPipeline
+
+```
+
+Or you can embed the spec of the `Pipeline` directly in the `PipelineRun`:
+
+```yaml
+spec:
+  pipelineSpec:
+    tasks:
+    - name: task1
+      taskRef:
+        name: myTask
+```
+
+A sample `PipelineRun` to display greetings while embedding the spec of the `Pipeline` directly in the `PipelineRun`: 
+
+```yaml
+apiVersion: tekton.dev/v1alpha1
+kind: Task
+metadata:
+  name: task-echo-message
+spec:
+  inputs:
+    params:
+      - name: MESSAGE
+        type: string
+        default: "Hello World"
+  steps:
+    - name: echo
+      image: ubuntu
+      command:
+        - echo
+      args:
+        - "$(inputs.params.MESSAGE)"
+---
+
+apiVersion: tekton.dev/v1alpha1
+kind: PipelineRun
+metadata:
+  name: pipelinerun-echo-greetings
+spec:
+  pipelineSpec:
+    params:
+      - name: MORNING_GREETINGS
+        description: "morning greetings, default is Good Morning!"
+        type: string
+        default: "Good Morning!"
+      - name: NIGHT_GREETINGS
+        description: "Night greetings, default is Good Night!"
+        type: string
+        default: "Good Night!"
+    tasks:
+      # Task to display morning greetings
+      - name: echo-good-morning
+        taskRef:
+          name: task-echo-message
+        params:
+          - name: MESSAGE
+            value: $(params.MORNING_GREETINGS)
+      # Task to display night greetings
+      - name: echo-good-night
+        taskRef:
+          name: task-echo-message
+        params:
+          - name: MESSAGE
+            value: $(params.NIGHT_GREETINGS)
+  params:
+    - name: MORNING_GREETINGS
+      value: "Good Morning, Bob!"
+    - name: NIGHT_GREETINGS
+      value: "Good Night, Bob!"
+```
+
+Logs from a pod displaying morning greetings:
+
+```bash
+kubectl logs $(kubectl get pods -o name | grep pipelinerun-echo-greetings-echo-good-morning)
+Good Morning, Bob!
+```
+
+Logs from a pod displaying morning greetings:
+```bash
+kubectl logs $(kubectl get pods -o name | grep pipelinerun-echo-greetings-echo-good-night)
+Good Night, Bob!
+```
 
 ### Resources
 
@@ -83,6 +180,34 @@ spec:
     - name: app-image
       resourceRef:
         name: skaffold-image-leeroy-app
+```
+
+Or you can embed the spec of the `Resource` directly in the `PipelineRun`:
+
+
+```yaml
+spec:
+  resources:
+    - name: source-repo
+      resourceSpec:
+        type: git
+        params:
+          - name: revision
+            value: v0.32.0
+          - name: url
+            value: https://github.com/GoogleContainerTools/skaffold
+    - name: web-image
+      resourceSpec:
+        type: image
+        params:
+          - name: url
+            value: gcr.io/christiewilson-catfactory/leeroy-web
+    - name: app-image
+      resourceSpec:
+        type: image
+        params:
+          - name: url
+            value: gcr.io/christiewilson-catfactory/leeroy-app
 ```
 
 ### Service Account
@@ -121,7 +246,6 @@ spec:
     - name: build-task
       taskRef:
         name: build-push
-  tasks:
     - name: test-task
       taskRef:
         name: test
@@ -174,7 +298,7 @@ spec:
   tasks:
     - name: task1
       taskRef:
-      name: myTask
+        name: myTask
 ---
 apiVersion: tekton.dev/v1alpha1
 kind: PipelineRun

@@ -1037,13 +1037,14 @@ func TestGetResourcesFromBindings(t *testing.T) {
 	pr := tb.PipelineRun("pipelinerun", "namespace", tb.PipelineRunSpec("pipeline",
 		tb.PipelineRunResourceBinding("git-resource", tb.PipelineResourceBindingRef("sweet-resource")),
 	))
-	m, err := GetResourcesFromBindings(p, pr)
+	m, err := GetResourcesFromBindings(&p.Spec, pr)
 	if err != nil {
 		t.Fatalf("didn't expect error getting resources from bindings but got: %v", err)
 	}
-	expectedResources := map[string]v1alpha1.PipelineResourceRef{
+	expectedResources := map[string]v1alpha1.PipelineResourceBinding{
 		"git-resource": {
-			Name: "sweet-resource",
+			Name: "git-resource",
+			ResourceRef:v1alpha1.PipelineResourceRef{Name: "sweet-resource"},
 		},
 	}
 	if d := cmp.Diff(expectedResources, m); d != "" {
@@ -1059,7 +1060,7 @@ func TestGetResourcesFromBindings_Missing(t *testing.T) {
 	pr := tb.PipelineRun("pipelinerun", "namespace", tb.PipelineRunSpec("pipeline",
 		tb.PipelineRunResourceBinding("git-resource", tb.PipelineResourceBindingRef("sweet-resource")),
 	))
-	_, err := GetResourcesFromBindings(p, pr)
+	_, err := GetResourcesFromBindings(&p.Spec, pr)
 	if err == nil {
 		t.Fatalf("Expected error indicating `image-resource` was missing but got no error")
 	}
@@ -1073,7 +1074,7 @@ func TestGetResourcesFromBindings_Extra(t *testing.T) {
 		tb.PipelineRunResourceBinding("git-resource", tb.PipelineResourceBindingRef("sweet-resource")),
 		tb.PipelineRunResourceBinding("image-resource", tb.PipelineResourceBindingRef("sweet-resource2")),
 	))
-	_, err := GetResourcesFromBindings(p, pr)
+	_, err := GetResourcesFromBindings(&p.Spec, pr)
 	if err == nil {
 		t.Fatalf("Expected error indicating `image-resource` was extra but got no error")
 	}
@@ -1094,9 +1095,12 @@ func TestResolvePipelineRun(t *testing.T) {
 			tb.PipelineTaskOutputResource("output1", "git-resource"),
 		),
 	))
-	providedResources := map[string]v1alpha1.PipelineResourceRef{
+	providedResources := map[string]v1alpha1.PipelineResourceBinding{
 		"git-resource": {
 			Name: "someresource",
+			ResourceRef: v1alpha1.PipelineResourceRef{
+				Name: "someresource",
+			},
 		},
 	}
 
@@ -1179,7 +1183,7 @@ func TestResolvePipelineRun_PipelineTaskHasNoResources(t *testing.T) {
 		Name:    "mytask3",
 		TaskRef: v1alpha1.TaskRef{Name: "task"},
 	}}
-	providedResources := map[string]v1alpha1.PipelineResourceRef{}
+	providedResources := map[string]v1alpha1.PipelineResourceBinding{}
 
 	getTask := func(name string) (v1alpha1.TaskInterface, error) { return task, nil }
 	getTaskRun := func(name string) (*v1alpha1.TaskRun, error) { return &trs[0], nil }
@@ -1219,7 +1223,7 @@ func TestResolvePipelineRun_TaskDoesntExist(t *testing.T) {
 		Name:    "mytask1",
 		TaskRef: v1alpha1.TaskRef{Name: "task"},
 	}}
-	providedResources := map[string]v1alpha1.PipelineResourceRef{}
+	providedResources := map[string]v1alpha1.PipelineResourceBinding{}
 
 	// Return an error when the Task is retrieved, as if it didn't exist
 	getTask := func(name string) (v1alpha1.TaskInterface, error) {
@@ -1273,7 +1277,7 @@ func TestResolvePipelineRun_ResourceBindingsDontExist(t *testing.T) {
 			),
 		)),
 	}}
-	providedResources := map[string]v1alpha1.PipelineResourceRef{}
+	providedResources := map[string]v1alpha1.PipelineResourceBinding{}
 
 	getTask := func(name string) (v1alpha1.TaskInterface, error) { return task, nil }
 	getTaskRun := func(name string) (*v1alpha1.TaskRun, error) { return &trs[0], nil }
@@ -1319,7 +1323,7 @@ func TestResolvePipelineRun_ResourcesDontExist(t *testing.T) {
 			),
 		)),
 	}}
-	providedResources := map[string]v1alpha1.PipelineResourceRef{
+	providedResources := map[string]v1alpha1.PipelineResourceBinding{
 		"git-resource": {
 			Name: "doesnt-exist",
 		},
@@ -1539,9 +1543,12 @@ func TestResolvePipelineRun_withExistingTaskRuns(t *testing.T) {
 			tb.PipelineTaskInputResource("input1", "git-resource"),
 		),
 	))
-	providedResources := map[string]v1alpha1.PipelineResourceRef{
+	providedResources := map[string]v1alpha1.PipelineResourceBinding{
 		"git-resource": {
 			Name: "someresource",
+			ResourceRef: v1alpha1.PipelineResourceRef{
+					Name: "someresource",
+			},
 		},
 	}
 
@@ -1553,6 +1560,7 @@ func TestResolvePipelineRun_withExistingTaskRuns(t *testing.T) {
 			Type: v1alpha1.PipelineResourceTypeGit,
 		},
 	}
+
 	taskrunStatus := map[string]*v1alpha1.PipelineRunTaskRunStatus{}
 	taskrunStatus["pipelinerun-mytask-with-a-really-long-name-to-trigger-tru-9l9zj"] = &v1alpha1.PipelineRunTaskRunStatus{
 		PipelineTaskName: "mytask-with-a-really-long-name-to-trigger-truncation",
@@ -1617,7 +1625,7 @@ func TestResolveConditionChecks(t *testing.T) {
 		TaskRef:    v1alpha1.TaskRef{Name: "task"},
 		Conditions: []v1alpha1.PipelineTaskCondition{ptc},
 	}}
-	providedResources := map[string]v1alpha1.PipelineResourceRef{}
+	providedResources := map[string]v1alpha1.PipelineResourceBinding{}
 
 	getTask := func(name string) (v1alpha1.TaskInterface, error) { return task, nil }
 	getClusterTask := func(name string) (v1alpha1.TaskInterface, error) { return nil, xerrors.New("should not get called") }
@@ -1697,7 +1705,7 @@ func TestResolveConditionChecks_ConditionDoesNotExist(t *testing.T) {
 			ConditionRef: "does-not-exist",
 		}},
 	}}
-	providedResources := map[string]v1alpha1.PipelineResourceRef{}
+	providedResources := map[string]v1alpha1.PipelineResourceBinding{}
 
 	getTask := func(name string) (v1alpha1.TaskInterface, error) { return task, nil }
 	getTaskRun := func(name string) (*v1alpha1.TaskRun, error) {
@@ -1755,7 +1763,7 @@ func TestResolveConditionCheck_UseExistingConditionCheckName(t *testing.T) {
 		TaskRef:    v1alpha1.TaskRef{Name: "task"},
 		Conditions: []v1alpha1.PipelineTaskCondition{ptc},
 	}}
-	providedResources := map[string]v1alpha1.PipelineResourceRef{}
+	providedResources := map[string]v1alpha1.PipelineResourceBinding{}
 
 	getTask := func(name string) (v1alpha1.TaskInterface, error) { return task, nil }
 	getTaskRun := func(name string) (*v1alpha1.TaskRun, error) {
@@ -1852,12 +1860,12 @@ func TestResolvedConditionCheck_WithResources(t *testing.T) {
 
 	tcs := []struct {
 		name              string
-		providedResources map[string]v1alpha1.PipelineResourceRef
+		providedResources map[string]v1alpha1.PipelineResourceBinding
 		wantErr           bool
 		expected          map[string]*v1alpha1.PipelineResource
 	}{{
 		name: "resource exists",
-		providedResources: map[string]v1alpha1.PipelineResourceRef{
+		providedResources: map[string]v1alpha1.PipelineResourceBinding{
 			"blah": {
 				Name: "some-repo",
 			},
@@ -1867,7 +1875,7 @@ func TestResolvedConditionCheck_WithResources(t *testing.T) {
 		},
 	}, {
 		name: "resource does not exist",
-		providedResources: map[string]v1alpha1.PipelineResourceRef{
+		providedResources: map[string]v1alpha1.PipelineResourceBinding{
 			"blah": {
 				Name: "some-other-repo",
 			},
@@ -1875,7 +1883,7 @@ func TestResolvedConditionCheck_WithResources(t *testing.T) {
 		wantErr: true,
 	}, {
 		name: "undeclared resource",
-		providedResources: map[string]v1alpha1.PipelineResourceRef{
+		providedResources: map[string]v1alpha1.PipelineResourceBinding{
 			"foo": {
 				Name: "some-repo",
 			}},
