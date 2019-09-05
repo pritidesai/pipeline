@@ -17,7 +17,6 @@ limitations under the License.
 package builder
 
 import (
-	"github.com/davecgh/go-spew/spew"
 	"time"
 
 	"github.com/tektoncd/pipeline/pkg/apis/config"
@@ -308,7 +307,6 @@ func PipelineRunResourceBinding(name string, ops ...PipelineResourceBindingOp) P
 		r := &v1alpha1.PipelineResourceBinding{
 			Name: name,
 		}
-		spew.Dump(r)
 		for _, op := range ops {
 			op(r)
 		}
@@ -325,7 +323,6 @@ func PipelineResourceBindingRef(name string) PipelineResourceBindingOp {
 
 // PipelineResourceBindingResourceSpec set the PipelineResourceResourceSpec to the PipelineResourceBinding.
 func PipelineResourceBindingResourceSpec(spec *v1alpha1.PipelineResourceSpec) PipelineResourceBindingOp {
-	spew.Dump(spec)
 	return func(b *v1alpha1.PipelineResourceBinding) {
 		b.ResourceSpec = spec
 	}
