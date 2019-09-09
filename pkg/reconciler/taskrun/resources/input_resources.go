@@ -17,6 +17,7 @@ limitations under the License.
 package resources
 
 import (
+	"github.com/davecgh/go-spew/spew"
 	"path/filepath"
 
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline"
@@ -137,6 +138,7 @@ func getResource(r *v1alpha1.TaskResourceBinding, getter GetResource) (*v1alpha1
 	if r.ResourceRef.Name != "" {
 		return getter(r.ResourceRef.Name)
 	}
+	spew.Dump(r.ResourceSpec)
 	if r.ResourceSpec != nil {
 		return &v1alpha1.PipelineResource{
 			ObjectMeta: metav1.ObjectMeta{

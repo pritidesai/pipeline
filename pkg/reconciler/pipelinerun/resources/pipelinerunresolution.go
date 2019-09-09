@@ -18,6 +18,7 @@ package resources
 
 import (
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"reflect"
 
 	"go.uber.org/zap"
@@ -172,8 +173,8 @@ type GetTaskRun func(name string) (*v1alpha1.TaskRun, error)
 // GetResourcesFromBindings will validate that all PipelineResources declared in Pipeline p are bound in PipelineRun pr
 // and if so, will return a map from the declared name of the PipelineResource (which is how the PipelineResource will
 // be referred to in the PipelineRun) to the ResourceRef.
-func GetResourcesFromBindings(p *v1alpha1.Pipeline, pr *v1alpha1.PipelineRun) (map[string]v1alpha1.PipelineResourceRef, error) {
-	resources := map[string]v1alpha1.PipelineResourceRef{}
+func GetResourcesFromBindings(p *v1alpha1.Pipeline, pr *v1alpha1.PipelineRun) (map[string]v1alpha1.PipelineResourceBinding, error) {
+	resources := map[string]v1alpha1.PipelineResourceBinding{}
 
 	required := make([]string, 0, len(p.Spec.Resources))
 	for _, resource := range p.Spec.Resources {
@@ -189,12 +190,13 @@ func GetResourcesFromBindings(p *v1alpha1.Pipeline, pr *v1alpha1.PipelineRun) (m
 	}
 
 	for _, resource := range pr.Spec.Resources {
-		resources[resource.Name] = resource.ResourceRef
+		spew.Dump(resource)
+			resources[resource.Name] = resource
 	}
 	return resources, nil
 }
 
-func getPipelineRunTaskResources(pt v1alpha1.PipelineTask, providedResources map[string]v1alpha1.PipelineResourceRef) ([]v1alpha1.TaskResourceBinding, []v1alpha1.TaskResourceBinding, error) {
+func getPipelineRunTaskResources(pt v1alpha1.PipelineTask, providedResources map[string]v1alpha1.PipelineResourceBinding) ([]v1alpha1.TaskResourceBinding, []v1alpha1.TaskResourceBinding, error) {
 	inputs, outputs := []v1alpha1.TaskResourceBinding{}, []v1alpha1.TaskResourceBinding{}
 	if pt.Resources != nil {
 		for _, taskInput := range pt.Resources.Inputs {
@@ -204,7 +206,8 @@ func getPipelineRunTaskResources(pt v1alpha1.PipelineTask, providedResources map
 			}
 			inputs = append(inputs, v1alpha1.TaskResourceBinding{
 				Name:        taskInput.Name,
-				ResourceRef: resource,
+				ResourceRef: resource.ResourceRef,
+				ResourceSpec: resource.ResourceSpec,
 			})
 		}
 		for _, taskOutput := range pt.Resources.Outputs {
@@ -214,7 +217,8 @@ func getPipelineRunTaskResources(pt v1alpha1.PipelineTask, providedResources map
 			}
 			outputs = append(outputs, v1alpha1.TaskResourceBinding{
 				Name:        taskOutput.Name,
-				ResourceRef: resource,
+				ResourceRef: resource.ResourceRef,
+				ResourceSpec: resource.ResourceSpec,
 			})
 		}
 	}
@@ -262,7 +266,7 @@ func ResolvePipelineRun(
 	getResource resources.GetResource,
 	getCondition GetCondition,
 	tasks []v1alpha1.PipelineTask,
-	providedResources map[string]v1alpha1.PipelineResourceRef,
+	providedResources map[string]v1alpha1.PipelineResourceBinding,
 ) (PipelineRunState, error) {
 
 	state := []*ResolvedPipelineRunTask{}
