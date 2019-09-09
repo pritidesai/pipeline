@@ -300,7 +300,8 @@ func ResolvePipelineRun(
 		}
 
 		spec := t.TaskSpec()
-		rtr, err := resources.ResolveTaskResources(&spec, t.TaskMetadata().Name, pt.TaskRef.Kind, inputs, outputs, getResource)
+		rtr, err := resources.ResolveTaskResources(&spec, t.TaskMetadata().Name, pt.TaskRef.Kind, inputs, outputs, getResource, providedResources)
+
 		if err != nil {
 			return nil, &ResourceNotFoundError{Msg: err.Error()}
 		}
@@ -496,7 +497,7 @@ func ValidateFrom(state PipelineRunState) error {
 func resolveConditionChecks(pt *v1alpha1.PipelineTask,
 	taskRunStatus map[string]*v1alpha1.PipelineRunTaskRunStatus,
 	taskRunName string, getTaskRun resources.GetTaskRun, getCondition GetCondition,
-	getResource resources.GetResource, providedResources map[string]v1alpha1.PipelineResourceRef) ([]*ResolvedConditionCheck, error) {
+	getResource resources.GetResource, providedResources map[string]v1alpha1.PipelineResourceBinding) ([]*ResolvedConditionCheck, error) {
 	rccs := []*ResolvedConditionCheck{}
 	for _, ptc := range pt.Conditions {
 		cName := ptc.ConditionRef
@@ -537,18 +538,18 @@ func resolveConditionChecks(pt *v1alpha1.PipelineTask,
 
 func resolveConditionResources(prc []v1alpha1.PipelineConditionResource,
 	getResource resources.GetResource,
-	providedResources map[string]v1alpha1.PipelineResourceRef,
+	providedResources map[string]v1alpha1.PipelineResourceBinding,
 ) (map[string]*v1alpha1.PipelineResource, error) {
 	rr := make(map[string]*v1alpha1.PipelineResource)
 	for _, r := range prc {
 		// First get a ref to actual resource name from its bound name
-		resourceRef, ok := providedResources[r.Resource]
+		resourceBinding, ok := providedResources[r.Resource]
 		if !ok {
 			return nil, xerrors.Errorf("resource %s not present in declared resources", r.Resource)
 		}
 
 		// Next, fetch the actual resource definition
-		gotResource, err := getResource(resourceRef.Name)
+		gotResource, err := getResource(resourceBinding.Name)
 		if err != nil {
 			return nil, xerrors.Errorf("could not retrieve resource %s: %w", r.Name, err)
 		}

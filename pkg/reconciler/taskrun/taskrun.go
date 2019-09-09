@@ -19,6 +19,7 @@ package taskrun
 import (
 	"context"
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"reflect"
 	"strings"
 	"time"
@@ -249,7 +250,9 @@ func (c *Reconciler) reconcile(ctx context.Context, tr *v1alpha1.TaskRun) error 
 		return nil
 	}
 
-	rtr, err := resources.ResolveTaskResources(taskSpec, taskMeta.Name, kind, tr.Spec.Inputs.Resources, tr.Spec.Outputs.Resources, c.resourceLister.PipelineResources(tr.Namespace).Get)
+	rtr, err := resources.ResolveTaskResources(taskSpec, taskMeta.Name, kind, tr.Spec.Inputs.Resources, tr.Spec.Outputs.Resources, c.resourceLister.PipelineResources(tr.Namespace).Get, map[string]v1alpha1.PipelineResourceBinding{})
+	spew.Dump("Lister Resources")
+	spew.Dump( c.resourceLister.PipelineResources(tr.Namespace))
 	if err != nil {
 		c.Logger.Errorf("Failed to resolve references for taskrun %s: %v", tr.Name, err)
 		tr.Status.SetCondition(&apis.Condition{

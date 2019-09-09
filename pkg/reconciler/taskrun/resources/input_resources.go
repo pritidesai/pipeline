@@ -129,24 +129,45 @@ func AddInputResource(
 	return taskSpec, nil
 }
 
-func getResource(r *v1alpha1.TaskResourceBinding, getter GetResource) (*v1alpha1.PipelineResource, error) {
+func getResource(r *v1alpha1.TaskResourceBinding, getter GetResource, providedResources map[string]v1alpha1.PipelineResourceBinding) (*v1alpha1.PipelineResource, error) {
 	// Check both resource ref or resource Spec are not present. Taskrun webhook should catch this in validation error.
+	spew.Dump("**************** START ****************")
+	spew.Dump("I am inside of getResource with r being")
+	spew.Dump(r)
+	spew.Dump("**************** END ****************")
 	if r.ResourceRef.Name != "" && r.ResourceSpec != nil {
 		return nil, xerrors.New("Both ResourseRef and ResourceSpec are defined. Expected only one")
 	}
 
-	if r.ResourceRef.Name != "" {
-		return getter(r.ResourceRef.Name)
-	}
+	spew.Dump("I am reading Resorce Spec now")
 	spew.Dump(r.ResourceSpec)
 	if r.ResourceSpec != nil {
-		return &v1alpha1.PipelineResource{
+		spew.Dump("I am assigning Resource Spec to getResource")
+		r := &v1alpha1.PipelineResource{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: r.Name,
 			},
 			Spec: *r.ResourceSpec,
+		}
+		spew.Dump("I have assigned Pipeline Resource with spec and returning no error")
+		return r, nil
+	}
+
+	if providedResources[r.ResourceRef.Name].ResourceSpec != nil {
+		return &v1alpha1.PipelineResource{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: providedResources[r.ResourceRef.Name].Name,
+			},
+			Spec: *providedResources[r.ResourceRef.Name].ResourceSpec,
 		}, nil
 	}
+
+	spew.Dump("I am reading Resource Ref Name to see if its not empty")
+	if r.ResourceRef.Name != "" {
+		spew.Dump(r.Paths)
+		return getter(r.ResourceRef.Name)
+	}
+
 	return nil, xerrors.New("Neither ResourseRef not ResourceSpec is defined")
 }
 

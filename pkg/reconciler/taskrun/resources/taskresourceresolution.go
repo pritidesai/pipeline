@@ -17,6 +17,7 @@ limitations under the License.
 package resources
 
 import (
+	"github.com/davecgh/go-spew/spew"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1alpha1"
 	"golang.org/x/xerrors"
 )
@@ -41,7 +42,7 @@ type GetResource func(string) (*v1alpha1.PipelineResource, error)
 // ResolveTaskResources looks up PipelineResources referenced by inputs and outputs and returns
 // a structure that unites the resolved references and the Task Spec. If referenced PipelineResources
 // can't be found, an error is returned.
-func ResolveTaskResources(ts *v1alpha1.TaskSpec, taskName string, kind v1alpha1.TaskKind, inputs []v1alpha1.TaskResourceBinding, outputs []v1alpha1.TaskResourceBinding, gr GetResource) (*ResolvedTaskResources, error) {
+func ResolveTaskResources(ts *v1alpha1.TaskSpec, taskName string, kind v1alpha1.TaskKind, inputs []v1alpha1.TaskResourceBinding, outputs []v1alpha1.TaskResourceBinding, gr GetResource, providedResources map[string]v1alpha1.PipelineResourceBinding) (*ResolvedTaskResources, error) {
 	rtr := ResolvedTaskResources{
 		TaskName: taskName,
 		TaskSpec: ts,
@@ -50,17 +51,26 @@ func ResolveTaskResources(ts *v1alpha1.TaskSpec, taskName string, kind v1alpha1.
 		Outputs:  map[string]*v1alpha1.PipelineResource{},
 	}
 
+	spew.Dump("-------------------- START -------------------")
+	spew.Dump("I am going to iterate over a list of inputs")
+	spew.Dump(inputs)
+	spew.Dump("I have a list of provided resources")
+	spew.Dump(providedResources)
 	for _, r := range inputs {
-		rr, err := getResource(&r, gr)
+		spew.Dump("i am about to run getResource on the input")
+		rr, err := getResource(&r, gr, providedResources)
+		spew.Dump(rr)
+		spew.Dump(err)
 		if err != nil {
 			return nil, xerrors.Errorf("couldn't retrieve referenced input PipelineResource %q: %w", r.ResourceRef.Name, err)
 		}
 
 		rtr.Inputs[r.Name] = rr
 	}
+	spew.Dump("-------------------- END -------------------")
 
 	for _, r := range outputs {
-		rr, err := getResource(&r, gr)
+		rr, err := getResource(&r, gr, providedResources)
 
 		if err != nil {
 			return nil, xerrors.Errorf("couldn't retrieve referenced output PipelineResource %q: %w", r.ResourceRef.Name, err)
