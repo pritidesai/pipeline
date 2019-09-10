@@ -17,7 +17,6 @@ limitations under the License.
 package resources
 
 import (
-	"github.com/davecgh/go-spew/spew"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1alpha1"
 	"golang.org/x/xerrors"
 )
@@ -34,6 +33,8 @@ type ResolvedTaskResources struct {
 	// Outputs is a map from the name of the output required by the Task
 	// to the actual Resource to use for it
 	Outputs map[string]*v1alpha1.PipelineResource
+	// List of Resources specified under PipelineRun using resourceSpec
+	PipelineRunResources map[string]v1alpha1.PipelineResourceBinding
 }
 
 // GetResource is a function used to retrieve PipelineResources.
@@ -42,35 +43,27 @@ type GetResource func(string) (*v1alpha1.PipelineResource, error)
 // ResolveTaskResources looks up PipelineResources referenced by inputs and outputs and returns
 // a structure that unites the resolved references and the Task Spec. If referenced PipelineResources
 // can't be found, an error is returned.
-func ResolveTaskResources(ts *v1alpha1.TaskSpec, taskName string, kind v1alpha1.TaskKind, inputs []v1alpha1.TaskResourceBinding, outputs []v1alpha1.TaskResourceBinding, gr GetResource, providedResources map[string]v1alpha1.PipelineResourceBinding) (*ResolvedTaskResources, error) {
+func ResolveTaskResources(ts *v1alpha1.TaskSpec, taskName string, kind v1alpha1.TaskKind, inputs []v1alpha1.TaskResourceBinding, outputs []v1alpha1.TaskResourceBinding, gr GetResource, pipelinerunResources map[string]v1alpha1.PipelineResourceBinding) (*ResolvedTaskResources, error) {
 	rtr := ResolvedTaskResources{
 		TaskName: taskName,
 		TaskSpec: ts,
 		Kind:     kind,
 		Inputs:   map[string]*v1alpha1.PipelineResource{},
 		Outputs:  map[string]*v1alpha1.PipelineResource{},
+		PipelineRunResources: pipelinerunResources,
 	}
 
-	spew.Dump("-------------------- START -------------------")
-	spew.Dump("I am going to iterate over a list of inputs")
-	spew.Dump(inputs)
-	spew.Dump("I have a list of provided resources")
-	spew.Dump(providedResources)
 	for _, r := range inputs {
-		spew.Dump("i am about to run getResource on the input")
-		rr, err := getResource(&r, gr, providedResources)
-		spew.Dump(rr)
-		spew.Dump(err)
+		rr, err := getResource(&r, gr, pipelinerunResources)
 		if err != nil {
 			return nil, xerrors.Errorf("couldn't retrieve referenced input PipelineResource %q: %w", r.ResourceRef.Name, err)
 		}
 
 		rtr.Inputs[r.Name] = rr
 	}
-	spew.Dump("-------------------- END -------------------")
 
 	for _, r := range outputs {
-		rr, err := getResource(&r, gr, providedResources)
+		rr, err := getResource(&r, gr, pipelinerunResources)
 
 		if err != nil {
 			return nil, xerrors.Errorf("couldn't retrieve referenced output PipelineResource %q: %w", r.ResourceRef.Name, err)
