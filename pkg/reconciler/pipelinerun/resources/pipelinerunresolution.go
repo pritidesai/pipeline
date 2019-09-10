@@ -189,9 +189,13 @@ func GetResourcesFromBindings(p *v1alpha1.Pipeline, pr *v1alpha1.PipelineRun) (m
 		return resources, xerrors.Errorf("PipelineRun bound resources didn't match Pipeline: %w", err)
 	}
 
+	spew.Dump("PR Spec Resources from pipelinerun")
+	spew.Dump(pr.Spec.Resources)
 	for _, resource := range pr.Spec.Resources {
-			resources[resource.Name] = resource
+		resources[resource.Name] = resource
 	}
+	spew.Dump("Resources")
+	spew.Dump(resources)
 	return resources, nil
 }
 
@@ -293,6 +297,8 @@ func ResolvePipelineRun(
 		}
 
 		// Get all the resources that this task will be using, if any
+		spew.Dump("Provided Resources should not be empty")
+		spew.Dump(providedResources)
 		inputs, outputs, err := getPipelineRunTaskResources(pt, providedResources)
 		if err != nil {
 			return nil, xerrors.Errorf("unexpected error which should have been caught by Pipeline webhook: %w", err)

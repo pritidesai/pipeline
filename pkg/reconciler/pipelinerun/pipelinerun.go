@@ -19,6 +19,7 @@ package pipelinerun
 import (
 	"context"
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"reflect"
 	"time"
 
@@ -290,6 +291,10 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1alpha1.PipelineRun) er
 		},
 		p.Spec.Tasks, providedResources,
 	)
+
+	spew.Dump("Pipeline State")
+	spew.Dump(pipelineState)
+
 	if err != nil {
 		// This Run has failed, so we need to mark it as failed and stop reconciling it
 		switch err := err.(type) {
