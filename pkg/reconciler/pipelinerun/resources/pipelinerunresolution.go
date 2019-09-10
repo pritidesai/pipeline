@@ -221,10 +221,6 @@ func getPipelineRunTaskResources(pt v1alpha1.PipelineTask, providedResources map
 			})
 		}
 	}
-	spew.Dump("******************* Inputs *****************")
-	spew.Dump(inputs)
-	spew.Dump("******************* Outputs *****************")
-	spew.Dump(outputs)
 	return inputs, outputs, nil
 }
 
@@ -301,13 +297,21 @@ func ResolvePipelineRun(
 		if err != nil {
 			return nil, xerrors.Errorf("unexpected error which should have been caught by Pipeline webhook: %w", err)
 		}
+		spew.Dump("From Pipeline Run Resolution")
+		spew.Dump("******************* Inputs *****************")
+		spew.Dump(inputs)
+		spew.Dump("******************* Outputs *****************")
+		spew.Dump(outputs)
 
 		spec := t.TaskSpec()
-		rtr, err := resources.ResolveTaskResources(&spec, t.TaskMetadata().Name, pt.TaskRef.Kind, inputs, outputs, getResource, providedResources)
+		rtr, err := resources.ResolveTaskResources(&spec, t.TaskMetadata().Name, pt.TaskRef.Kind, inputs, outputs, getResource)
 
 		if err != nil {
 			return nil, &ResourceNotFoundError{Msg: err.Error()}
 		}
+		spew.Dump("******************* RTR *****************")
+		spew.Dump(rtr)
+
 		rprt.ResolvedTaskResources = rtr
 
 		taskRun, err := getTaskRun(rprt.TaskRunName)

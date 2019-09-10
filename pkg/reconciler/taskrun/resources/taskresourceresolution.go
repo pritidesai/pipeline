@@ -43,18 +43,17 @@ type GetResource func(string) (*v1alpha1.PipelineResource, error)
 // ResolveTaskResources looks up PipelineResources referenced by inputs and outputs and returns
 // a structure that unites the resolved references and the Task Spec. If referenced PipelineResources
 // can't be found, an error is returned.
-func ResolveTaskResources(ts *v1alpha1.TaskSpec, taskName string, kind v1alpha1.TaskKind, inputs []v1alpha1.TaskResourceBinding, outputs []v1alpha1.TaskResourceBinding, gr GetResource, pipelinerunResources map[string]v1alpha1.PipelineResourceBinding) (*ResolvedTaskResources, error) {
+func ResolveTaskResources(ts *v1alpha1.TaskSpec, taskName string, kind v1alpha1.TaskKind, inputs []v1alpha1.TaskResourceBinding, outputs []v1alpha1.TaskResourceBinding, gr GetResource) (*ResolvedTaskResources, error) {
 	rtr := ResolvedTaskResources{
 		TaskName: taskName,
 		TaskSpec: ts,
 		Kind:     kind,
 		Inputs:   map[string]*v1alpha1.PipelineResource{},
 		Outputs:  map[string]*v1alpha1.PipelineResource{},
-		PipelineRunResources: pipelinerunResources,
 	}
 
 	for _, r := range inputs {
-		rr, err := getResource(&r, gr, pipelinerunResources)
+		rr, err := getResource(&r, gr)
 		if err != nil {
 			return nil, xerrors.Errorf("couldn't retrieve referenced input PipelineResource %q: %w", r.ResourceRef.Name, err)
 		}
@@ -63,7 +62,7 @@ func ResolveTaskResources(ts *v1alpha1.TaskSpec, taskName string, kind v1alpha1.
 	}
 
 	for _, r := range outputs {
-		rr, err := getResource(&r, gr, pipelinerunResources)
+		rr, err := getResource(&r, gr)
 
 		if err != nil {
 			return nil, xerrors.Errorf("couldn't retrieve referenced output PipelineResource %q: %w", r.ResourceRef.Name, err)

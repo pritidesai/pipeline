@@ -17,6 +17,7 @@ limitations under the License.
 package resources
 
 import (
+	"github.com/davecgh/go-spew/spew"
 	"path/filepath"
 
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline"
@@ -128,10 +129,16 @@ func AddInputResource(
 	return taskSpec, nil
 }
 
-func getResource(r *v1alpha1.TaskResourceBinding, getter GetResource, pipelinerunResources map[string]v1alpha1.PipelineResourceBinding) (*v1alpha1.PipelineResource, error) {
+func getResource(r *v1alpha1.TaskResourceBinding, getter GetResource) (*v1alpha1.PipelineResource, error) {
+	spew.Dump("From getResource input_resources")
+	spew.Dump(r)
 	// Check both resource ref or resource Spec are not present. Taskrun webhook should catch this in validation error.
 	if r.ResourceRef.Name != "" && r.ResourceSpec != nil {
 		return nil, xerrors.New("Both ResourseRef and ResourceSpec are defined. Expected only one")
+	}
+
+	if r.ResourceRef.Name != "" {
+		return getter(r.ResourceRef.Name)
 	}
 
 	if r.ResourceSpec != nil {
@@ -143,18 +150,15 @@ func getResource(r *v1alpha1.TaskResourceBinding, getter GetResource, pipelineru
 		}, nil
 	}
 
-	if pipelinerunResources[r.ResourceRef.Name].ResourceSpec != nil {
+/*	if pipelinerunResources[r.ResourceRef.Name].ResourceSpec != nil {
 		return &v1alpha1.PipelineResource{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: pipelinerunResources[r.ResourceRef.Name].Name,
 			},
 			Spec: *pipelinerunResources[r.ResourceRef.Name].ResourceSpec,
 		}, nil
-	}
+	}*/
 
-	if r.ResourceRef.Name != "" {
-		return getter(r.ResourceRef.Name)
-	}
 
 	return nil, xerrors.New("Neither ResourseRef not ResourceSpec is defined")
 }
