@@ -135,13 +135,12 @@ func getResource(r *v1alpha1.TaskResourceBinding, getter GetResource, pipelineru
 	}
 
 	if r.ResourceSpec != nil {
-		r := &v1alpha1.PipelineResource{
+		return &v1alpha1.PipelineResource{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: r.Name,
 			},
 			Spec: *r.ResourceSpec,
-		}
-		return r, nil
+		}, nil
 	}
 
 	if pipelinerunResources[r.ResourceRef.Name].ResourceSpec != nil {

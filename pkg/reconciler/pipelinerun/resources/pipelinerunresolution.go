@@ -195,11 +195,11 @@ func GetResourcesFromBindings(p *v1alpha1.Pipeline, pr *v1alpha1.PipelineRun) (m
 	return resources, nil
 }
 
-func getPipelineRunTaskResources(pt v1alpha1.PipelineTask, pipelinerunResources map[string]v1alpha1.PipelineResourceBinding) ([]v1alpha1.TaskResourceBinding, []v1alpha1.TaskResourceBinding, error) {
+func getPipelineRunTaskResources(pt v1alpha1.PipelineTask, providedResources map[string]v1alpha1.PipelineResourceBinding) ([]v1alpha1.TaskResourceBinding, []v1alpha1.TaskResourceBinding, error) {
 	inputs, outputs := []v1alpha1.TaskResourceBinding{}, []v1alpha1.TaskResourceBinding{}
 	if pt.Resources != nil {
 		for _, taskInput := range pt.Resources.Inputs {
-			resource, ok := pipelinerunResources[taskInput.Resource]
+			resource, ok := providedResources[taskInput.Resource]
 			if !ok {
 				return inputs, outputs, xerrors.Errorf("pipelineTask tried to use input resource %s not present in declared resources", taskInput.Resource)
 			}
@@ -210,7 +210,7 @@ func getPipelineRunTaskResources(pt v1alpha1.PipelineTask, pipelinerunResources 
 			})
 		}
 		for _, taskOutput := range pt.Resources.Outputs {
-			resource, ok := pipelinerunResources[taskOutput.Resource]
+			resource, ok := providedResources[taskOutput.Resource]
 			if !ok {
 				return outputs, outputs, xerrors.Errorf("pipelineTask tried to use output resource %s not present in declared resources", taskOutput.Resource)
 			}
@@ -269,7 +269,7 @@ func ResolvePipelineRun(
 	getResource resources.GetResource,
 	getCondition GetCondition,
 	tasks []v1alpha1.PipelineTask,
-	pipelinerunResources map[string]v1alpha1.PipelineResourceBinding,
+	providedResources map[string]v1alpha1.PipelineResourceBinding,
 ) (PipelineRunState, error) {
 
 	state := []*ResolvedPipelineRunTask{}
@@ -297,13 +297,13 @@ func ResolvePipelineRun(
 		}
 
 		// Get all the resources that this task will be using, if any
-		inputs, outputs, err := getPipelineRunTaskResources(pt, pipelinerunResources)
+		inputs, outputs, err := getPipelineRunTaskResources(pt, providedResources)
 		if err != nil {
 			return nil, xerrors.Errorf("unexpected error which should have been caught by Pipeline webhook: %w", err)
 		}
 
 		spec := t.TaskSpec()
-		rtr, err := resources.ResolveTaskResources(&spec, t.TaskMetadata().Name, pt.TaskRef.Kind, inputs, outputs, getResource, pipelinerunResources)
+		rtr, err := resources.ResolveTaskResources(&spec, t.TaskMetadata().Name, pt.TaskRef.Kind, inputs, outputs, getResource, providedResources)
 
 		if err != nil {
 			return nil, &ResourceNotFoundError{Msg: err.Error()}
@@ -322,7 +322,7 @@ func ResolvePipelineRun(
 
 		// Get all conditions that this pipelineTask will be using, if any
 		if len(pt.Conditions) > 0 {
-			rcc, err := resolveConditionChecks(&pt, pipelineRun.Status.TaskRuns, rprt.TaskRunName, getTaskRun, getCondition, getResource, pipelinerunResources)
+			rcc, err := resolveConditionChecks(&pt, pipelineRun.Status.TaskRuns, rprt.TaskRunName, getTaskRun, getCondition, getResource, providedResources)
 			if err != nil {
 				return nil, err
 			}
