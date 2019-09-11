@@ -243,7 +243,10 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1alpha1.PipelineRun) er
 		})
 		return nil
 	}
+	spew.Dump("START: GetResourcesFromBindings return ProvidedResources : reconcile : pipelinerun.go")
 	providedResources, err := resources.GetResourcesFromBindings(p, pr)
+	spew.Dump(providedResources)
+	spew.Dump("DONE: GetResourcesFromBindings return ProvidedResources : reconcile : pipelinerun.go")
 	if err != nil {
 		// This Run has failed, so we need to mark it as failed and stop reconciling it
 		pr.Status.SetCondition(&apis.Condition{
@@ -292,8 +295,9 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1alpha1.PipelineRun) er
 		p.Spec.Tasks, providedResources,
 	)
 
-	spew.Dump("Pipeline State")
+	spew.Dump("START: Pipeline State after calling ResolvePipelineRun : reconcile : pipelinerun.go")
 	spew.Dump(pipelineState)
+	spew.Dump("END: Pipeline State after calling ResolvePipelineRun : reconcile : pipelinerun.go")
 
 	if err != nil {
 		// This Run has failed, so we need to mark it as failed and stop reconciling it
@@ -353,6 +357,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1alpha1.PipelineRun) er
 	}
 
 	for _, rprt := range pipelineState {
+		spew.Dump("START: validate resolved task resources : pipelinerun.go")
 		err := taskrun.ValidateResolvedTaskResources(rprt.PipelineTask.Params, rprt.ResolvedTaskResources)
 		if err != nil {
 			c.Logger.Errorf("Failed to validate pipelinerun %q with error %v", pr.Name, err)

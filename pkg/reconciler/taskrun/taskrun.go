@@ -250,8 +250,9 @@ func (c *Reconciler) reconcile(ctx context.Context, tr *v1alpha1.TaskRun) error 
 		return nil
 	}
 
+	spew.Dump("START calling ResolveTaskResources : reconcile : taskrun.go")
 	rtr, err := resources.ResolveTaskResources(taskSpec, taskMeta.Name, kind, tr.Spec.Inputs.Resources, tr.Spec.Outputs.Resources, c.resourceLister.PipelineResources(tr.Namespace).Get)
-	spew.Dump("From Task Run RTR")
+	spew.Dump("Done calling ResolveTaskResources : reconcile : taskrun.go")
 	spew.Dump(rtr)
 	if err != nil {
 		c.Logger.Errorf("Failed to resolve references for taskrun %s: %v", tr.Name, err)
@@ -264,6 +265,7 @@ func (c *Reconciler) reconcile(ctx context.Context, tr *v1alpha1.TaskRun) error 
 		return nil
 	}
 
+	spew.Dump("START: validating Resolved Task Resources : taskrun.go")
 	if err := ValidateResolvedTaskResources(tr.Spec.Inputs.Params, rtr); err != nil {
 		c.Logger.Errorf("Failed to validate taskrun %q: %v", tr.Name, err)
 		tr.Status.SetCondition(&apis.Condition{
