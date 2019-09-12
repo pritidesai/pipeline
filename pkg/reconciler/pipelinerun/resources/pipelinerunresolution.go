@@ -180,11 +180,11 @@ type GetTaskRun func(name string) (*v1alpha1.TaskRun, error)
 // GetResourcesFromBindings will validate that all PipelineResources declared in Pipeline p are bound in PipelineRun pr
 // and if so, will return a map from the declared name of the PipelineResource (which is how the PipelineResource will
 // be referred to in the PipelineRun) to the ResourceRef.
-func GetResourcesFromBindings(p *v1alpha1.Pipeline, pr *v1alpha1.PipelineRun) (map[string]v1alpha1.PipelineResourceBinding, error) {
+func GetResourcesFromBindings(p *v1alpha1.PipelineSpec, pr *v1alpha1.PipelineRun) (map[string]v1alpha1.PipelineResourceBinding, error) {
 	resources := map[string]v1alpha1.PipelineResourceBinding{}
 
-	required := make([]string, 0, len(p.Spec.Resources))
-	for _, resource := range p.Spec.Resources {
+	required := make([]string, 0, len(p.Resources))
+	for _, resource := range p.Resources {
 		required = append(required, resource.Name)
 	}
 	provided := make([]string, 0, len(pr.Spec.Resources))
