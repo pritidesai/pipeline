@@ -20,6 +20,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/davecgh/go-spew/spew"
+
+	//"github.com/davecgh/go-spew/spew"
 	"reflect"
 	"time"
 
@@ -243,10 +245,10 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1alpha1.PipelineRun) er
 		})
 		return nil
 	}
-	spew.Dump("START: GetResourcesFromBindings return ProvidedResources : reconcile : pipelinerun.go")
+	//spew.Dump("START: GetResourcesFromBindings return ProvidedResources : reconcile : pipelinerun.go")
 	providedResources, err := resources.GetResourcesFromBindings(p, pr)
-	spew.Dump(providedResources)
-	spew.Dump("DONE: GetResourcesFromBindings return ProvidedResources : reconcile : pipelinerun.go")
+	//spew.Dump(providedResources)
+	//spew.Dump("DONE: GetResourcesFromBindings return ProvidedResources : reconcile : pipelinerun.go")
 	if err != nil {
 		// This Run has failed, so we need to mark it as failed and stop reconciling it
 		pr.Status.SetCondition(&apis.Condition{
@@ -295,9 +297,9 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1alpha1.PipelineRun) er
 		p.Spec.Tasks, providedResources,
 	)
 
-	spew.Dump("START: Pipeline State after calling ResolvePipelineRun : reconcile : pipelinerun.go")
-	spew.Dump(pipelineState)
-	spew.Dump("END: Pipeline State after calling ResolvePipelineRun : reconcile : pipelinerun.go")
+	//spew.Dump("START: Pipeline State after calling ResolvePipelineRun : reconcile : pipelinerun.go")
+	//spew.Dump(pipelineState)
+	//spew.Dump("END: Pipeline State after calling ResolvePipelineRun : reconcile : pipelinerun.go")
 
 	if err != nil {
 		// This Run has failed, so we need to mark it as failed and stop reconciling it
@@ -357,7 +359,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1alpha1.PipelineRun) er
 	}
 
 	for _, rprt := range pipelineState {
-		spew.Dump("START: validate resolved task resources : pipelinerun.go")
+		//spew.Dump("START: validate resolved task resources : pipelinerun.go")
 		err := taskrun.ValidateResolvedTaskResources(rprt.PipelineTask.Params, rprt.ResolvedTaskResources)
 		if err != nil {
 			c.Logger.Errorf("Failed to validate pipelinerun %q with error %v", pr.Name, err)
@@ -488,6 +490,7 @@ func (c *Reconciler) updateTaskRunsStatusDirectly(pr *v1alpha1.PipelineRun) erro
 }
 
 func (c *Reconciler) createTaskRun(rprt *resources.ResolvedPipelineRunTask, pr *v1alpha1.PipelineRun, storageBasePath string) (*v1alpha1.TaskRun, error) {
+	spew.Dump("START: createTaskRun")
 	tr, _ := c.taskRunLister.TaskRuns(pr.Namespace).Get(rprt.TaskRunName)
 	if tr != nil {
 		//is a retry
@@ -524,6 +527,8 @@ func (c *Reconciler) createTaskRun(rprt *resources.ResolvedPipelineRunTask, pr *
 
 	resources.WrapSteps(&tr.Spec, rprt.PipelineTask, rprt.ResolvedTaskResources.Inputs, rprt.ResolvedTaskResources.Outputs, storageBasePath)
 	c.Logger.Infof("Creating a new TaskRun object %s", rprt.TaskRunName)
+	spew.Dump(tr)
+	spew.Dump("Done: createTaskRun")
 	return c.PipelineClientSet.TektonV1alpha1().TaskRuns(pr.Namespace).Create(tr)
 }
 

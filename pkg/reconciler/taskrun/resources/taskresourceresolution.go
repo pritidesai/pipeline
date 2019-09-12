@@ -17,7 +17,7 @@ limitations under the License.
 package resources
 
 import (
-	"github.com/davecgh/go-spew/spew"
+	//"github.com/davecgh/go-spew/spew"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1alpha1"
 	"golang.org/x/xerrors"
 )
@@ -53,8 +53,8 @@ func ResolveTaskResources(ts *v1alpha1.TaskSpec, taskName string, kind v1alpha1.
 		Outputs:  map[string]*v1alpha1.PipelineResource{},
 	}
 
-	spew.Dump("*************** Task Spec ****************")
-	spew.Dump(ts)
+	//spew.Dump("*************** Task Spec ****************")
+	//spew.Dump(ts)
 
 	for _, r := range inputs {
 		rr, err := getResource(&r, gr)

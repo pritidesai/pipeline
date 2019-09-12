@@ -17,7 +17,7 @@ limitations under the License.
 package taskrun
 
 import (
-	"github.com/davecgh/go-spew/spew"
+	//"github.com/davecgh/go-spew/spew"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1alpha1"
 	"github.com/tektoncd/pipeline/pkg/list"
 	"github.com/tektoncd/pipeline/pkg/reconciler/taskrun/resources"
@@ -25,7 +25,7 @@ import (
 )
 
 func validateInputResources(inputs *v1alpha1.Inputs, providedResources map[string]*v1alpha1.PipelineResource) error {
-	spew.Dump("START: validate input resources : validate_resources.go")
+	//spew.Dump("START: validate input resources : validate_resources.go")
 	if inputs != nil {
 		return validateResources(inputs.Resources, providedResources)
 	}
@@ -40,7 +40,7 @@ func validateOutputResources(outputs *v1alpha1.Outputs, providedResources map[st
 }
 
 func validateResources(requiredResources []v1alpha1.TaskResource, providedResources map[string]*v1alpha1.PipelineResource) error {
-	spew.Dump("START: validate resources : validate_resources.go")
+	//spew.Dump("START: validate resources : validate_resources.go")
 	required := make([]string, 0, len(requiredResources))
 	for _, resource := range requiredResources {
 		required = append(required, resource.Name)
@@ -117,7 +117,7 @@ func ValidateResolvedTaskResources(params []v1alpha1.Param, rtr *resources.Resol
 	if err := validateParams(rtr.TaskSpec.Inputs, params); err != nil {
 		return xerrors.Errorf("invalid input params: %w", err)
 	}
-	spew.Dump("START: validate input resources : validate_resources.go")
+	//spew.Dump("START: validate input resources : validate_resources.go")
 	if err := validateInputResources(rtr.TaskSpec.Inputs, rtr.Inputs); err != nil {
 		return xerrors.Errorf("invalid input resources: %w", err)
 	}

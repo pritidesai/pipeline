@@ -19,6 +19,8 @@ package resources
 import (
 	"fmt"
 	"github.com/davecgh/go-spew/spew"
+
+	//"github.com/davecgh/go-spew/spew"
 	"reflect"
 
 	"go.uber.org/zap"
@@ -133,6 +135,7 @@ func (state PipelineRunState) IsDone() (isDone bool) {
 // GetNextTasks will return the next ResolvedPipelineRunTasks to execute, which are the ones in the
 // list of candidateTasks which aren't yet indicated in state to be running.
 func (state PipelineRunState) GetNextTasks(candidateTasks map[string]v1alpha1.PipelineTask) []*ResolvedPipelineRunTask {
+	spew.Dump("START: GetNextTasks")
 	tasks := []*ResolvedPipelineRunTask{}
 	for _, t := range state {
 		if _, ok := candidateTasks[t.PipelineTask.Name]; ok && t.TaskRun == nil {
@@ -149,6 +152,10 @@ func (state PipelineRunState) GetNextTasks(candidateTasks map[string]v1alpha1.Pi
 			}
 		}
 	}
+	spew.Dump("************************")
+	spew.Dump(tasks)
+	spew.Dump("************************")
+	spew.Dump("END: GetNextTasks")
 	return tasks
 }
 
@@ -189,15 +196,15 @@ func GetResourcesFromBindings(p *v1alpha1.Pipeline, pr *v1alpha1.PipelineRun) (m
 		return resources, xerrors.Errorf("PipelineRun bound resources didn't match Pipeline: %w", err)
 	}
 
-	spew.Dump("START: PR Spec Resources from pipelinerun")
-	spew.Dump(pr.Spec.Resources)
-	spew.Dump("END: PR Spec Resources from pipelinerun")
+	//spew.Dump("START: PR Spec Resources from pipelinerun")
+	//spew.Dump(pr.Spec.Resources)
+	//spew.Dump("END: PR Spec Resources from pipelinerun")
 	for _, resource := range pr.Spec.Resources {
 		resources[resource.Name] = resource
 	}
-	spew.Dump("START: Resources")
-	spew.Dump(resources)
-	spew.Dump("END: Resources")
+	//spew.Dump("START: Resources")
+	//spew.Dump(resources)
+	//spew.Dump("END: Resources")
 	return resources, nil
 }
 
@@ -299,31 +306,31 @@ func ResolvePipelineRun(
 		}
 
 		// Get all the resources that this task will be using, if any
-		spew.Dump("START: Provided Resources should not be empty : ResolvePipelineRun : pipelinerunresolution.go")
-		spew.Dump(providedResources)
-		spew.Dump("END: Provided Resources should not be empty : ResolvePipelineRun : pipelinerunresolution.go")
+		//spew.Dump("START: Provided Resources should not be empty : ResolvePipelineRun : pipelinerunresolution.go")
+		//spew.Dump(providedResources)
+		//spew.Dump("END: Provided Resources should not be empty : ResolvePipelineRun : pipelinerunresolution.go")
 		inputs, outputs, err := getPipelineRunTaskResources(pt, providedResources)
 		if err != nil {
 			return nil, xerrors.Errorf("unexpected error which should have been caught by Pipeline webhook: %w", err)
 		}
-		spew.Dump("START: From Pipeline Run Resolution, getPipelineRunTaskResources: ResolvePipelineRun : pipelinerunresolution.go")
-		spew.Dump("******************* Inputs *****************")
-		spew.Dump(inputs)
-		spew.Dump("******************* Outputs *****************")
-		spew.Dump(outputs)
-		spew.Dump("END: From Pipeline Run Resolution, getPipelineRunTaskResources: ResolvePipelineRun : pipelinerunresolution.go")
+		//spew.Dump("START: From Pipeline Run Resolution, getPipelineRunTaskResources: ResolvePipelineRun : pipelinerunresolution.go")
+		//spew.Dump("******************* Inputs *****************")
+		//spew.Dump(inputs)
+		//spew.Dump("******************* Outputs *****************")
+		//spew.Dump(outputs)
+		//spew.Dump("END: From Pipeline Run Resolution, getPipelineRunTaskResources: ResolvePipelineRun : pipelinerunresolution.go")
 
 		spec := t.TaskSpec()
-		spew.Dump("calling ResolveTaskResources : ResolvePipelineRun : pipelinerunresolution.go")
+		//spew.Dump("calling ResolveTaskResources : ResolvePipelineRun : pipelinerunresolution.go")
 		rtr, err := resources.ResolveTaskResources(&spec, t.TaskMetadata().Name, pt.TaskRef.Kind, inputs, outputs, getResource)
 
 		if err != nil {
 			return nil, &ResourceNotFoundError{Msg: err.Error()}
 		}
-		spew.Dump("START: Done calling ResolveTaskResources : ResolvePipelineRun : pipelinerunresolution.go")
-		spew.Dump("******************* RTR *****************")
-		spew.Dump(rtr)
-		spew.Dump("END: Done calling ResolveTaskResources : ResolvePipelineRun : pipelinerunresolution.go")
+		//spew.Dump("START: Done calling ResolveTaskResources : ResolvePipelineRun : pipelinerunresolution.go")
+		//spew.Dump("******************* RTR *****************")
+		//spew.Dump(rtr)
+		//spew.Dump("END: Done calling ResolveTaskResources : ResolvePipelineRun : pipelinerunresolution.go")
 
 		rprt.ResolvedTaskResources = rtr
 

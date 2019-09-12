@@ -19,7 +19,7 @@ package taskrun
 import (
 	"context"
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
+	//"github.com/davecgh/go-spew/spew"
 	"reflect"
 	"strings"
 	"time"
@@ -250,10 +250,10 @@ func (c *Reconciler) reconcile(ctx context.Context, tr *v1alpha1.TaskRun) error 
 		return nil
 	}
 
-	spew.Dump("START calling ResolveTaskResources : reconcile : taskrun.go")
+	//spew.Dump("START calling ResolveTaskResources : reconcile : taskrun.go")
 	rtr, err := resources.ResolveTaskResources(taskSpec, taskMeta.Name, kind, tr.Spec.Inputs.Resources, tr.Spec.Outputs.Resources, c.resourceLister.PipelineResources(tr.Namespace).Get)
-	spew.Dump("Done calling ResolveTaskResources : reconcile : taskrun.go")
-	spew.Dump(rtr)
+	//spew.Dump("Done calling ResolveTaskResources : reconcile : taskrun.go")
+	//spew.Dump(rtr)
 	if err != nil {
 		c.Logger.Errorf("Failed to resolve references for taskrun %s: %v", tr.Name, err)
 		tr.Status.SetCondition(&apis.Condition{
@@ -265,7 +265,7 @@ func (c *Reconciler) reconcile(ctx context.Context, tr *v1alpha1.TaskRun) error 
 		return nil
 	}
 
-	spew.Dump("START: validating Resolved Task Resources : taskrun.go")
+	//spew.Dump("START: validating Resolved Task Resources : taskrun.go")
 	if err := ValidateResolvedTaskResources(tr.Spec.Inputs.Params, rtr); err != nil {
 		c.Logger.Errorf("Failed to validate taskrun %q: %v", tr.Name, err)
 		tr.Status.SetCondition(&apis.Condition{
@@ -361,6 +361,7 @@ func (c *Reconciler) handlePodCreationError(tr *v1alpha1.TaskRun, err error) {
 	})
 	c.Recorder.Eventf(tr, corev1.EventTypeWarning, "BuildCreationFailed", "Failed to create build pod %q: %v", tr.Name, err)
 	c.Logger.Errorf("Failed to create build pod for task %q: %v", tr.Name, err)
+
 }
 
 func updateTaskRunResourceResult(taskRun *v1alpha1.TaskRun, pod *corev1.Pod, resourceLister listers.PipelineResourceLister, kubeclient kubernetes.Interface, logger *zap.SugaredLogger) {

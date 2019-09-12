@@ -17,6 +17,7 @@ limitations under the License.
 package resources
 
 import (
+	"github.com/davecgh/go-spew/spew"
 	"path/filepath"
 
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1alpha1"
@@ -27,14 +28,23 @@ func GetOutputSteps(outputs map[string]*v1alpha1.PipelineResource, taskName, sto
 	var taskOutputResources []v1alpha1.TaskResourceBinding
 
 	for name, outputResource := range outputs {
-		taskOutputResources = append(taskOutputResources, v1alpha1.TaskResourceBinding{
-			Name: name,
-			ResourceRef: v1alpha1.PipelineResourceRef{
+		taskOutputResource := v1alpha1.TaskResourceBinding{
+			Name:  name,
+			Paths: []string{filepath.Join(storageBasePath, taskName, name)},
+		}
+		if outputResource.Spec.Type != "" {
+			taskOutputResource.ResourceSpec = &v1alpha1.PipelineResourceSpec{
+				Type:         outputResource.Spec.Type,
+				Params:       outputResource.Spec.Params,
+				SecretParams: outputResource.Spec.SecretParams,
+			}
+		} else {
+			taskOutputResource.ResourceRef = v1alpha1.PipelineResourceRef{
 				Name:       outputResource.Name,
 				APIVersion: outputResource.APIVersion,
-			},
-			Paths: []string{filepath.Join(storageBasePath, taskName, name)},
-		})
+			}
+		}
+		taskOutputResources = append(taskOutputResources, taskOutputResource)
 	}
 	return taskOutputResources
 }
@@ -45,12 +55,28 @@ func GetInputSteps(inputs map[string]*v1alpha1.PipelineResource, pt *v1alpha1.Pi
 	var taskInputResources []v1alpha1.TaskResourceBinding
 
 	for name, inputResource := range inputs {
+		spew.Dump("START: GetInputSteps")
+		spew.Dump(inputResource.Name)
+		spew.Dump(inputResource.APIVersion)
+		spew.Dump(inputResource.Spec.Type)
+		spew.Dump(inputResource.Spec.Params)
+		spew.Dump(inputResource.Spec.SecretParams)
+
 		taskInputResource := v1alpha1.TaskResourceBinding{
 			Name: name,
-			ResourceRef: v1alpha1.PipelineResourceRef{
+		}
+
+		if inputResource.Spec.Type != "" {
+			taskInputResource.ResourceSpec = &v1alpha1.PipelineResourceSpec{
+				Type:         inputResource.Spec.Type,
+				Params:       inputResource.Spec.Params,
+				SecretParams: inputResource.Spec.SecretParams,
+			}
+		} else {
+			taskInputResource.ResourceRef = v1alpha1.PipelineResourceRef{
 				Name:       inputResource.Name,
 				APIVersion: inputResource.APIVersion,
-			},
+			}
 		}
 
 		var stepSourceNames []string
@@ -68,6 +94,7 @@ func GetInputSteps(inputs map[string]*v1alpha1.PipelineResource, pt *v1alpha1.Pi
 		}
 		taskInputResources = append(taskInputResources, taskInputResource)
 	}
+	spew.Dump("Done: GetInputSteps")
 	return taskInputResources
 }
 
