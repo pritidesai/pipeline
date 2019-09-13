@@ -136,3 +136,83 @@ func TestPipelineRun_Validate(t *testing.T) {
 		})
 	}
 }
+
+func TestPipelineRunSpec_Invalidate(t *testing.T) {
+	tests := []struct{
+		name string
+		spec v1alpha1.PipelineRunSpec
+		wantErr *apis.FieldError
+	}{{
+		name: "Empty pipelineSpec",
+		spec: v1alpha1.PipelineRunSpec{},
+		wantErr: apis.ErrMissingField("spec"),
+	}, {
+		name: "pipelineRef without Pipeline Name",
+		spec: v1alpha1.PipelineRunSpec{
+			PipelineRef: v1alpha1.PipelineRef{},
+		},
+		wantErr: apis.ErrMissingField("spec.pipelineRef.name, spec.pipelineSpec"),
+	}, {
+		name: "pipelineRef and pipelineSpec together",
+		spec: v1alpha1.PipelineRunSpec{
+			PipelineRef:v1alpha1.PipelineRef{
+				Name: "pipelinerefname",
+			},
+			PipelineSpec: &v1alpha1.PipelineSpec{
+				Tasks:     []v1alpha1.PipelineTask{{
+					Name:       "mytask",
+					TaskRef:    v1alpha1.TaskRef{
+						Name:       "mytask",
+					},
+				}}},
+		},
+		wantErr: apis.ErrDisallowedFields("spec.pipelinespec", "spec.pipelineref"),
+	}, {
+		name: "Invalid pipelineSpec",
+		spec: v1alpha1.PipelineRunSpec{
+			Tasks:     []v1alpha1.PipelineTask{{
+				Name:       "invalid-task-name-with-$weird-chat*/%",
+				TaskRef:    v1alpha1.TaskRef{
+					Name:       "mytask",
+				},
+			}},
+		},
+		wantErr: &apis.FieldError{
+			Message: `invalid value "invalid-task-name-with-$weird-char*/%"`,
+			Paths:   []string{"spec.pipelinerunSpec.Tasks.name"},
+			Details: "Pipeline Task name must be a valid DNS Label, For more info refer to https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+		},
+	}}
+	for _, ps := range tests {
+		t.Run(ps.name, func(t *testing.T) {
+			err := ps.spec.Validate(context.Background())
+			if d := cmp.Diff(ps.wantErr.Error(), err.Error()); d != "" {
+				t.Errorf("PipelineRunSpec.Validate/%s (-want, +got) = %v", ps.name, d)
+			}
+		})
+	}
+}
+
+func TestPipelineRunSpec_Validate(t *testing.T) {
+	tests := []struct {
+		name string
+		spec v1alpha1.PipelineRunSpec
+	}{{
+		name: "PipelineRun without pipelineRef",
+		spec: v1alpha1.PipelineRunSpec{
+			Tasks:     []v1alpha1.PipelineTask{{
+				Name:       "mytask",
+				TaskRef:    v1alpha1.TaskRef{
+					Name:       "mytask",
+				},
+			}},
+		},
+	}}
+	for _, ps := range tests {
+		t.Run(ps.name, func(t *testing.T) {
+			if err := ps.spec.Validate(context.Background()); err != nil {
+				t.Errorf("PipelineRunSpec.Validate/%s (-want, +got) = %v", ps.name, d)
+			}
+		})
+	}
+}
