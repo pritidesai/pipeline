@@ -170,12 +170,14 @@ func TestPipelineRunSpec_Invalidate(t *testing.T) {
 	}, {
 		name: "Invalid pipelineSpec",
 		spec: v1alpha1.PipelineRunSpec{
-			Tasks:     []v1alpha1.PipelineTask{{
-				Name:       "invalid-task-name-with-$weird-chat*/%",
-				TaskRef:    v1alpha1.TaskRef{
-					Name:       "mytask",
-				},
-			}},
+			PipelineSpec:&v1alpha1.PipelineSpec{
+				Tasks:     []v1alpha1.PipelineTask{{
+					Name:       "invalid-task-name-with-$weird-chat*/%",
+					TaskRef:    v1alpha1.TaskRef{
+						Name:       "mytask",
+					},
+				}},
+			},
 		},
 		wantErr: &apis.FieldError{
 			Message: `invalid value "invalid-task-name-with-$weird-char*/%"`,
@@ -200,18 +202,20 @@ func TestPipelineRunSpec_Validate(t *testing.T) {
 	}{{
 		name: "PipelineRun without pipelineRef",
 		spec: v1alpha1.PipelineRunSpec{
-			Tasks:     []v1alpha1.PipelineTask{{
-				Name:       "mytask",
-				TaskRef:    v1alpha1.TaskRef{
-					Name:       "mytask",
-				},
-			}},
+			PipelineSpec:&v1alpha1.PipelineSpec{
+				Tasks: []v1alpha1.PipelineTask{{
+					Name: "mytask",
+					TaskRef: v1alpha1.TaskRef{
+						Name: "mytask",
+					},
+				}},
+			},
 		},
 	}}
 	for _, ps := range tests {
 		t.Run(ps.name, func(t *testing.T) {
 			if err := ps.spec.Validate(context.Background()); err != nil {
-				t.Errorf("PipelineRunSpec.Validate/%s (-want, +got) = %v", ps.name, d)
+				t.Errorf("PipelineRunSpec.Validate/%s (-want, +got) = %v", ps.name, err)
 			}
 		})
 	}
