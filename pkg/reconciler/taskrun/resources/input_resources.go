@@ -150,16 +150,6 @@ func getResource(r *v1alpha1.TaskResourceBinding, getter GetResource) (*v1alpha1
 		}, nil
 	}
 
-/*	if pipelinerunResources[r.ResourceRef.Name].ResourceSpec != nil {
-		return &v1alpha1.PipelineResource{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: pipelinerunResources[r.ResourceRef.Name].Name,
-			},
-			Spec: *pipelinerunResources[r.ResourceRef.Name].ResourceSpec,
-		}, nil
-	}*/
-
-
 	return nil, xerrors.New("Neither ResourseRef not ResourceSpec is defined")
 }
 

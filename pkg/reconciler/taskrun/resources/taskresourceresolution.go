@@ -34,8 +34,6 @@ type ResolvedTaskResources struct {
 	// Outputs is a map from the name of the output required by the Task
 	// to the actual Resource to use for it
 	Outputs map[string]*v1alpha1.PipelineResource
-	// List of Resources specified under PipelineRun using resourceSpec
-	PipelineRunResources map[string]v1alpha1.PipelineResourceBinding
 }
 
 // GetResource is a function used to retrieve PipelineResources.
