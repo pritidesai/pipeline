@@ -1041,9 +1041,10 @@ func TestGetResourcesFromBindings(t *testing.T) {
 	if err != nil {
 		t.Fatalf("didn't expect error getting resources from bindings but got: %v", err)
 	}
-	expectedResources := map[string]v1alpha1.PipelineResourceRef{
+	expectedResources := map[string]v1alpha1.PipelineResourceBinding{
 		"git-resource": {
-			Name: "sweet-resource",
+			Name: "git-resource",
+			ResourceRef:v1alpha1.PipelineResourceRef{Name: "sweet-resource"},
 		},
 	}
 	if d := cmp.Diff(expectedResources, m); d != "" {
@@ -1097,6 +1098,9 @@ func TestResolvePipelineRun(t *testing.T) {
 	providedResources := map[string]v1alpha1.PipelineResourceBinding{
 		"git-resource": {
 			Name: "someresource",
+			ResourceRef: v1alpha1.PipelineResourceRef{
+				Name: "someresource",
+			},
 		},
 	}
 
@@ -1542,6 +1546,9 @@ func TestResolvePipelineRun_withExistingTaskRuns(t *testing.T) {
 	providedResources := map[string]v1alpha1.PipelineResourceBinding{
 		"git-resource": {
 			Name: "someresource",
+			ResourceRef: v1alpha1.PipelineResourceRef{
+					Name: "someresource",
+			},
 		},
 	}
 
@@ -1553,6 +1560,7 @@ func TestResolvePipelineRun_withExistingTaskRuns(t *testing.T) {
 			Type: v1alpha1.PipelineResourceTypeGit,
 		},
 	}
+
 	taskrunStatus := map[string]*v1alpha1.PipelineRunTaskRunStatus{}
 	taskrunStatus["pipelinerun-mytask-with-a-really-long-name-to-trigger-tru-9l9zj"] = &v1alpha1.PipelineRunTaskRunStatus{
 		PipelineTaskName: "mytask-with-a-really-long-name-to-trigger-truncation",
