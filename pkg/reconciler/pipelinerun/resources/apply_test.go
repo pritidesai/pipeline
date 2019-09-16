@@ -137,7 +137,7 @@ func TestApplyParameters(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := ApplyParameters(&tt.original.Spec, tt.run)
-			if d := cmp.Diff(got, tt.expected); d != "" {
+			if d := cmp.Diff(got, &tt.expected.Spec); d != "" {
 				t.Errorf("ApplyParameters() got diff %s", d)
 			}
 		})
