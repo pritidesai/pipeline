@@ -145,13 +145,13 @@ func TestPipelineRunSpec_Invalidate(t *testing.T) {
 	}{{
 		name: "Empty pipelineSpec",
 		spec: v1alpha1.PipelineRunSpec{},
-		wantErr: apis.ErrMissingField("spec.pipelineRef.name, spec.pipelineSpec"),
+		wantErr: apis.ErrMissingField("spec"),
 	}, {
 		name: "pipelineRef without Pipeline Name",
 		spec: v1alpha1.PipelineRunSpec{
 			PipelineRef: v1alpha1.PipelineRef{},
 		},
-		wantErr: apis.ErrMissingField("spec.pipelineRef.name, spec.pipelineSpec"),
+		wantErr: apis.ErrMissingField("spec"),
 	}, {
 		name: "pipelineRef and pipelineSpec together",
 		spec: v1alpha1.PipelineRunSpec{
@@ -167,23 +167,6 @@ func TestPipelineRunSpec_Invalidate(t *testing.T) {
 				}}},
 		},
 		wantErr: apis.ErrDisallowedFields("spec.pipelineSpec", "spec.pipelineRef"),
-	}, {
-		name: "Invalid pipelineSpec",
-		spec: v1alpha1.PipelineRunSpec{
-			PipelineSpec:&v1alpha1.PipelineSpec{
-				Tasks:     []v1alpha1.PipelineTask{{
-					Name:       "invalid-task-name-with-$weird-chat*/%",
-					TaskRef:    v1alpha1.TaskRef{
-						Name:       "mytask",
-					},
-				}},
-			},
-		},
-		wantErr: &apis.FieldError{
-			Message: `invalid value "invalid-task-name-with-$weird-char*/%"`,
-			Paths:   []string{"spec.pipelineSpec.Tasks.name"},
-			Details: "Pipeline Task name must be a valid DNS Label, For more info refer to https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
-		},
 	}}
 	for _, ps := range tests {
 		t.Run(ps.name, func(t *testing.T) {
