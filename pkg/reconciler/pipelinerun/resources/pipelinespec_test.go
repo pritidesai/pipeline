@@ -91,7 +91,7 @@ func TestGetPipelineSpec_Embedded(t *testing.T) {
 		t.Errorf("Expected pipeline name for embedded pipeline to default to name of pipeline run but was %q", pipelineMeta.Name)
 	}
 
-	if len(pipelineSpec.Tasks) != 1 || pipelineSpec.Tasks[0].Name != "step1" {
+	if len(pipelineSpec.Tasks) != 1 || pipelineSpec.Tasks[0].Name != "mytask" {
 		t.Errorf("Pipeline Spec not resolved as expected, expected embedded Pipeline spec but got: %v", pipelineSpec)
 	}
 }
