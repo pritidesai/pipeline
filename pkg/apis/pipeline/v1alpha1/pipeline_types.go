@@ -85,7 +85,6 @@ func (p *Pipeline) Copy() PipelineInterface {
 	return p.DeepCopy()
 }
 
-
 // PipelineTask defines a task in a Pipeline, passing inputs from both
 // Params and from the output of previous tasks.
 type PipelineTask struct {
