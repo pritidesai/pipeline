@@ -17,7 +17,6 @@ limitations under the License.
 package resources
 
 import (
-	//"github.com/davecgh/go-spew/spew"
 	"path/filepath"
 
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline"
@@ -130,8 +129,6 @@ func AddInputResource(
 }
 
 func getResource(r *v1alpha1.TaskResourceBinding, getter GetResource) (*v1alpha1.PipelineResource, error) {
-	//spew.Dump("From getResource input_resources")
-	//spew.Dump(r)
 	// Check both resource ref or resource Spec are not present. Taskrun webhook should catch this in validation error.
 	if r.ResourceRef.Name != "" && r.ResourceSpec != nil {
 		return nil, xerrors.New("Both ResourseRef and ResourceSpec are defined. Expected only one")

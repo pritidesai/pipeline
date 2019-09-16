@@ -19,8 +19,6 @@ package pipelinerun
 import (
 	"context"
 	"fmt"
-	"github.com/tektoncd/pipeline/pkg/status"
-
 	"reflect"
 	"time"
 
@@ -34,6 +32,7 @@ import (
 	"github.com/tektoncd/pipeline/pkg/reconciler/pipeline/dag"
 	"github.com/tektoncd/pipeline/pkg/reconciler/pipelinerun/resources"
 	"github.com/tektoncd/pipeline/pkg/reconciler/taskrun"
+	"github.com/tektoncd/pipeline/pkg/status"
 	"go.uber.org/zap"
 	"golang.org/x/xerrors"
 	corev1 "k8s.io/api/core/v1"

@@ -17,7 +17,6 @@ limitations under the License.
 package resources
 
 import (
-	"github.com/davecgh/go-spew/spew"
 	"path/filepath"
 
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1alpha1"
@@ -55,13 +54,6 @@ func GetInputSteps(inputs map[string]*v1alpha1.PipelineResource, pt *v1alpha1.Pi
 	var taskInputResources []v1alpha1.TaskResourceBinding
 
 	for name, inputResource := range inputs {
-		spew.Dump("START: GetInputSteps")
-		spew.Dump(inputResource.Name)
-		spew.Dump(inputResource.APIVersion)
-		spew.Dump(inputResource.Spec.Type)
-		spew.Dump(inputResource.Spec.Params)
-		spew.Dump(inputResource.Spec.SecretParams)
-
 		taskInputResource := v1alpha1.TaskResourceBinding{
 			Name: name,
 		}
@@ -94,7 +86,6 @@ func GetInputSteps(inputs map[string]*v1alpha1.PipelineResource, pt *v1alpha1.Pi
 		}
 		taskInputResources = append(taskInputResources, taskInputResource)
 	}
-	spew.Dump("Done: GetInputSteps")
 	return taskInputResources
 }
 
