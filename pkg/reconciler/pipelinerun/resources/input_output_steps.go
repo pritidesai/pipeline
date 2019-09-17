@@ -31,16 +31,16 @@ func GetOutputSteps(outputs map[string]*v1alpha1.PipelineResource, taskName, sto
 			Name:  name,
 			Paths: []string{filepath.Join(storageBasePath, taskName, name)},
 		}
-		if outputResource.Spec.Type != "" {
+		if outputResource.Name != "" {
+			taskOutputResource.ResourceRef = v1alpha1.PipelineResourceRef{
+				Name:       outputResource.Name,
+				APIVersion: outputResource.APIVersion,
+			}
+		} else {
 			taskOutputResource.ResourceSpec = &v1alpha1.PipelineResourceSpec{
 				Type:         outputResource.Spec.Type,
 				Params:       outputResource.Spec.Params,
 				SecretParams: outputResource.Spec.SecretParams,
-			}
-		} else {
-			taskOutputResource.ResourceRef = v1alpha1.PipelineResourceRef{
-				Name:       outputResource.Name,
-				APIVersion: outputResource.APIVersion,
 			}
 		}
 		taskOutputResources = append(taskOutputResources, taskOutputResource)
@@ -57,17 +57,16 @@ func GetInputSteps(inputs map[string]*v1alpha1.PipelineResource, pt *v1alpha1.Pi
 		taskInputResource := v1alpha1.TaskResourceBinding{
 			Name: name,
 		}
-
-		if inputResource.Spec.Type != "" {
+		if inputResource.Name != "" {
+			taskInputResource.ResourceRef = v1alpha1.PipelineResourceRef{
+				Name:       inputResource.Name,
+				APIVersion: inputResource.APIVersion,
+			}
+		} else {
 			taskInputResource.ResourceSpec = &v1alpha1.PipelineResourceSpec{
 				Type:         inputResource.Spec.Type,
 				Params:       inputResource.Spec.Params,
 				SecretParams: inputResource.Spec.SecretParams,
-			}
-		} else {
-			taskInputResource.ResourceRef = v1alpha1.PipelineResourceRef{
-				Name:       inputResource.Name,
-				APIVersion: inputResource.APIVersion,
 			}
 		}
 
