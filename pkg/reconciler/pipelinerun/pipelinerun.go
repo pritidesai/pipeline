@@ -32,7 +32,6 @@ import (
 	"github.com/tektoncd/pipeline/pkg/reconciler/pipeline/dag"
 	"github.com/tektoncd/pipeline/pkg/reconciler/pipelinerun/resources"
 	"github.com/tektoncd/pipeline/pkg/reconciler/taskrun"
-	"github.com/tektoncd/pipeline/pkg/status"
 	"go.uber.org/zap"
 	"golang.org/x/xerrors"
 	corev1 "k8s.io/api/core/v1"
@@ -219,27 +218,13 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1alpha1.PipelineRun) er
 		pr.Status.SetCondition(&apis.Condition{
 			Type:    apis.ConditionSucceeded,
 			Status:  corev1.ConditionFalse,
-			Reason:  status.ReasonFailedResolution,
+			Reason:  ReasonCouldntGetPipeline,
 			Message: fmt.Sprintf("Pipeline %s can't be found:%s",
 				fmt.Sprintf("%s/%s", pr.Namespace, pr.Name), err),
 		})
 		return nil
 	}
 
-/*	p, err := c.pipelineLister.Pipelines(pr.Namespace).Get(pr.Spec.PipelineRef.Name)
-	if err != nil {
-		// This Run has failed, so we need to mark it as failed and stop reconciling it
-		pr.Status.SetCondition(&apis.Condition{
-			Type:   apis.ConditionSucceeded,
-			Status: corev1.ConditionFalse,
-			Reason: ReasonCouldntGetPipeline,
-			Message: fmt.Sprintf("Pipeline %s can't be found:%s",
-				fmt.Sprintf("%s/%s", pr.Namespace, pr.Spec.PipelineRef.Name), err),
-		})
-		return nil
-	}
-	p = p.DeepCopy()
-*/
 	// Propagate labels from Pipeline to PipelineRun.
 	if pr.ObjectMeta.Labels == nil {
 		pr.ObjectMeta.Labels = make(map[string]string, len(pipelineMeta.Labels)+1)
