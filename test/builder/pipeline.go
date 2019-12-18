@@ -104,11 +104,12 @@ func PipelineRunCancelled(spec *v1alpha1.PipelineRunSpec) {
 
 // PipelineDeclaredResource adds a resource declaration to the Pipeline Spec,
 // with the specified name and type.
-func PipelineDeclaredResource(name string, t v1alpha1.PipelineResourceType) PipelineSpecOp {
+func PipelineDeclaredResource(name string, t v1alpha1.PipelineResourceType, optional bool) PipelineSpecOp {
 	return func(ps *v1alpha1.PipelineSpec) {
 		r := v1alpha1.PipelineDeclaredResource{
-			Name: name,
-			Type: t,
+			Name:     name,
+			Type:     t,
+			Optional: optional,
 		}
 		ps.Resources = append(ps.Resources, r)
 	}

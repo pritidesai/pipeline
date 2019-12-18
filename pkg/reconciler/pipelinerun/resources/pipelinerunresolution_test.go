@@ -452,6 +452,31 @@ var taskCancelled = PipelineRunState{{
 	},
 }}
 
+var taskWithOptionalResources = &v1alpha1.Task{
+	ObjectMeta: metav1.ObjectMeta{
+		Name: "task",
+	},
+	Spec: v1alpha1.TaskSpec{
+		Inputs: &v1alpha1.Inputs{
+			Resources: []v1alpha1.TaskResource{{ResourceDeclaration: v1alpha1.ResourceDeclaration{
+				Name:     "input1",
+				Type:     "git",
+				Optional: true,
+			}}},
+		},
+		Outputs: &v1alpha1.Outputs{
+			Resources: []v1alpha1.TaskResource{{ResourceDeclaration: v1alpha1.ResourceDeclaration{
+				Name:     "output1",
+				Type:     "git",
+				Optional: true,
+			}}},
+		},
+		Steps: []v1alpha1.Step{{Container: corev1.Container{
+			Name: "step1",
+		}}},
+	},
+}
+
 func DagFromState(state PipelineRunState) (*dag.Graph, error) {
 	pts := []v1alpha1.PipelineTask{}
 	for _, rprt := range state {
@@ -1108,7 +1133,7 @@ func TestResolvePipelineRun(t *testing.T) {
 	names.TestingSeed()
 
 	p := tb.Pipeline("pipelines", "namespace", tb.PipelineSpec(
-		tb.PipelineDeclaredResource("git-resource", "git"),
+		tb.PipelineDeclaredResource("git-resource", "git", false),
 		tb.PipelineTask("mytask1", "task",
 			tb.PipelineTaskInputResource("input1", "git-resource"),
 		),
@@ -1315,7 +1340,7 @@ func TestResolvePipelineRun_withExistingTaskRuns(t *testing.T) {
 	names.TestingSeed()
 
 	p := tb.Pipeline("pipelines", "namespace", tb.PipelineSpec(
-		tb.PipelineDeclaredResource("git-resource", "git"),
+		tb.PipelineDeclaredResource("git-resource", "git", false),
 		tb.PipelineTask("mytask-with-a-really-long-name-to-trigger-truncation", "task",
 			tb.PipelineTaskInputResource("input1", "git-resource"),
 		),
@@ -1373,6 +1398,102 @@ func TestResolvePipelineRun_withExistingTaskRuns(t *testing.T) {
 
 	if d := cmp.Diff(pipelineState, expectedState, cmpopts.IgnoreUnexported(v1alpha1.TaskRunSpec{})); d != "" {
 		t.Fatalf("Expected to get current pipeline state %v, but actual differed: %s", expectedState, d)
+	}
+}
+
+func TestResolvePipelineRun_PipelineTaskHasOptionalResources(t *testing.T) {
+	names.TestingSeed()
+
+	p := tb.Pipeline("pipelines", "namespace", tb.PipelineSpec(
+		tb.PipelineDeclaredResource("git-resource", "git", false),
+		tb.PipelineDeclaredResource("optional-git-resource", "git", true),
+		tb.PipelineTask("mytask1", "task",
+			tb.PipelineTaskInputResource("input1", "git-resource"),
+		),
+		tb.PipelineTask("mytask2", "taskWithOptionalResources",
+			tb.PipelineTaskInputResource("input1", "optional-git-resource"),
+		),
+		tb.PipelineTask("mytask2", "task",
+			tb.PipelineTaskOutputResource("output1", "git-resource"),
+		),
+		tb.PipelineTask("mytask3", "taskWithOptionalResources",
+			tb.PipelineTaskOutputResource("output1", "optional-git-resource"),
+		),
+	))
+
+	r := &v1alpha1.PipelineResource{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "someresource",
+		},
+		Spec: v1alpha1.PipelineResourceSpec{
+			Type: v1alpha1.PipelineResourceTypeGit,
+		},
+	}
+	providedResources := map[string]*v1alpha1.PipelineResource{"git-resource": r}
+	pr := v1alpha1.PipelineRun{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "pipelinerun",
+		},
+	}
+	// The Task "task" doesn't actually take any inputs or outputs, but validating
+	// that is not done as part of Run resolution
+	getTask := func(name string) (v1alpha1.TaskInterface, error) { return taskWithOptionalResources, nil }
+	getTaskRun := func(name string) (*v1alpha1.TaskRun, error) { return nil, nil }
+	getClusterTask := func(name string) (v1alpha1.TaskInterface, error) { return nil, nil }
+	getCondition := func(name string) (*v1alpha1.Condition, error) { return nil, nil }
+
+	pipelineState, err := ResolvePipelineRun(pr, getTask, getTaskRun, getClusterTask, getCondition, p.Spec.Tasks, providedResources)
+	if err != nil {
+		t.Fatalf("Error getting tasks for fake pipeline %s: %s", p.ObjectMeta.Name, err)
+	}
+	expectedState := PipelineRunState{{
+		PipelineTask: &p.Spec.Tasks[0],
+		TaskRunName:  "pipelinerun-mytask1-9l9zj",
+		TaskRun:      nil,
+		ResolvedTaskResources: &resources.ResolvedTaskResources{
+			TaskName: task.Name,
+			TaskSpec: &task.Spec,
+			Inputs: map[string]*v1alpha1.PipelineResource{
+				"input1": r,
+			},
+			Outputs: map[string]*v1alpha1.PipelineResource{},
+		},
+	}, {
+		PipelineTask: &p.Spec.Tasks[1],
+		TaskRunName:  "pipelinerun-mytask1-9l9zj",
+		TaskRun:      nil,
+		ResolvedTaskResources: &resources.ResolvedTaskResources{
+			TaskName: task.Name,
+			TaskSpec: &task.Spec,
+			Inputs:   map[string]*v1alpha1.PipelineResource{},
+			Outputs:  map[string]*v1alpha1.PipelineResource{},
+		},
+	}, {
+		PipelineTask: &p.Spec.Tasks[2],
+		TaskRunName:  "pipelinerun-mytask2-mz4c7",
+		TaskRun:      nil,
+		ResolvedTaskResources: &resources.ResolvedTaskResources{
+			TaskName: task.Name,
+			TaskSpec: &task.Spec,
+			Inputs:   map[string]*v1alpha1.PipelineResource{},
+			Outputs: map[string]*v1alpha1.PipelineResource{
+				"output1": r,
+			},
+		},
+	}, {
+		PipelineTask: &p.Spec.Tasks[3],
+		TaskRunName:  "pipelinerun-mytask3-mssqb",
+		TaskRun:      nil,
+		ResolvedTaskResources: &resources.ResolvedTaskResources{
+			TaskName: task.Name,
+			TaskSpec: &task.Spec,
+			Inputs:   map[string]*v1alpha1.PipelineResource{},
+			Outputs:  map[string]*v1alpha1.PipelineResource{},
+		},
+	}}
+
+	if d := cmp.Diff(expectedState, pipelineState, cmpopts.IgnoreUnexported(v1alpha1.TaskRunSpec{})); d != "" {
+		t.Errorf("Expected to get current pipeline state %v, but actual differed (-want, +got): %s", expectedState, d)
 	}
 }
 
@@ -1757,7 +1878,7 @@ func TestResolvedConditionCheck_WithResources(t *testing.T) {
 
 func TestValidateResourceBindings(t *testing.T) {
 	p := tb.Pipeline("pipelines", "namespace", tb.PipelineSpec(
-		tb.PipelineDeclaredResource("git-resource", "git"),
+		tb.PipelineDeclaredResource("git-resource", "git", false),
 	))
 	pr := tb.PipelineRun("pipelinerun", "namespace", tb.PipelineRunSpec("pipeline",
 		tb.PipelineRunResourceBinding("git-resource", tb.PipelineResourceBindingRef("sweet-resource")),
@@ -1770,8 +1891,8 @@ func TestValidateResourceBindings(t *testing.T) {
 
 func TestValidateResourceBindings_Missing(t *testing.T) {
 	p := tb.Pipeline("pipelines", "namespace", tb.PipelineSpec(
-		tb.PipelineDeclaredResource("git-resource", "git"),
-		tb.PipelineDeclaredResource("image-resource", "image"),
+		tb.PipelineDeclaredResource("git-resource", "git", false),
+		tb.PipelineDeclaredResource("image-resource", "image", false),
 	))
 	pr := tb.PipelineRun("pipelinerun", "namespace", tb.PipelineRunSpec("pipeline",
 		tb.PipelineRunResourceBinding("git-resource", tb.PipelineResourceBindingRef("sweet-resource")),
@@ -1784,7 +1905,7 @@ func TestValidateResourceBindings_Missing(t *testing.T) {
 
 func TestGetResourcesFromBindings_Extra(t *testing.T) {
 	p := tb.Pipeline("pipelines", "namespace", tb.PipelineSpec(
-		tb.PipelineDeclaredResource("git-resource", "git"),
+		tb.PipelineDeclaredResource("git-resource", "git", false),
 	))
 	pr := tb.PipelineRun("pipelinerun", "namespace", tb.PipelineRunSpec("pipeline",
 		tb.PipelineRunResourceBinding("git-resource", tb.PipelineResourceBindingRef("sweet-resource")),

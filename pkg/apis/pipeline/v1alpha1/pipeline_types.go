@@ -174,6 +174,10 @@ type PipelineDeclaredResource struct {
 	Name string `json:"name"`
 	// Type is the type of the PipelineResource.
 	Type PipelineResourceType `json:"type"`
+	// Optional declares the resource as optional.
+	// optional: true - the resource is considered optional
+	// optional: false - the resource is considered required (default/equivalent of not specifying it)
+	Optional bool `json:"optional,omitempty"`
 }
 
 // PipelineConditionResource allows a Pipeline to declare how its DeclaredPipelineResources
