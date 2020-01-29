@@ -1,0 +1,88 @@
+apiVersion: tekton.dev/v1alpha1
+kind: Task
+metadata:
+  name: task-to-list-files
+spec:
+  inputs:
+    resources:
+      - name: pipeline-git
+        type: git
+  steps:
+    - name: list
+      image: ubuntu
+      script: |
+        ls -al $(inputs.resources.pipeline-git.path)
+---
+
+apiVersion: tekton.dev/v1alpha1
+kind: Pipeline
+metadata:
+  name: pipeline-to-list-files
+spec:
+  resources:
+    - name: pipeline-git
+      type: git
+    - name: corrupt-git
+      type: git
+  tasks:
+    - name: pre-work
+      taskRef:
+        name: task-to-list-files
+      resources:
+        inputs:
+          - name: pipeline-git
+            resource: pipeline-git
+    - name: lint
+      taskRef:
+        name: task-to-list-files
+      runAfter:
+        - pre-work
+      resources:
+        inputs:
+          - name: pipeline-git
+            resource: corrupt-git
+    - name: compile
+      taskRef:
+        name: task-to-list-files
+      runAfter:
+        - pre-work
+      resources:
+        inputs:
+          - name: pipeline-git
+            resource: pipeline-git
+    - name: deploy
+      taskRef:
+        name: task-to-list-files
+      runAfter:
+        - compile
+      resources:
+        inputs:
+          - name: pipeline-git
+            resource: pipeline-git
+---
+
+apiVersion: tekton.dev/v1alpha1
+kind: PipelineRun
+metadata:
+  name: demo-pipelinerun-with-resourcespec
+spec:
+  pipelineRef:
+    name: pipeline-to-list-files
+  serviceAccountName: 'default'
+  resources:
+    - name: pipeline-git
+      resourceSpec:
+        type: git
+        params:
+          - name: revision
+            value: master
+          - name: url
+            value: https://github.com/tektoncd/pipeline
+    - name: corrupt-git
+      resourceSpec:
+        type: git
+        params:
+          - name: revision
+            value: master
+          - name: url
+            value: https://github.com/tektoncd/pipeline-corrupt
