@@ -423,7 +423,12 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1alpha1.PipelineRun) er
 		return err
 	}
 
-	candidateTasks, err := dag.GetSchedulable(d, pipelineState.SuccessfulPipelineTaskNames()...)
+	// Get the next tasks to be executed which doesnt't have any TaskRuns created yet
+	// VisitedPipelineTaskNames gets the list of finished tasks (one of successful, failed, skipped)
+	// GetSchedulable parses the whole graph and get a list of candidates based on already visited tasks
+	// e.g. for this Pipeline task1 -> task2 (runAfter task1) -> task3 (runAfter task2)
+	// GetSchedulable returns task1 followed by task2 (after task1 finishes) followed by task3 (after task2 finishes)
+	candidateTasks, err := dag.GetSchedulable(d, pipelineState.VisitedPipelineTaskNames()...)
 	if err != nil {
 		c.Logger.Errorf("Error getting potential next tasks for valid pipelinerun %s: %v", pr.Name, err)
 	}

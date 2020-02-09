@@ -21,7 +21,7 @@ import (
 )
 
 // PipelineResourceType represents the type of endpoint the pipelineResource is, so that the
-// controller will know this pipelineResource shouldx be fetched and optionally what
+// controller will know this pipelineResource should be fetched and optionally what
 // additional metatdata should be provided for it.
 type PipelineResourceType = string
 

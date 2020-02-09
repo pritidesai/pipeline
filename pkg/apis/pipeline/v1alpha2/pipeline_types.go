@@ -112,6 +112,7 @@ type PipelineTask struct {
 	// outputs.
 	// +optional
 	Resources *PipelineTaskResources `json:"resources,omitempty"`
+
 	// Parameters declares parameters passed to this task.
 	// +optional
 	Params []Param `json:"params,omitempty"`
@@ -120,6 +121,10 @@ type PipelineTask struct {
 	// declared in the Task.
 	// +optional
 	Workspaces []WorkspacePipelineTaskBinding `json:"workspaces,omitempty"`
+
+	// RunOn declares a list of dependent tasks and their states that they have to be in to run this task.
+	// +optional
+	RunOn []PipelineTaskRunOn `json:"runOn,omitempty"`
 }
 
 func (pt PipelineTask) HashKey() string {
@@ -234,3 +239,33 @@ type PipelineList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []Pipeline `json:"items"`
 }
+
+// PipelineTaskRunOn contains a map of pipelineTask and a list of states
+// runOn:
+// 	- task: task1
+//    states: ["success", "failure"]
+//  - task: task2
+//    states: ["success"]
+type PipelineTaskRunOn struct {
+	// Task is the name of the PipelineTask as specified in a pipeline
+	Task string `json:"task"`
+	// States is a list of states of a PipelineTask declared in Task above
+	States []PipelineTaskState `json:"states"`
+}
+
+// PipelineTaskState represents the state of a parent PipelineTask that it has to be in for it to run
+type PipelineTaskState = string
+
+const (
+	// PipelineTaskStateSuccess indicates that a PipelineTask should be successful.
+	PipelineTaskStateSuccess PipelineTaskState = "success"
+	// PipelineTaskStateFailure indicates that a PipelineTask should be failed.
+	PipelineTaskStateFailure PipelineTaskState = "failure"
+	// PipelineTaskStateSkip indicates that a PipelineTask should be skipped.
+	PipelineTaskStateSkip PipelineTaskState = "skip"
+	// PipelineTaskStateAlways indicates that a PipelineTask can be either successful or failed or even skipped.
+	PipelineTaskStateAny PipelineTaskState = "any"
+)
+
+// AllResourceTypes can be used for validation to check if a provided Resource type is one of the known types.
+var AllPipelineTaskStates = []PipelineTaskState{PipelineTaskStateSuccess, PipelineTaskStateFailure, PipelineTaskStateSkip, PipelineTaskStateAny}

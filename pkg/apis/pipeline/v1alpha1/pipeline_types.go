@@ -132,6 +132,10 @@ type PipelineTask struct {
 	// declared in the Task.
 	// +optional
 	Workspaces []WorkspacePipelineTaskBinding `json:"workspaces,omitempty"`
+
+	// RunOn declares a list of dependent tasks and their states that they have to be in to run this task.
+	// +optional
+	RunOn []PipelineTaskRunOn `json:"runOn,omitempty"`
 }
 
 func (pt PipelineTask) HashKey() string {
@@ -204,3 +208,9 @@ type PipelineList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []Pipeline `json:"items"`
 }
+
+type PipelineTaskRunOn = v1alpha2.PipelineTaskRunOn
+
+type PipelineTaskState = v1alpha2.PipelineTaskState
+
+var AllPipelineTaskStates = v1alpha2.AllPipelineTaskStates

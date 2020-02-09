@@ -148,6 +148,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 
 		return merr.ErrorOrNil()
 	}
+
 	// Reconcile this copy of the task run and then write back any status
 	// updates regardless of whether the reconciliation errored out.
 	if err := c.reconcile(ctx, tr); err != nil {

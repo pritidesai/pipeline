@@ -90,7 +90,7 @@ func Build(tasks Tasks) (*Graph, error) {
 
 // GetSchedulable returns a map of PipelineTask that can be scheduled (keyed
 // by the name of the PipelineTask) given a list of successfully finished doneTasks.
-// It returns tasks which have all dependecies marked as done, and thus can be scheduled. If the
+// It returns tasks which have all dependencies marked as done, and thus can be scheduled. If the
 // specified doneTasks are invalid (i.e. if it is indicated that a Task is
 // done, but the previous Tasks are not done), an error is returned.
 func GetSchedulable(g *Graph, doneTasks ...string) (map[string]struct{}, error) {
@@ -170,6 +170,7 @@ func addLink(pt string, previousTask string, nodes map[string]*Node) error {
 	return nil
 }
 
+// list of nodes without having any previous nodes are considered as roots
 func getRoots(g *Graph) []*Node {
 	n := []*Node{}
 	for _, node := range g.Nodes {
