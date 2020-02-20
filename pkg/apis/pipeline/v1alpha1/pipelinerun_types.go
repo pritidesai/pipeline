@@ -204,3 +204,36 @@ func (pr *PipelineRun) GetServiceAccountName(pipelineTaskName string) string {
 	}
 	return serviceAccountName
 }
+
+/*func (pr *PipelineRun) GetCompletedPipelineTaskNames(pipelineRunState resources.PipelineRunState) []string {
+	done := []string{}
+	if pr.Status.PipelineRunStatusFields.TaskRuns == nil {
+		return done
+	}
+	for _, s := range pr.Status.PipelineRunStatusFields.TaskRuns {
+		if s.Status == nil {
+			continue
+		}
+		c := s.Status.GetCondition(apis.ConditionSucceeded)
+		if c == nil {
+			continue
+		}
+		if c.IsTrue() {
+			done = append(done, s.PipelineTaskName)
+		} else if c.IsFalse() {
+			if c.Reason == resources.ReasonFailed {
+				for _, t := range pipelineRunState {
+					if s.PipelineTaskName == t.PipelineTask.Name {
+						if t.IsFailurePermitted {
+							done = append(done, s.PipelineTaskName)
+							break
+						}
+					}
+				}
+			} else if c.Reason == resources.ReasonSkippedAsStateConflicted {
+				done = append(done, s.PipelineTaskName)
+			}
+		}
+	}
+	return done
+}*/

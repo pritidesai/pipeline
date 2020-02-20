@@ -4,9 +4,11 @@ go 1.13
 
 require (
 	cloud.google.com/go v0.47.0 // indirect
+	cloud.google.com/go/storage v1.0.0
 	contrib.go.opencensus.io/exporter/stackdriver v0.12.8 // indirect
 	github.com/GoogleCloudPlatform/cloud-builders/gcs-fetcher v0.0.0-20191203181535-308b93ad1f39
 	github.com/cloudevents/sdk-go v1.0.0
+	github.com/davecgh/go-spew v1.1.1
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-openapi/spec v0.19.4 // indirect
 	github.com/gogo/protobuf v1.3.1 // indirect
@@ -42,6 +44,7 @@ require (
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0 // indirect
 	golang.org/x/tools v0.0.0-20200214144324-88be01311a71 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.1.0 // indirect
+	google.golang.org/api v0.15.0
 	google.golang.org/appengine v1.6.5 // indirect
 	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
 	k8s.io/api v0.17.3
