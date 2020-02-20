@@ -250,6 +250,7 @@ type PipelineRunTaskRunStatus struct {
 	// ConditionChecks maps the name of a condition check to its Status
 	// +optional
 	ConditionChecks map[string]*PipelineRunConditionCheckStatus `json:"conditionChecks,omitempty"`
+	SKipped         bool                                        `json:"skipped,omitempty"`
 }
 
 type PipelineRunConditionCheckStatus struct {
