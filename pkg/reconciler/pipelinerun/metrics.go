@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
+
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1alpha1"
 	listers "github.com/tektoncd/pipeline/pkg/client/listers/pipeline/v1alpha1"
 	"go.opencensus.io/stats"
@@ -170,6 +172,7 @@ func (r *Recorder) RunningPipelineRuns(lister listers.PipelineRunLister) error {
 
 	var runningPRs int
 	for _, pr := range prs {
+		spew.Dump("I am calling PipelineRun.IsDone() from mertics.go")
 		if !pr.IsDone() {
 			runningPRs++
 		}

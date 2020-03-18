@@ -21,6 +21,8 @@ import (
 	"math/rand"
 	"sync"
 
+	"github.com/davecgh/go-spew/spew"
+
 	"time"
 
 	"github.com/tektoncd/pipeline/pkg/apis/config"
@@ -175,6 +177,7 @@ func (t *TimeoutSet) checkPipelineRunTimeouts(namespace string, pipelineclientse
 	}
 	for _, pipelineRun := range pipelineRuns.Items {
 		pipelineRun := pipelineRun
+		spew.Dump("I am calling PipelineRun.IsDone() from timeout_handler.go")
 		if pipelineRun.IsDone() || pipelineRun.IsCancelled() {
 			continue
 		}

@@ -171,6 +171,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	spew.Dump("**** pr ****")
 	spew.Dump(pr)
 	spew.Dump("**** pr ****")
+	spew.Dump("I am calling PipelineRun.IsDone()")
 	if pr.IsDone() {
 		if err := artifacts.CleanupArtifactStorage(pr, c.KubeClientSet, c.Logger); err != nil {
 			c.Logger.Errorf("Failed to delete PVC for PipelineRun %s: %v", pr.Name, err)
@@ -430,6 +431,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1alpha1.PipelineRun) er
 	spew.Dump("**** pr ****")
 	spew.Dump(pr)
 	spew.Dump("**** pr ****")
+	spew.Dump("I am calling PipelineRun.IsDone() along with pipelineState.IsDone()")
 	if pipelineState.IsDone() && pr.IsDone() {
 		c.timeoutHandler.Release(pr)
 		c.Recorder.Event(pr, corev1.EventTypeNormal, eventReasonSucceeded, "PipelineRun completed successfully.")

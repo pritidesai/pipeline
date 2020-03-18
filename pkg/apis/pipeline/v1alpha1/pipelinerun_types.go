@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
+
 	"github.com/tektoncd/pipeline/pkg/apis/config"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
@@ -156,7 +158,11 @@ func (pr *PipelineRun) GetOwnerReference() []metav1.OwnerReference {
 
 // IsDone returns true if the PipelineRun's status indicates that it is done.
 func (pr *PipelineRun) IsDone() bool {
-	return !pr.Status.GetCondition(apis.ConditionSucceeded).IsUnknown()
+	spew.Dump("I am calling PipelineRun.IsDone()")
+	r := !pr.Status.GetCondition(apis.ConditionSucceeded).IsUnknown()
+	spew.Dump("I am returning")
+	spew.Dump(r)
+	return r
 }
 
 // HasStarted function check whether pipelinerun has valid start time set in its status
