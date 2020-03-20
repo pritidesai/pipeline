@@ -22,8 +22,6 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
-
 	"github.com/hashicorp/go-multierror"
 	"github.com/tektoncd/pipeline/pkg/apis/config"
 	apisconfig "github.com/tektoncd/pipeline/pkg/apis/config"
@@ -118,26 +116,27 @@ var (
 // converge the two. It then updates the Status block of the Pipeline Run
 // resource with the current status of the resource.
 func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
-	spew.Dump("**** I am starting to Reconcile ****")
+
+	c.Logger.Debug("**** I am starting to Reconcile ****")
 	c.Logger.Infof("Reconciling %v", time.Now())
 
-	spew.Dump("****  key ****")
-	spew.Dump(key)
+	c.Logger.Debug("****  key ****")
+	c.Logger.Debug(key)
 	// Convert the namespace/name string into a distinct namespace and name
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		c.Logger.Errorf("invalid resource key: %s", key)
 		return nil
 	}
-	spew.Dump("namespace and name")
-	spew.Dump(namespace)
-	spew.Dump(name)
+	c.Logger.Debug("namespace and name")
+	c.Logger.Debug(namespace)
+	c.Logger.Debug(name)
 
-	spew.Dump("ctx before calling configstore")
-	spew.Dump(ctx)
+	c.Logger.Debug("ctx before calling configstore")
+	c.Logger.Debug(ctx)
 	ctx = c.configStore.ToContext(ctx)
-	spew.Dump("ctx after calling configstore")
-	spew.Dump(ctx)
+	c.Logger.Debug("ctx after calling configstore")
+	c.Logger.Debug(ctx)
 
 	// Get the Pipeline Run resource with this namespace/name
 	original, err := c.pipelineRunLister.PipelineRuns(namespace).Get(name)
@@ -168,10 +167,10 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	// to update, and return the original error combined with any update error
 	var merr error
 
-	spew.Dump("**** pr ****")
-	spew.Dump(pr)
-	spew.Dump("**** pr ****")
-	spew.Dump("I am calling PipelineRun.IsDone()")
+	c.Logger.Debug("**** pr ****")
+	c.Logger.Debug(pr)
+	c.Logger.Debug("**** pr ****")
+	c.Logger.Debug("I am calling PipelineRun.IsDone()")
 	if pr.IsDone() {
 		if err := artifacts.CleanupArtifactStorage(pr, c.KubeClientSet, c.Logger); err != nil {
 			c.Logger.Errorf("Failed to delete PVC for PipelineRun %s: %v", pr.Name, err)
@@ -249,7 +248,7 @@ func (c *Reconciler) getPipelineFunc(tr *v1alpha1.PipelineRun) resources.GetPipe
 
 func (c *Reconciler) reconcile(ctx context.Context, pr *v1alpha1.PipelineRun) error {
 
-	spew.Dump("**** I am starting to reconcile ****")
+	c.Logger.Debug("**** I am starting to reconcile ****")
 	// We may be reading a version of the object that was stored at an older version
 	// and may not have had all of the assumed default specified.
 	pr.SetDefaults(contexts.WithUpgradeViaDefaulting(ctx))
@@ -424,14 +423,14 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1alpha1.PipelineRun) er
 		return nil
 	}
 
-	spew.Dump("**** Checking if pipeline is over ****")
-	spew.Dump("**** pipelineState ****")
-	spew.Dump(pipelineState)
-	spew.Dump("**** pipelineState ****")
-	spew.Dump("**** pr ****")
-	spew.Dump(pr)
-	spew.Dump("**** pr ****")
-	spew.Dump("I am calling PipelineRun.IsDone() along with pipelineState.IsDone()")
+	c.Logger.Debug("**** Checking if pipeline is over ****")
+	c.Logger.Debug("**** pipelineState ****")
+	c.Logger.Debug(pipelineState)
+	c.Logger.Debug("**** pipelineState ****")
+	c.Logger.Debug("**** pr ****")
+	c.Logger.Debug(pr)
+	c.Logger.Debug("**** pr ****")
+	c.Logger.Debug("I am calling PipelineRun.IsDone() along with pipelineState.IsDone()")
 	if pipelineState.IsDone() && pr.IsDone() {
 		c.timeoutHandler.Release(pr)
 		c.Recorder.Event(pr, corev1.EventTypeNormal, eventReasonSucceeded, "PipelineRun completed successfully.")
