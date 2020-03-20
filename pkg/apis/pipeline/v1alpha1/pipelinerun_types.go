@@ -158,7 +158,7 @@ func (pr *PipelineRun) GetOwnerReference() []metav1.OwnerReference {
 
 // IsDone returns true if the PipelineRun's status indicates that it is done.
 func (pr *PipelineRun) IsDone() bool {
-	spew.Dump("I am calling PipelineRun.IsDone()")
+	spew.Dump("I am inside PipelineRun.IsDone()")
 	r := !pr.Status.GetCondition(apis.ConditionSucceeded).IsUnknown()
 	spew.Dump("I am returning")
 	spew.Dump(r)
