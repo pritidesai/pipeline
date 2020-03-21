@@ -173,6 +173,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	spew.Dump("**** END: pr ****")
 	spew.Dump("I am calling PipelineRun.IsDone() now")
 	if pr.IsDone() {
+		spew.Dump("*** I am inside pr.IsDone() and now cleaning up ARTIFACTS ***")
 		if err := artifacts.CleanupArtifactStorage(pr, c.KubeClientSet, c.Logger); err != nil {
 			c.Logger.Errorf("Failed to delete PVC for PipelineRun %s: %v", pr.Name, err)
 			return err
@@ -189,6 +190,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 			}
 		}(c.metrics)
 	} else {
+		spew.Dump("*** Still calling RECONCILER ***")
 		if err := c.tracker.Track(pr.GetTaskRunRef(), pr); err != nil {
 			c.Logger.Errorf("Failed to create tracker for TaskRuns for PipelineRun %s: %v", pr.Name, err)
 			c.Recorder.Event(pr, corev1.EventTypeWarning, eventReasonFailed, "Failed to create tracker for TaskRuns for PipelineRun")
@@ -204,7 +206,14 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	}
 
 	var updated bool
+	//spew.Dump("*** START: original Status is ***")
+	//spew.Dump(original.Status)
+	//spew.Dump("*** END: original Status is ***")
+	//spew.Dump("START: pipelinerun status is")
+	//spew.Dump(pr.Status)
+	//spew.Dump("END: pipelinerun status is")
 	if !equality.Semantic.DeepEqual(original.Status, pr.Status) {
+		spew.Dump("*** I am inside not equal original and pr status and calling updateStatus ***")
 		if _, err := c.updateStatus(pr); err != nil {
 			c.Logger.Warn("Failed to update PipelineRun status", zap.Error(err))
 			c.Recorder.Event(pr, corev1.EventTypeWarning, eventReasonFailed, "PipelineRun failed to update")
