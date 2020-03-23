@@ -143,7 +143,8 @@ func TestApplyParameters(t *testing.T) {
 
 func TestApplyTaskResults_MinimalExpression(t *testing.T) {
 	type args struct {
-		targets            PipelineRunState
+		nextTasks          []string
+		pipelineRunState   PipelineRunState
 		resolvedResultRefs ResolvedResultRefs
 	}
 	tests := []struct {
@@ -154,6 +155,9 @@ func TestApplyTaskResults_MinimalExpression(t *testing.T) {
 		{
 			name: "Test result substitution on minimal variable substitution expression",
 			args: args{
+				nextTasks: []string{
+					"bTask",
+				},
 				resolvedResultRefs: ResolvedResultRefs{
 					{
 						Value: v1beta1.ArrayOrString{
@@ -167,7 +171,7 @@ func TestApplyTaskResults_MinimalExpression(t *testing.T) {
 						FromTaskRun: "aTaskRun",
 					},
 				},
-				targets: PipelineRunState{
+				pipelineRunState: PipelineRunState{
 					{
 						PipelineTask: &v1alpha1.PipelineTask{
 							Name:    "bTask",
@@ -206,8 +210,8 @@ func TestApplyTaskResults_MinimalExpression(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ApplyTaskResults(tt.args.targets, tt.args.resolvedResultRefs)
-			if d := cmp.Diff(tt.args.targets, tt.want); d != "" {
+			ApplyTaskResults(tt.args.nextTasks, tt.args.pipelineRunState, tt.args.resolvedResultRefs)
+			if d := cmp.Diff(tt.args.pipelineRunState, tt.want); d != "" {
 				t.Fatalf("ApplyTaskResults()  -want, +got: %v", d)
 			}
 		})
@@ -216,7 +220,8 @@ func TestApplyTaskResults_MinimalExpression(t *testing.T) {
 
 func TestApplyTaskResults_EmbeddedExpression(t *testing.T) {
 	type args struct {
-		targets            PipelineRunState
+		nextTasks          []string
+		pipelineRunState   PipelineRunState
 		resolvedResultRefs ResolvedResultRefs
 	}
 	tests := []struct {
@@ -227,6 +232,9 @@ func TestApplyTaskResults_EmbeddedExpression(t *testing.T) {
 		{
 			name: "Test result substitution on embedded variable substitution expression",
 			args: args{
+				nextTasks: []string{
+					"bTask",
+				},
 				resolvedResultRefs: ResolvedResultRefs{
 					{
 						Value: v1beta1.ArrayOrString{
@@ -240,7 +248,7 @@ func TestApplyTaskResults_EmbeddedExpression(t *testing.T) {
 						FromTaskRun: "aTaskRun",
 					},
 				},
-				targets: PipelineRunState{
+				pipelineRunState: PipelineRunState{
 					{
 						PipelineTask: &v1alpha1.PipelineTask{
 							Name:    "bTask",
@@ -279,8 +287,8 @@ func TestApplyTaskResults_EmbeddedExpression(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ApplyTaskResults(tt.args.targets, tt.args.resolvedResultRefs)
-			if d := cmp.Diff(tt.args.targets, tt.want); d != "" {
+			ApplyTaskResults(tt.args.nextTasks, tt.args.pipelineRunState, tt.args.resolvedResultRefs)
+			if d := cmp.Diff(tt.args.pipelineRunState, tt.want); d != "" {
 				t.Fatalf("ApplyTaskResults()  -want, +got: %v", d)
 			}
 		})

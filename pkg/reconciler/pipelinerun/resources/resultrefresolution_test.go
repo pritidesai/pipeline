@@ -289,7 +289,7 @@ func resolvedSliceAsString(rs []*ResolvedResultRef) string {
 func TestResolveResultRefs(t *testing.T) {
 	type args struct {
 		pipelineRunState PipelineRunState
-		targets          PipelineRunState
+		targets          []string
 	}
 	pipelineRunState := PipelineRunState{
 		{
@@ -328,8 +328,8 @@ func TestResolveResultRefs(t *testing.T) {
 			name: "Test successful result references resolution",
 			args: args{
 				pipelineRunState: pipelineRunState,
-				targets: PipelineRunState{
-					pipelineRunState[1],
+				targets: []string{
+					pipelineRunState[1].PipelineTask.Name,
 				},
 			},
 			want: ResolvedResultRefs{
@@ -351,8 +351,8 @@ func TestResolveResultRefs(t *testing.T) {
 			name: "Test successful result references resolution non result references",
 			args: args{
 				pipelineRunState: pipelineRunState,
-				targets: PipelineRunState{
-					pipelineRunState[0],
+				targets: []string{
+					pipelineRunState[0].PipelineTask.Name,
 				},
 			},
 			want:    nil,

@@ -37,14 +37,18 @@ type ResolvedResultRef struct {
 }
 
 // ResolveResultRefs resolves any ResultReference that are found in the target ResolvedPipelineRunTask
-func ResolveResultRefs(pipelineRunState PipelineRunState, targets PipelineRunState) (ResolvedResultRefs, error) {
+func ResolveResultRefs(pipelineRunState PipelineRunState, targets []string) (ResolvedResultRefs, error) {
 	var allResolvedResultRefs ResolvedResultRefs
-	for _, target := range targets {
-		resolvedResultRefs, err := convertParamsToResultRefs(pipelineRunState, target)
-		if err != nil {
-			return nil, err
+	for _, t := range targets {
+		for _, rprt := range pipelineRunState {
+			if t == rprt.PipelineTask.Name {
+				resolvedResultRefs, err := convertParamsToResultRefs(pipelineRunState, rprt)
+				if err != nil {
+					return nil, err
+				}
+				allResolvedResultRefs = append(allResolvedResultRefs, resolvedResultRefs...)
+			}
 		}
-		allResolvedResultRefs = append(allResolvedResultRefs, resolvedResultRefs...)
 	}
 	return removeDup(allResolvedResultRefs), nil
 }

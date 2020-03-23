@@ -55,7 +55,7 @@ func ApplyParameters(p *v1alpha1.PipelineSpec, pr *v1alpha1.PipelineRun) *v1alph
 }
 
 // ApplyTaskResults applies the ResolvedResultRef to each PipelineTask.Params in targets
-func ApplyTaskResults(targets PipelineRunState, resolvedResultRefs ResolvedResultRefs) {
+func ApplyTaskResults(nextTasks []string, pipelineRunState PipelineRunState, resolvedResultRefs ResolvedResultRefs) {
 	stringReplacements := map[string]string{}
 
 	for _, resolvedResultRef := range resolvedResultRefs {
@@ -63,10 +63,14 @@ func ApplyTaskResults(targets PipelineRunState, resolvedResultRefs ResolvedResul
 		stringReplacements[replaceTarget] = resolvedResultRef.Value.StringVal
 	}
 
-	for _, resolvedPipelineRunTask := range targets {
-		pipelineTask := resolvedPipelineRunTask.PipelineTask.DeepCopy()
-		pipelineTask.Params = replaceParamValues(pipelineTask.Params, stringReplacements, nil)
-		resolvedPipelineRunTask.PipelineTask = pipelineTask
+	for _, t := range nextTasks {
+		for _, resolvedPipelineRunTask := range pipelineRunState {
+			if t == resolvedPipelineRunTask.PipelineTask.Name {
+				pipelineTask := resolvedPipelineRunTask.PipelineTask.DeepCopy()
+				pipelineTask.Params = replaceParamValues(pipelineTask.Params, stringReplacements, nil)
+				resolvedPipelineRunTask.PipelineTask = pipelineTask
+			}
+		}
 	}
 }
 

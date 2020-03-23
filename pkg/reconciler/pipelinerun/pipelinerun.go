@@ -358,7 +358,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1alpha1.PipelineRun) er
 	// Apply parameter substitution from the PipelineRun
 	pipelineSpec = resources.ApplyParameters(pipelineSpec, pr)
 
-	pipelineState, err := resources.ResolvePipelineRun(ctx,
+	pipelineRunState, err := resources.ResolvePipelineRun(ctx,
 		*pr,
 		func(name string) (v1alpha1.TaskInterface, error) {
 			return c.taskLister.Tasks(pr.Namespace).Get(name)
@@ -406,13 +406,13 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1alpha1.PipelineRun) er
 		return nil
 	}
 
-	if pipelineState.IsDone() && pr.IsDone() {
+	if pipelineRunState.IsDone() && pr.IsDone() {
 		c.timeoutHandler.Release(pr)
 		c.Recorder.Event(pr, corev1.EventTypeNormal, eventReasonSucceeded, "PipelineRun completed successfully.")
 		return nil
 	}
 
-	for _, rprt := range pipelineState {
+	for _, rprt := range pipelineRunState {
 		err := taskrun.ValidateResolvedTaskResources(rprt.PipelineTask.Params, rprt.ResolvedTaskResources)
 		if err != nil {
 			c.Logger.Errorf("Failed to validate pipelinerun %q with error %v", pr.Name, err)
@@ -430,19 +430,19 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1alpha1.PipelineRun) er
 	// If the pipelinerun is cancelled, cancel tasks and update status
 	if pr.IsCancelled() {
 		before := pr.Status.GetCondition(apis.ConditionSucceeded)
-		err := cancelPipelineRun(pr, pipelineState, c.PipelineClientSet)
+		err := cancelPipelineRun(pr, pipelineRunState, c.PipelineClientSet)
 		after := pr.Status.GetCondition(apis.ConditionSucceeded)
 		reconciler.EmitEvent(c.Recorder, before, after, pr)
 		return err
 	}
 
-	candidateTasks, err := dag.GetSchedulable(d, pipelineState.SuccessfulPipelineTaskNames()...)
+	candidateTasks, err := dag.GetSchedulable(d, pipelineRunState.SuccessfulPipelineTaskNames()...)
 	if err != nil {
 		c.Logger.Errorf("Error getting potential next tasks for valid pipelinerun %s: %v", pr.Name, err)
 	}
 
-	nextRprts := pipelineState.GetNextTasks(candidateTasks)
-	resolvedResultRefs, err := resources.ResolveResultRefs(pipelineState, nextRprts)
+	nextTasks := pipelineRunState.GetNextTasks(candidateTasks)
+	resolvedResultRefs, err := resources.ResolveResultRefs(pipelineRunState, nextTasks)
 	if err != nil {
 		c.Logger.Infof("Failed to resolve all task params for %q with error %v", pr.Name, err)
 		pr.Status.SetCondition(&apis.Condition{
@@ -453,7 +453,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1alpha1.PipelineRun) er
 		})
 		return nil
 	}
-	resources.ApplyTaskResults(nextRprts, resolvedResultRefs)
+	resources.ApplyTaskResults(nextTasks, pipelineRunState, resolvedResultRefs)
 
 	var as artifacts.ArtifactStorageInterface
 
@@ -462,32 +462,33 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1alpha1.PipelineRun) er
 		return err
 	}
 
-	for _, rprt := range nextRprts {
-		if rprt == nil {
-			continue
-		}
-		if rprt.ResolvedConditionChecks == nil || rprt.ResolvedConditionChecks.IsSuccess() {
-			rprt.TaskRun, err = c.createTaskRun(rprt, pr, as.StorageBasePath(pr))
-			if err != nil {
-				c.Recorder.Eventf(pr, corev1.EventTypeWarning, "TaskRunCreationFailed", "Failed to create TaskRun %q: %v", rprt.TaskRunName, err)
-				return fmt.Errorf("error creating TaskRun called %s for PipelineTask %s from PipelineRun %s: %w", rprt.TaskRunName, rprt.PipelineTask.Name, pr.Name, err)
-			}
-		} else if !rprt.ResolvedConditionChecks.HasStarted() {
-			for _, rcc := range rprt.ResolvedConditionChecks {
-				rcc.ConditionCheck, err = c.makeConditionCheckContainer(rprt, rcc, pr)
-				if err != nil {
-					c.Recorder.Eventf(pr, corev1.EventTypeWarning, "ConditionCheckCreationFailed", "Failed to create TaskRun %q: %v", rcc.ConditionCheckName, err)
-					return fmt.Errorf("error creating ConditionCheck container called %s for PipelineTask %s from PipelineRun %s: %w", rcc.ConditionCheckName, rprt.PipelineTask.Name, pr.Name, err)
+	for _, t := range nextTasks {
+		for _, rprt := range pipelineRunState {
+			if t == rprt.PipelineTask.Name {
+				if rprt.ResolvedConditionChecks == nil || rprt.ResolvedConditionChecks.IsSuccess() {
+					rprt.TaskRun, err = c.createTaskRun(rprt, pr, as.StorageBasePath(pr))
+					if err != nil {
+						c.Recorder.Eventf(pr, corev1.EventTypeWarning, "TaskRunCreationFailed", "Failed to create TaskRun %q: %v", rprt.TaskRunName, err)
+						return fmt.Errorf("error creating TaskRun called %s for PipelineTask %s from PipelineRun %s: %w", rprt.TaskRunName, rprt.PipelineTask.Name, pr.Name, err)
+					}
+				} else if !rprt.ResolvedConditionChecks.HasStarted() {
+					for _, rcc := range rprt.ResolvedConditionChecks {
+						rcc.ConditionCheck, err = c.makeConditionCheckContainer(rprt, rcc, pr)
+						if err != nil {
+							c.Recorder.Eventf(pr, corev1.EventTypeWarning, "ConditionCheckCreationFailed", "Failed to create TaskRun %q: %v", rcc.ConditionCheckName, err)
+							return fmt.Errorf("error creating ConditionCheck container called %s for PipelineTask %s from PipelineRun %s: %w", rcc.ConditionCheckName, rprt.PipelineTask.Name, pr.Name, err)
+						}
+					}
 				}
 			}
 		}
 	}
 	before := pr.Status.GetCondition(apis.ConditionSucceeded)
-	after := resources.GetPipelineConditionStatus(pr, pipelineState, c.Logger, d)
+	after := resources.GetPipelineConditionStatus(pr, pipelineRunState, c.Logger, d)
 	pr.Status.SetCondition(after)
 	reconciler.EmitEvent(c.Recorder, before, after, pr)
 
-	pr.Status.TaskRuns = getTaskRunsStatus(pr, pipelineState)
+	pr.Status.TaskRuns = getTaskRunsStatus(pr, pipelineRunState)
 
 	c.Logger.Infof("PipelineRun %s status is being set to %s", pr.Name, pr.Status.GetCondition(apis.ConditionSucceeded))
 	return nil

@@ -71,7 +71,7 @@ type ResolvedPipelineRunTask struct {
 	TaskRun               *v1alpha1.TaskRun
 	PipelineTask          *v1alpha1.PipelineTask
 	ResolvedTaskResources *resources.ResolvedTaskResources
-	// ConditionChecks ~~TaskRuns but for evaling conditions
+	// ConditionChecks ~~TaskRuns but for evaluating conditions
 	ResolvedConditionChecks TaskConditionCheckState // Could also be a TaskRun or maybe just a Pod?
 }
 
@@ -79,37 +79,42 @@ type ResolvedPipelineRunTask struct {
 // state of the PipelineRun.
 type PipelineRunState []*ResolvedPipelineRunTask
 
+func (t ResolvedPipelineRunTask) getSucceededCondition() *apis.Condition {
+	if t.TaskRun == nil {
+		return nil
+	}
+	return t.TaskRun.Status.GetCondition(apis.ConditionSucceeded)
+}
+
 func (t ResolvedPipelineRunTask) IsDone() (isDone bool) {
-	if t.TaskRun == nil || t.PipelineTask == nil {
+	if t.PipelineTask == nil {
 		return
 	}
-
-	status := t.TaskRun.Status.GetCondition(apis.ConditionSucceeded)
+	c := t.getSucceededCondition()
+	if c == nil {
+		return
+	}
 	retriesDone := len(t.TaskRun.Status.RetriesStatus)
 	retries := t.PipelineTask.Retries
-	isDone = status.IsTrue() || status.IsFalse() && retriesDone >= retries
+	isDone = c.IsTrue() || c.IsFalse() && retriesDone >= retries
 	return
 }
 
 // IsSuccessful returns true only if the taskrun itself has completed successfully
 func (t ResolvedPipelineRunTask) IsSuccessful() bool {
-	if t.TaskRun == nil {
-		return false
-	}
-	c := t.TaskRun.Status.GetCondition(apis.ConditionSucceeded)
+	c := t.getSucceededCondition()
 	if c == nil {
 		return false
 	}
-
 	return c.Status == corev1.ConditionTrue
 }
 
 // IsFailure returns true only if the taskrun itself has failed
 func (t ResolvedPipelineRunTask) IsFailure() bool {
-	if t.TaskRun == nil {
+	c := t.getSucceededCondition()
+	if c == nil {
 		return false
 	}
-	c := t.TaskRun.Status.GetCondition(apis.ConditionSucceeded)
 	retriesDone := len(t.TaskRun.Status.RetriesStatus)
 	retries := t.PipelineTask.Retries
 	return c.IsFalse() && retriesDone >= retries
@@ -117,30 +122,25 @@ func (t ResolvedPipelineRunTask) IsFailure() bool {
 
 // IsCancelled returns true only if the taskrun itself has cancelled
 func (t ResolvedPipelineRunTask) IsCancelled() bool {
-	if t.TaskRun == nil {
-		return false
-	}
-
-	c := t.TaskRun.Status.GetCondition(apis.ConditionSucceeded)
+	c := t.getSucceededCondition()
 	if c == nil {
 		return false
 	}
-
 	return c.IsFalse() && c.Reason == v1alpha1.TaskRunSpecStatusCancelled
 }
 
 // ToMap returns a map that maps pipeline task name to the resolved pipeline run task
-func (state PipelineRunState) ToMap() map[string]*ResolvedPipelineRunTask {
+func (state *PipelineRunState) ToMap() map[string]*ResolvedPipelineRunTask {
 	m := make(map[string]*ResolvedPipelineRunTask)
-	for _, rprt := range state {
+	for _, rprt := range *state {
 		m[rprt.PipelineTask.Name] = rprt
 	}
 	return m
 }
 
-func (state PipelineRunState) IsDone() (isDone bool) {
+func (state *PipelineRunState) IsDone() (isDone bool) {
 	isDone = true
-	for _, t := range state {
+	for _, t := range *state {
 		if t.TaskRun == nil || t.PipelineTask == nil {
 			return false
 		}
@@ -152,20 +152,20 @@ func (state PipelineRunState) IsDone() (isDone bool) {
 	return
 }
 
-// GetNextTasks will return the next ResolvedPipelineRunTasks to execute, which are the ones in the
+// GetNextTasks will return the next tasks to execute, which are the ones in the
 // list of candidateTasks which aren't yet indicated in state to be running.
-func (state PipelineRunState) GetNextTasks(candidateTasks map[string]struct{}) []*ResolvedPipelineRunTask {
-	tasks := []*ResolvedPipelineRunTask{}
-	for _, t := range state {
+func (state *PipelineRunState) GetNextTasks(candidateTasks map[string]struct{}) []string {
+	tasks := []string{}
+	for _, t := range *state {
 		if _, ok := candidateTasks[t.PipelineTask.Name]; ok && t.TaskRun == nil {
-			tasks = append(tasks, t)
+			tasks = append(tasks, t.PipelineTask.Name)
 		}
 		if _, ok := candidateTasks[t.PipelineTask.Name]; ok && t.TaskRun != nil {
-			status := t.TaskRun.Status.GetCondition(apis.ConditionSucceeded)
+			status := t.getSucceededCondition()
 			if status != nil && status.IsFalse() {
 				if !(t.TaskRun.IsCancelled() || status.Reason == v1alpha1.TaskRunSpecStatusCancelled || status.Reason == ReasonConditionCheckFailed) {
 					if len(t.TaskRun.Status.RetriesStatus) < t.PipelineTask.Retries {
-						tasks = append(tasks, t)
+						tasks = append(tasks, t.PipelineTask.Name)
 					}
 				}
 			}
@@ -176,11 +176,11 @@ func (state PipelineRunState) GetNextTasks(candidateTasks map[string]struct{}) [
 
 // SuccessfulPipelineTaskNames returns a list of the names of all of the PipelineTasks in state
 // which have successfully completed.
-func (state PipelineRunState) SuccessfulPipelineTaskNames() []string {
+func (state *PipelineRunState) SuccessfulPipelineTaskNames() []string {
 	done := []string{}
-	for _, t := range state {
-		if t.TaskRun != nil {
-			c := t.TaskRun.Status.GetCondition(apis.ConditionSucceeded)
+	for _, t := range *state {
+		c := t.getSucceededCondition()
+		if c != nil {
 			if c.IsTrue() {
 				done = append(done, t.PipelineTask.Name)
 			}
