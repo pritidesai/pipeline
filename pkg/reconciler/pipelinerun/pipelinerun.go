@@ -497,6 +497,17 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1alpha1.PipelineRun) er
 		return err
 	}
 
+	spew.Dump("**** START: pipelineState before nextRprts ****")
+	for _, t := range pipelineState {
+		spew.Dump(t.PipelineTask.Name)
+		if t.TaskRun == nil {
+			spew.Dump("TaskRun is nil")
+		} else {
+			spew.Dump("TaskRun is not nil")
+		}
+	}
+	spew.Dump("**** END: pipelineState before nextRprts ****")
+
 	for _, rprt := range nextRprts {
 		if rprt == nil {
 			continue
@@ -517,6 +528,16 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1alpha1.PipelineRun) er
 			}
 		}
 	}
+	spew.Dump("**** START: pipelineState after nextRprts ****")
+	for _, t := range pipelineState {
+		spew.Dump(t.PipelineTask.Name)
+		if t.TaskRun == nil {
+			spew.Dump("TaskRun is nil")
+		} else {
+			spew.Dump("TaskRun is not nil")
+		}
+	}
+	spew.Dump("**** END: pipelineState after nextRprts ****")
 	before := pr.Status.GetCondition(apis.ConditionSucceeded)
 	after := resources.GetPipelineConditionStatus(pr, pipelineState, c.Logger, d)
 	pr.Status.SetCondition(after)
