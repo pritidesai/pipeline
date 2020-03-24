@@ -242,6 +242,10 @@ type PipelineRunStatusFields struct {
 	// map of PipelineRunTaskRunStatus with the taskRun name as the key
 	// +optional
 	TaskRuns map[string]*PipelineRunTaskRunStatus `json:"taskRuns,omitempty"`
+
+	// State with a list of successful, skipped, failed, and cancelled tasks
+	// +optional
+	State *PipelineRunPipelineTaskState `json:"pipelineRunPipelineTaskState,omitempty"`
 }
 
 // PipelineRunTaskRunStatus contains the name of the PipelineTask for this TaskRun and the TaskRun's Status
@@ -286,4 +290,30 @@ type PipelineRunList struct {
 // and produces logs.
 type PipelineTaskRun struct {
 	Name string `json:"name,omitempty"`
+}
+
+type PipelineRunPipelineTaskState struct {
+	// a list of tasks which were skipped for multiple reasons:
+	// (1) skipped because one or more Conditions failed
+	// (2) skipped because parent was skipped
+	// +optional
+	Skipped []string `json:"skipped,omitempty"`
+	// a list of tasks which were executed and successful
+	// +optional
+	Succeeded []string `json:"succeeded,omitempty"`
+	// a list of tasks which were executed but failed
+	// +optional
+	Failed []string `json:"failed,omitempty"`
+	// a list of tasks which were executing but cancelled
+	// +optional
+	Cancelled []string `json:"cancelled,omitempty"`
+	// a list of tasks which are currently getting executed
+	// +optional
+	Running []string `json:"running,omitempty"`
+	// a list of tasks which are still pending, have not executed
+	// +optional
+	Pending []string `json:"pending,omitempty"`
+	// a list of tasks which will be executed next
+	// +optional
+	Next []string `json:"next,omitempty"`
 }

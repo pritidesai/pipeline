@@ -22,6 +22,8 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
+
 	"github.com/hashicorp/go-multierror"
 	"github.com/tektoncd/pipeline/pkg/apis/config"
 	apisconfig "github.com/tektoncd/pipeline/pkg/apis/config"
@@ -482,6 +484,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1alpha1.PipelineRun) er
 			}
 		}
 	}
+
 	before := pr.Status.GetCondition(apis.ConditionSucceeded)
 	after := resources.GetPipelineConditionStatus(pr, pipelineState, c.Logger, d)
 	pr.Status.SetCondition(after)
@@ -490,6 +493,9 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1alpha1.PipelineRun) er
 	pr.Status.TaskRuns = getTaskRunsStatus(pr, pipelineState)
 
 	c.Logger.Infof("PipelineRun %s status is being set to %s", pr.Name, pr.Status.GetCondition(apis.ConditionSucceeded))
+	spew.Dump("***** pr.Status ******")
+	spew.Dump(pr.Status)
+	spew.Dump("***** pr.Status ******")
 	return nil
 }
 
