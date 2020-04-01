@@ -22,6 +22,8 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
+
 	"github.com/hashicorp/go-multierror"
 	"github.com/tektoncd/pipeline/pkg/apis/config"
 	apisconfig "github.com/tektoncd/pipeline/pkg/apis/config"
@@ -279,42 +281,22 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1alpha1.PipelineRun) er
 		pr.ObjectMeta.Annotations[key] = value
 	}
 
-	d, err := dag.Build(v1alpha1.PipelineTaskList(pipelineSpec.Tasks))
-	if err != nil {
-		// This Run has failed, so we need to mark it as failed and stop reconciling it
-		pr.Status.SetCondition(&apis.Condition{
-			Type:   apis.ConditionSucceeded,
-			Status: corev1.ConditionFalse,
-			Reason: ReasonInvalidGraph,
-			Message: fmt.Sprintf("PipelineRun %s's Pipeline DAG is invalid: %s",
-				fmt.Sprintf("%s/%s", pr.Namespace, pr.Name), err),
-		})
+	d, condition := c.buildDAG(ctx, pr, pipelineSpec, pipelineSpec.Tasks, pipelineMeta)
+	if condition != nil {
+		pr.Status.SetCondition(condition)
 		return nil
 	}
+	spew.Dump("d")
+	spew.Dump(d)
 
-	if err := pipelineSpec.Validate(ctx); err != nil {
-		// This Run has failed, so we need to mark it as failed and stop reconciling it
-		pr.Status.SetCondition(&apis.Condition{
-			Type:   apis.ConditionSucceeded,
-			Status: corev1.ConditionFalse,
-			Reason: ReasonFailedValidation,
-			Message: fmt.Sprintf("Pipeline %s can't be Run; it has an invalid spec: %s",
-				fmt.Sprintf("%s/%s", pipelineMeta.Namespace, pipelineMeta.Name), err),
-		})
+	dFinally, condition := c.buildDAG(ctx, pr, pipelineSpec, pipelineSpec.Finally, pipelineMeta)
+	if condition != nil {
+		pr.Status.SetCondition(condition)
 		return nil
 	}
+	spew.Dump("dFinally")
+	spew.Dump(dFinally)
 
-	if err := resources.ValidateResourceBindings(pipelineSpec, pr); err != nil {
-		// This Run has failed, so we need to mark it as failed and stop reconciling it
-		pr.Status.SetCondition(&apis.Condition{
-			Type:   apis.ConditionSucceeded,
-			Status: corev1.ConditionFalse,
-			Reason: ReasonInvalidBindings,
-			Message: fmt.Sprintf("PipelineRun %s doesn't bind Pipeline %s's PipelineResources correctly: %s",
-				fmt.Sprintf("%s/%s", pr.Namespace, pr.Name), fmt.Sprintf("%s/%s", pr.Namespace, pipelineMeta.Name), err),
-		})
-		return nil
-	}
 	providedResources, err := resources.GetResourcesFromBindings(pr, c.resourceLister.PipelineResources(pr.Namespace).Get)
 	if err != nil {
 		// This Run has failed, so we need to mark it as failed and stop reconciling it
@@ -358,61 +340,31 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1alpha1.PipelineRun) er
 	// Apply parameter substitution from the PipelineRun
 	pipelineSpec = resources.ApplyParameters(pipelineSpec, pr)
 
-	pipelineState, err := resources.ResolvePipelineRun(ctx,
-		*pr,
-		func(name string) (v1alpha1.TaskInterface, error) {
-			return c.taskLister.Tasks(pr.Namespace).Get(name)
-		},
-		func(name string) (*v1alpha1.TaskRun, error) {
-			return c.taskRunLister.TaskRuns(pr.Namespace).Get(name)
-		},
-		func(name string) (v1alpha1.TaskInterface, error) {
-			return c.clusterTaskLister.Get(name)
-		},
-		func(name string) (*v1alpha1.Condition, error) {
-			return c.conditionLister.Conditions(pr.Namespace).Get(name)
-		},
-		pipelineSpec.Tasks, providedResources,
-	)
-
-	if err != nil {
-		// This Run has failed, so we need to mark it as failed and stop reconciling it
-		switch err := err.(type) {
-		case *resources.TaskNotFoundError:
-			pr.Status.SetCondition(&apis.Condition{
-				Type:   apis.ConditionSucceeded,
-				Status: corev1.ConditionFalse,
-				Reason: ReasonCouldntGetTask,
-				Message: fmt.Sprintf("Pipeline %s can't be Run; it contains Tasks that don't exist: %s",
-					fmt.Sprintf("%s/%s", pipelineMeta.Namespace, pipelineMeta.Name), err),
-			})
-		case *resources.ConditionNotFoundError:
-			pr.Status.SetCondition(&apis.Condition{
-				Type:   apis.ConditionSucceeded,
-				Status: corev1.ConditionFalse,
-				Reason: ReasonCouldntGetCondition,
-				Message: fmt.Sprintf("PipelineRun %s can't be Run; it contains Conditions that don't exist:  %s",
-					fmt.Sprintf("%s/%s", pipelineMeta.Namespace, pr.Name), err),
-			})
-		default:
-			pr.Status.SetCondition(&apis.Condition{
-				Type:   apis.ConditionSucceeded,
-				Status: corev1.ConditionFalse,
-				Reason: ReasonFailedValidation,
-				Message: fmt.Sprintf("PipelineRun %s can't be Run; couldn't resolve all references: %s",
-					fmt.Sprintf("%s/%s", pipelineMeta.Namespace, pr.Name), err),
-			})
-		}
+	pipelineState, condition := c.resolvePipelineRun(ctx, pr, pipelineSpec.Tasks, providedResources, pipelineMeta)
+	if condition != nil {
+		pr.Status.SetCondition(condition)
 		return nil
 	}
 
-	if pipelineState.IsDone() && pr.IsDone() {
+	pipelineRunStateFinal, condition := c.resolvePipelineRun(ctx, pr, pipelineSpec.Finally, providedResources, pipelineMeta)
+	if condition != nil {
+		pr.Status.SetCondition(condition)
+		return nil
+	}
+	spew.Dump("Pipeline Run State Final")
+	spew.Dump(pipelineRunStateFinal)
+
+	if pipelineState.IsDone() && pipelineRunStateFinal.IsDone() && pr.IsDone() {
 		c.timeoutHandler.Release(pr)
 		c.Recorder.Event(pr, corev1.EventTypeNormal, eventReasonSucceeded, "PipelineRun completed successfully.")
 		return nil
 	}
 
-	for _, rprt := range pipelineState {
+	// collective list of tasks from tasks and finally (potentially from except as well)
+	pipelineRunStateAll := pipelineState
+	pipelineRunStateAll = append(pipelineRunStateAll, pipelineRunStateFinal...)
+
+	for _, rprt := range pipelineRunStateAll {
 		err := taskrun.ValidateResolvedTaskResources(rprt.PipelineTask.Params, rprt.ResolvedTaskResources)
 		if err != nil {
 			c.Logger.Errorf("Failed to validate pipelinerun %q with error %v", pr.Name, err)
@@ -430,12 +382,134 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1alpha1.PipelineRun) er
 	// If the pipelinerun is cancelled, cancel tasks and update status
 	if pr.IsCancelled() {
 		before := pr.Status.GetCondition(apis.ConditionSucceeded)
-		err := cancelPipelineRun(pr, pipelineState, c.PipelineClientSet)
+		err := cancelPipelineRun(pr, pipelineRunStateAll, c.PipelineClientSet)
 		after := pr.Status.GetCondition(apis.ConditionSucceeded)
 		reconciler.EmitEvent(c.Recorder, before, after, pr)
 		return err
 	}
 
+	if err := c.executeTasks(d, pipelineState, pr, pipelineSpec); err != nil {
+		return err
+	}
+
+	//before := pr.Status.GetCondition(apis.ConditionSucceeded)
+	after := resources.GetPipelineConditionStatus(pr, pipelineState, c.Logger, d)
+	spew.Dump("Pipeline Status just before checking if tasks done with success or failure")
+	spew.Dump(after)
+	// pipelineRun is successful here
+	if after.IsTrue() || (after.IsFalse() && after.Reason == resources.ReasonFailed) {
+		spew.Dump("Pipeline run is done with success, I am now executing final tasks")
+		if err := c.executeTasks(dFinally, pipelineRunStateFinal, pr, pipelineSpec); err != nil {
+			return err
+		}
+		before := pr.Status.GetCondition(apis.ConditionSucceeded)
+		after := resources.GetPipelineConditionStatus(pr, pipelineRunStateFinal, c.Logger, d)
+		spew.Dump("pipeline status after")
+		spew.Dump(after)
+		pr.Status.SetCondition(after)
+		reconciler.EmitEvent(c.Recorder, before, after, pr)
+		//pr.Status.TaskRuns = getTaskRunsStatus(pr, pipelineRunStateFinal)
+	}
+	//pr.Status.SetCondition(after)
+	//reconciler.EmitEvent(c.Recorder, before, after, pr)
+
+	pr.Status.TaskRuns = getTaskRunsStatus(pr, pipelineRunStateAll)
+
+	c.Logger.Infof("PipelineRun %s status is being set to %s", pr.Name, pr.Status.GetCondition(apis.ConditionSucceeded))
+
+	//return c.reconcileTasks(ctx, pr, pipelineSpec, d, providedResources, pipelineMeta)
+	return nil
+}
+
+func (c *Reconciler) resolvePipelineRun(ctx context.Context, pr *v1alpha1.PipelineRun, tasks []v1alpha1.PipelineTask, providedResources map[string]*v1alpha1.PipelineResource, pipelineMeta *metav1.ObjectMeta) (resources.PipelineRunState, *apis.Condition) {
+
+	pipelineState, err := resources.ResolvePipelineRun(ctx,
+		*pr,
+		func(name string) (v1alpha1.TaskInterface, error) {
+			return c.taskLister.Tasks(pr.Namespace).Get(name)
+		},
+		func(name string) (*v1alpha1.TaskRun, error) {
+			return c.taskRunLister.TaskRuns(pr.Namespace).Get(name)
+		},
+		func(name string) (v1alpha1.TaskInterface, error) {
+			return c.clusterTaskLister.Get(name)
+		},
+		func(name string) (*v1alpha1.Condition, error) {
+			return c.conditionLister.Conditions(pr.Namespace).Get(name)
+		},
+		tasks, providedResources,
+	)
+
+	if err != nil {
+		// This Run has failed, so we need to mark it as failed and stop reconciling it
+		switch err := err.(type) {
+		case *resources.TaskNotFoundError:
+			return nil, &apis.Condition{
+				Type:   apis.ConditionSucceeded,
+				Status: corev1.ConditionFalse,
+				Reason: ReasonCouldntGetTask,
+				Message: fmt.Sprintf("Pipeline %s can't be Run; it contains Tasks that don't exist: %s",
+					fmt.Sprintf("%s/%s", pipelineMeta.Namespace, pipelineMeta.Name), err),
+			}
+		case *resources.ConditionNotFoundError:
+			return nil, &apis.Condition{
+				Type:   apis.ConditionSucceeded,
+				Status: corev1.ConditionFalse,
+				Reason: ReasonCouldntGetCondition,
+				Message: fmt.Sprintf("PipelineRun %s can't be Run; it contains Conditions that don't exist:  %s",
+					fmt.Sprintf("%s/%s", pipelineMeta.Namespace, pr.Name), err),
+			}
+		default:
+			return nil, &apis.Condition{
+				Type:   apis.ConditionSucceeded,
+				Status: corev1.ConditionFalse,
+				Reason: ReasonFailedValidation,
+				Message: fmt.Sprintf("PipelineRun %s can't be Run; couldn't resolve all references: %s",
+					fmt.Sprintf("%s/%s", pipelineMeta.Namespace, pr.Name), err),
+			}
+		}
+	}
+	return pipelineState, nil
+}
+
+func (c *Reconciler) buildDAG(ctx context.Context, pr *v1alpha1.PipelineRun, pipelineSpec *v1alpha1.PipelineSpec, tasks []v1alpha1.PipelineTask, pipelineMeta *metav1.ObjectMeta) (*dag.Graph, *apis.Condition) {
+	d, err := dag.Build(v1alpha1.PipelineTaskList(tasks))
+	if err != nil {
+		// This Run has failed, so we need to mark it as failed and stop reconciling it
+		return nil, &apis.Condition{
+			Type:   apis.ConditionSucceeded,
+			Status: corev1.ConditionFalse,
+			Reason: ReasonInvalidGraph,
+			Message: fmt.Sprintf("PipelineRun %s's Pipeline DAG is invalid: %s",
+				fmt.Sprintf("%s/%s", pr.Namespace, pr.Name), err),
+		}
+	}
+
+	if err := pipelineSpec.Validate(ctx); err != nil {
+		// This Run has failed, so we need to mark it as failed and stop reconciling it
+		return nil, &apis.Condition{
+			Type:   apis.ConditionSucceeded,
+			Status: corev1.ConditionFalse,
+			Reason: ReasonFailedValidation,
+			Message: fmt.Sprintf("Pipeline %s can't be Run; it has an invalid spec: %s",
+				fmt.Sprintf("%s/%s", pipelineMeta.Namespace, pipelineMeta.Name), err),
+		}
+	}
+
+	if err := resources.ValidateResourceBindings(pipelineSpec, pr); err != nil {
+		// This Run has failed, so we need to mark it as failed and stop reconciling it
+		return nil, &apis.Condition{
+			Type:   apis.ConditionSucceeded,
+			Status: corev1.ConditionFalse,
+			Reason: ReasonInvalidBindings,
+			Message: fmt.Sprintf("PipelineRun %s doesn't bind Pipeline %s's PipelineResources correctly: %s",
+				fmt.Sprintf("%s/%s", pr.Namespace, pr.Name), fmt.Sprintf("%s/%s", pr.Namespace, pipelineMeta.Name), err),
+		}
+	}
+	return d, nil
+}
+
+func (c *Reconciler) executeTasks(d *dag.Graph, pipelineState resources.PipelineRunState, pr *v1alpha1.PipelineRun, pipelineSpec *v1alpha1.PipelineSpec) error {
 	candidateTasks, err := dag.GetSchedulable(d, pipelineState.SuccessfulPipelineTaskNames()...)
 	if err != nil {
 		c.Logger.Errorf("Error getting potential next tasks for valid pipelinerun %s: %v", pr.Name, err)
@@ -482,14 +556,6 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1alpha1.PipelineRun) er
 			}
 		}
 	}
-	before := pr.Status.GetCondition(apis.ConditionSucceeded)
-	after := resources.GetPipelineConditionStatus(pr, pipelineState, c.Logger, d)
-	pr.Status.SetCondition(after)
-	reconciler.EmitEvent(c.Recorder, before, after, pr)
-
-	pr.Status.TaskRuns = getTaskRunsStatus(pr, pipelineState)
-
-	c.Logger.Infof("PipelineRun %s status is being set to %s", pr.Name, pr.Status.GetCondition(apis.ConditionSucceeded))
 	return nil
 }
 

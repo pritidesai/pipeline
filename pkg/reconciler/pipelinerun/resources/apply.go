@@ -75,6 +75,7 @@ func ApplyReplacements(p *v1alpha1.PipelineSpec, replacements map[string]string,
 	p = p.DeepCopy()
 
 	tasks := p.Tasks
+	tasks = append(tasks, p.Finally...)
 
 	for i := range tasks {
 		tasks[i].Params = replaceParamValues(tasks[i].Params, replacements, arrayReplacements)

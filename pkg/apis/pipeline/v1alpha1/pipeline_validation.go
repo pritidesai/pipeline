@@ -51,7 +51,9 @@ func validateDeclaredResources(ps *PipelineSpec) error {
 		encountered[r.Name] = struct{}{}
 	}
 	required := []string{}
-	for _, t := range ps.Tasks {
+	tasks := ps.Tasks
+	tasks = append(tasks, ps.Finally...)
+	for _, t := range tasks {
 		if t.Resources != nil {
 			for _, input := range t.Resources.Inputs {
 				required = append(required, input.Resource)
@@ -159,7 +161,9 @@ func (ps *PipelineSpec) Validate(ctx context.Context) *apis.FieldError {
 
 	// Names cannot be duplicated
 	taskNames := map[string]struct{}{}
-	for i, t := range ps.Tasks {
+	tasks := ps.Tasks
+	tasks = append(tasks, ps.Finally...)
+	for i, t := range tasks {
 		if errs := validation.IsDNS1123Label(t.Name); len(errs) > 0 {
 			return &apis.FieldError{
 				Message: fmt.Sprintf("invalid value %q", t.Name),
@@ -209,13 +213,27 @@ func (ps *PipelineSpec) Validate(ctx context.Context) *apis.FieldError {
 		return apis.ErrInvalidValue(err.Error(), "spec.tasks.resources.inputs.from")
 	}
 
+	//pipelineSpec.finally.resources.inputs.from are actually a valid output of a finally task
+	if err := validateFrom(ps.Finally); err != nil {
+		return apis.ErrInvalidValue(err.Error(), "spec.finally.resources.inputs.from")
+	}
+
 	// Validate the pipeline task graph
 	if err := validateGraph(ps.Tasks); err != nil {
 		return apis.ErrInvalidValue(err.Error(), "spec.tasks")
 	}
 
+	// Validate the pipeline task graph - spec.finally
+	if err := validateGraph(ps.Finally); err != nil {
+		return apis.ErrInvalidValue(err.Error(), "spec.finally")
+	}
+
 	if err := validateParamResults(ps.Tasks); err != nil {
 		return apis.ErrInvalidValue(err.Error(), "spec.tasks.params.value")
+	}
+
+	if err := validateParamResults(ps.Finally); err != nil {
+		return apis.ErrInvalidValue(err.Error(), "spec.finally.params.value")
 	}
 
 	// The parameter variables should be valid
@@ -223,15 +241,24 @@ func (ps *PipelineSpec) Validate(ctx context.Context) *apis.FieldError {
 		return err
 	}
 
-	// Validate the pipeline's workspaces.
-	if err := validatePipelineWorkspaces(ps.Workspaces, ps.Tasks); err != nil {
+	// The parameter variables should be valid
+	if err := validatePipelineParameterVariables(ps.Finally, ps.Params); err != nil {
 		return err
 	}
 
+	// Validate the pipeline's workspaces.
+	if err := validatePipelineWorkspaces(ps.Workspaces, ps.Tasks, "spec.tasks"); err != nil {
+		return err
+	}
+
+	// Validate the pipeline's workspaces.
+	if err := validatePipelineWorkspaces(ps.Workspaces, ps.Finally, "spec.finally"); err != nil {
+		return err
+	}
 	return nil
 }
 
-func validatePipelineWorkspaces(wss []WorkspacePipelineDeclaration, pts []PipelineTask) *apis.FieldError {
+func validatePipelineWorkspaces(wss []WorkspacePipelineDeclaration, pts []PipelineTask, label string) *apis.FieldError {
 	// Workspace names must be non-empty and unique.
 	wsTable := make(map[string]struct{})
 	for i, ws := range wss {
@@ -251,7 +278,7 @@ func validatePipelineWorkspaces(wss []WorkspacePipelineDeclaration, pts []Pipeli
 			if _, ok := wsTable[ws.Workspace]; !ok {
 				return apis.ErrInvalidValue(
 					fmt.Sprintf("pipeline task %q expects workspace with name %q but none exists in pipeline spec", pt.Name, ws.Workspace),
-					fmt.Sprintf("spec.tasks[%d].workspaces[%d]", ptIdx, wsIdx),
+					fmt.Sprintf(label+"[%d].workspaces[%d]", ptIdx, wsIdx),
 				)
 			}
 		}

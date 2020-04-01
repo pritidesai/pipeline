@@ -413,6 +413,7 @@ func GetPipelineConditionStatus(pr *v1alpha1.PipelineRun, state PipelineRunState
 		}
 
 		if rprt.IsFailure() { //IsDone ensures we have crossed the retry limit
+			//TODO now start running finally tasks
 			logger.Infof("TaskRun %s has failed, so PipelineRun %s has failed, retries done: %b", rprt.TaskRunName, pr.Name, len(rprt.TaskRun.Status.RetriesStatus))
 			return &apis.Condition{
 				Type:    apis.ConditionSucceeded,
@@ -445,6 +446,8 @@ func GetPipelineConditionStatus(pr *v1alpha1.PipelineRun, state PipelineRunState
 		if skipTasks != 0 {
 			reason = ReasonCompleted
 		}
+
+		//TODO now start running finally tasks
 
 		return &apis.Condition{
 			Type:    apis.ConditionSucceeded,

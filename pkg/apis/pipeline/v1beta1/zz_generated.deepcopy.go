@@ -711,6 +711,13 @@ func (in *PipelineSpec) DeepCopyInto(out *PipelineSpec) {
 		*out = make([]WorkspacePipelineDeclaration, len(*in))
 		copy(*out, *in)
 	}
+	if in.Finally != nil {
+		in, out := &in.Finally, &out.Finally
+		*out = make([]PipelineTask, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	return
 }
 

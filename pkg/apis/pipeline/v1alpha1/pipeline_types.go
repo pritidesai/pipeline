@@ -40,6 +40,10 @@ type PipelineSpec struct {
 	// provided by a PipelineRun.
 	// +optional
 	Workspaces []WorkspacePipelineDeclaration `json:"workspaces,omitempty"`
+	// Finally declares the graph of Tasks that execute just before leaving the Pipeline
+	// i.e. either after all Tasks are finished executing successfully
+	// or after a failure which would result in ending the Pipeline
+	Finally []PipelineTask `json:"finally,omitempty"`
 }
 
 // Check that Pipeline may be validated and defaulted.
