@@ -21,6 +21,7 @@ weight: 3
   - [Configuring execution results at the `Pipeline` level](#configuring-execution-results-at-the-pipeline-level)
   - [Configuring the `Task` execution order](#configuring-the-task-execution-order)
   - [Adding a description](#adding-a-description)
+  - [Adding `Finally` to the `Pipeline`](#adding-finally-to-the-pipeline)
   - [Code examples](#code-examples)
 
 ## Overview
@@ -515,6 +516,137 @@ In particular:
 ## Adding a description
 
 The `description` field is an optional field and can be used to provide description of the `Pipeline`.
+
+## Adding `Finally` to the `Pipeline`
+
+You can specify a list of one or more final tasks under `finally` section. Final tasks are guaranteed to be executed
+after all `PipelineTasks` under `tasks` have completed regardless of success or error. Final tasks are very similar to
+`PipelineTasks` under `tasks` section and follow the same syntax. Each final task must have a
+[valid](https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names) `name` and a `taskRef` or
+`taskSpec`. For example:
+
+```yaml
+spec:
+  tasks:
+    - name: tests
+      taskRef:
+        Name: integration-test
+  finally:
+    - name: cleanup-test
+      taskRef:
+        Name: cleanup
+```
+
+### Specifying `Resources` in Final Tasks
+
+Similar to `tasks`, you can use [PipelineResources](#specifying-resources) as inputs and outputs for
+final tasks in the Pipeline. The only difference here is, final tasks with an input resource can have a `from` clause
+but that resource has to rely on output of a `PipelineTask` from `tasks` section. For example:
+
+```yaml
+spec:
+  tasks:
+    - name: tests
+      taskRef:
+        Name: integration-test
+      resources:
+        inputs:
+          - name: source
+            resource: tektoncd-pipeline-repo
+        outputs:
+          - name: workspace
+            resource: my-repo
+  finally:
+    - name: clear-workspace
+      taskRef:
+        Name: clear-workspace
+      resources:
+        inputs:
+          - name: workspace
+            resource: my-repo
+            from:
+              - tests
+```
+
+### Specifying `Parameters` in Final Tasks
+
+Again, similar to `tasks`, you can specify [`Parameters`](tasks.md#specifying-parameters):
+
+```yaml
+spec:
+  tasks:
+    - name: tests
+      taskRef:
+        Name: integration-test
+  finally:
+    - name: report-results
+      taskRef:
+        Name: report-results
+      params:
+        - name: url
+          value: $(params.url)
+```
+
+### Configuring `Task` execution results with `finally`
+
+Final tasks can be configured to consume `Results` of `PipelineTask` from `tasks` section through
+[variable substitution](variables.md#variables-available-in-a-pipeline), For example:
+
+```yaml
+spec:
+  tasks:
+    - name: count-comments-before
+      taskRef:
+        Name: count-comments
+    - name: add-comment
+      taskRef:
+        Name: add-comment
+    - name: count-comments-after
+      taskRef:
+        Name: count-comments
+  finally:
+    - name: check-count
+      taskRef:
+        Name: check-count
+      params:
+        - name: before-count
+          value: $(tasks.count-comments-before.results.count)
+        - name: after-count
+          value: $(tasks.count-comments-after.results.count)
+```
+
+In this example, final task `check-count` consumes results from two `PipelineTask` under `tasks` section,
+(1) `count-comments-before` and (2) `count-comments-after`.
+
+*Note:* Final tasks can emit `Results` but can not be consumed by any other final task nor by any `PipelineTask`
+from `tasks` section for two reasons (1) All final tasks run in parallel (2) Final tasks are executed after all
+`PipelineTask` from `tasks` section.
+
+*Note:* Results emitted from the final tasks can be configured in the
+[Pipeline Results](#configuring-execution-results-at-the-pipeline-level).
+
+```yaml
+  results:
+    - name: comment-count-validate
+      value: $(finally.check-count.results.comment-count-validate)
+```
+
+*Note:* In the above example, if adding the comment to PR fails and task `add-comment` results in `Pipeline` failure,
+the final task `check-count` is not executed since the task result resolution fails for
+$(tasks.count-comments-after.results.count).
+
+### Configuring the Final Task execution order
+
+It's not possible to configure or modify the execution order of the final tasks. Unlike `Tasks` in a `Pipeline`,
+all final tasks run simultaneously and starts executing once all `PipelineTasks` under `tasks` have settled which means
+no `runAfter` can be specified in final tasks.
+
+### Specifying execution `Conditions` in Final Tasks
+
+`Tasks` in a `Pipeline` can be configured to run only if some conditions are satisfied using `conditions`. But the
+final tasks are guaranteed to be executed after all `PipelineTasks` therefore no `conditions` can be specified in
+final tasks.
+
 
 ## Code examples
 

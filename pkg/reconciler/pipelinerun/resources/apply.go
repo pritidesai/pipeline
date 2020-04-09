@@ -74,6 +74,10 @@ func ApplyTaskResults(targets PipelineRunState, resolvedResultRefs ResolvedResul
 			pipelineTask := resolvedPipelineRunTask.PipelineTask.DeepCopy()
 			pipelineTask.Params = replaceParamValues(pipelineTask.Params, stringReplacements, nil)
 			resolvedPipelineRunTask.PipelineTask = pipelineTask
+		} else if resolvedPipelineRunTask.FinalPipelineTask != nil {
+			finalTask := resolvedPipelineRunTask.FinalPipelineTask.DeepCopy()
+			finalTask.Params = replaceParamValues(finalTask.Params, stringReplacements, nil)
+			resolvedPipelineRunTask.FinalPipelineTask = finalTask
 		}
 	}
 }

@@ -320,6 +320,42 @@ func TestResolveResultRefs(t *testing.T) {
 					},
 				},
 			},
+		}, {
+			FinalPipelineTask: &v1alpha1.PipelineTask{
+				Name:    "finalTask",
+				TaskRef: &v1alpha1.TaskRef{Name: "bTask"},
+				Params: []v1beta1.Param{
+					{
+						Name: "finalParam",
+						Value: v1beta1.ArrayOrString{
+							Type:      v1beta1.ParamTypeString,
+							StringVal: "$(tasks.aTask.results.aResult)",
+						},
+					},
+				},
+			},
+		}, {
+			TaskRunName: "finalTaskRun",
+			TaskRun: tb.TaskRun("finalTaskRun", tb.TaskRunStatus(
+				tb.TaskRunResult("finalResult", "finalResultValue"),
+			)),
+			PipelineTask: &v1alpha1.PipelineTask{
+				Name:    "invalidPipelineTask",
+				TaskRef: &v1alpha1.TaskRef{Name: "bTask"},
+				Params: []v1beta1.Param{
+					{
+						Name: "paramFromFinalTask",
+						Value: v1beta1.ArrayOrString{
+							Type:      v1beta1.ParamTypeString,
+							StringVal: "$(finally.finalTask.results.finalResult)",
+						},
+					},
+				},
+			},
+			FinalPipelineTask: &v1alpha1.PipelineTask{
+				Name:    "finalTask",
+				TaskRef: &v1alpha1.TaskRef{Name: "aTask"},
+			},
 		},
 	}
 
@@ -358,6 +394,39 @@ func TestResolveResultRefs(t *testing.T) {
 				pipelineRunState: pipelineRunState,
 				targets: PipelineRunState{
 					pipelineRunState[0],
+				},
+			},
+			want:    nil,
+			wantErr: false,
+		},
+		{
+			name: "Test successful result references resolution in final task",
+			args: args{
+				pipelineRunState: pipelineRunState,
+				targets: PipelineRunState{
+					pipelineRunState[2],
+				},
+			},
+			want: ResolvedResultRefs{
+				{
+					Value: v1beta1.ArrayOrString{
+						Type:      v1beta1.ParamTypeString,
+						StringVal: "aResultValue",
+					},
+					ResultReference: v1beta1.ResultRef{
+						PipelineTask: "aTask",
+						Result:       "aResult",
+					},
+					FromTaskRun: "aTaskRun",
+				},
+			},
+			wantErr: false,
+		}, {
+			name: "Test successful result references from PipelineTask to FinalTask without any resolution",
+			args: args{
+				pipelineRunState: pipelineRunState,
+				targets: PipelineRunState{
+					pipelineRunState[3],
 				},
 			},
 			want:    nil,

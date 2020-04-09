@@ -111,6 +111,38 @@ func TestPipelineConversion(t *testing.T) {
 					}},
 					RunAfter: []string{"task1"},
 				}},
+				Finally: []PipelineTask{{
+					Name: "finaltask1",
+					TaskRef: &TaskRef{
+						Name: "finaltaskref",
+					},
+					Retries: 10,
+					Resources: &PipelineTaskResources{
+						Inputs: []v1beta1.PipelineTaskInputResource{{
+							Name:     "input1",
+							Resource: "resource1",
+						}},
+						Outputs: []v1beta1.PipelineTaskOutputResource{{
+							Name:     "output1",
+							Resource: "resource2",
+						}},
+					},
+					Params: []Param{{
+						Name:  "finalparam1",
+						Value: v1beta1.ArrayOrString{StringVal: "str", Type: v1beta1.ParamTypeString},
+					}},
+					Workspaces: []WorkspacePipelineTaskBinding{{
+						Name:      "w1",
+						Workspace: "workspace1",
+					}},
+				}, {
+					Name: "finaltask2",
+					TaskSpec: &TaskSpec{TaskSpec: v1beta1.TaskSpec{
+						Steps: []v1beta1.Step{{Container: corev1.Container{
+							Image: "foo",
+						}}},
+					}},
+				}},
 			},
 		},
 	}, {
@@ -148,6 +180,27 @@ func TestPipelineConversion(t *testing.T) {
 							}}},
 						}},
 					RunAfter: []string{"task1"},
+				}},
+				Finally: []PipelineTask{{
+					Name: "finaltask",
+					TaskSpec: &TaskSpec{
+						TaskSpec: v1beta1.TaskSpec{
+							Steps: []v1beta1.Step{{Container: corev1.Container{
+								Image: "foo",
+							}}},
+							Resources: &v1beta1.TaskResources{
+								Inputs: []v1beta1.TaskResource{{ResourceDeclaration: v1beta1.ResourceDeclaration{
+									Name: "input-1",
+									Type: resource.PipelineResourceTypeGit,
+								}}},
+							},
+						},
+						Inputs: &Inputs{
+							Resources: []TaskResource{{ResourceDeclaration: ResourceDeclaration{
+								Name: "input-1",
+								Type: resource.PipelineResourceTypeGit,
+							}}},
+						}},
 				}},
 			},
 		},
