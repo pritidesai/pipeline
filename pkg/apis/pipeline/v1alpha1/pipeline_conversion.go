@@ -44,7 +44,7 @@ func (source *PipelineSpec) ConvertTo(ctx context.Context, sink *v1beta1.Pipelin
 	sink.Workspaces = source.Workspaces
 	sink.Description = source.Description
 	if len(source.Tasks) > 0 {
-		sink.Tasks = make([]v1beta1.PipelineTask, len(source.Tasks))
+		sink.Tasks = make([]v1beta1.DAGPipelineTask, len(source.Tasks))
 		for i := range source.Tasks {
 			if err := source.Tasks[i].ConvertTo(ctx, &sink.Tasks[i]); err != nil {
 				return err
@@ -54,7 +54,7 @@ func (source *PipelineSpec) ConvertTo(ctx context.Context, sink *v1beta1.Pipelin
 	return nil
 }
 
-func (source *PipelineTask) ConvertTo(ctx context.Context, sink *v1beta1.PipelineTask) error {
+func (source *DAGPipelineTask) ConvertTo(ctx context.Context, sink *v1beta1.DAGPipelineTask) error {
 	sink.Name = source.Name
 	sink.TaskRef = source.TaskRef
 	if source.TaskSpec != nil {
@@ -90,7 +90,7 @@ func (sink *PipelineSpec) ConvertFrom(ctx context.Context, source v1beta1.Pipeli
 	sink.Workspaces = source.Workspaces
 	sink.Description = source.Description
 	if len(source.Tasks) > 0 {
-		sink.Tasks = make([]PipelineTask, len(source.Tasks))
+		sink.Tasks = make([]DAGPipelineTask, len(source.Tasks))
 		for i := range source.Tasks {
 			if err := sink.Tasks[i].ConvertFrom(ctx, source.Tasks[i]); err != nil {
 				return err
@@ -100,7 +100,7 @@ func (sink *PipelineSpec) ConvertFrom(ctx context.Context, source v1beta1.Pipeli
 	return nil
 }
 
-func (sink *PipelineTask) ConvertFrom(ctx context.Context, source v1beta1.PipelineTask) error {
+func (sink *DAGPipelineTask) ConvertFrom(ctx context.Context, source v1beta1.DAGPipelineTask) error {
 	sink.Name = source.Name
 	sink.TaskRef = source.TaskRef
 	if source.TaskSpec != nil {

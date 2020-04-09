@@ -98,7 +98,7 @@ func GetInputSteps(inputs map[string]*v1alpha1.PipelineResource, inputResources 
 }
 
 // WrapSteps will add the correct `paths` to all of the inputs and outputs for pt
-func WrapSteps(tr *v1alpha1.TaskRunSpec, pt *v1alpha1.PipelineTask, inputs, outputs map[string]*v1alpha1.PipelineResource, storageBasePath string) {
+func WrapSteps(tr *v1alpha1.TaskRunSpec, pt *v1alpha1.DAGPipelineTask, inputs, outputs map[string]*v1alpha1.PipelineResource, storageBasePath string) {
 	if pt == nil {
 		return
 	}

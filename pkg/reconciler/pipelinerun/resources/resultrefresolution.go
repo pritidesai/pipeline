@@ -106,7 +106,7 @@ func removeDup(refs ResolvedResultRefs) ResolvedResultRefs {
 		order = append(order, key)
 	}
 	sort.Slice(order, func(i, j int) bool {
-		if order[i].PipelineTask > order[j].PipelineTask {
+		if order[i].DAGPipelineTask > order[j].DAGPipelineTask {
 			return false
 		}
 		if order[i].Result > order[j].Result {
@@ -184,10 +184,10 @@ func resolveResultRef(pipelineState PipelineRunState, resultRef *v1beta1.ResultR
 }
 
 func getReferencedTaskRun(pipelineState PipelineRunState, reference *v1beta1.ResultRef) (*v1alpha1.TaskRun, error) {
-	referencedPipelineTask := pipelineState.ToMap()[reference.PipelineTask]
+	referencedPipelineTask := pipelineState.ToMap()[reference.DAGPipelineTask]
 
 	if referencedPipelineTask == nil {
-		return nil, fmt.Errorf("could not find task %q referenced by result", reference.PipelineTask)
+		return nil, fmt.Errorf("could not find task %q referenced by result", reference.DAGPipelineTask)
 	}
 	if referencedPipelineTask.TaskRun == nil || referencedPipelineTask.IsFailure() {
 		return nil, fmt.Errorf("could not find successful taskrun for task %q", referencedPipelineTask.PipelineTask.Name)
@@ -202,5 +202,5 @@ func findTaskResultForParam(taskRun *v1alpha1.TaskRun, reference *v1beta1.Result
 			return &result, nil
 		}
 	}
-	return nil, fmt.Errorf("Could not find result with name %s for task run %s", reference.Result, reference.PipelineTask)
+	return nil, fmt.Errorf("Could not find result with name %s for task run %s", reference.Result, reference.DAGPipelineTask)
 }

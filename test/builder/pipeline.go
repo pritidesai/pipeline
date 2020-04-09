@@ -33,8 +33,8 @@ type PipelineOp func(*v1alpha1.Pipeline)
 // PipelineSpecOp is an operation which modify a PipelineSpec struct.
 type PipelineSpecOp func(*v1alpha1.PipelineSpec)
 
-// PipelineTaskOp is an operation which modify a PipelineTask struct.
-type PipelineTaskOp func(*v1alpha1.PipelineTask)
+// PipelineTaskOp is an operation which modify a DAGPipelineTask struct.
+type PipelineTaskOp func(*v1alpha1.DAGPipelineTask)
 
 // PipelineRunOp is an operation which modify a PipelineRun struct.
 type PipelineRunOp func(*v1alpha1.PipelineRun)
@@ -140,12 +140,14 @@ func PipelineParamSpec(name string, pt v1alpha1.ParamType, ops ...ParamSpecOp) P
 	}
 }
 
-// PipelineTask adds a PipelineTask, with specified name and task name, to the PipelineSpec.
-// Any number of PipelineTask modifier can be passed to transform it.
-func PipelineTask(name, taskName string, ops ...PipelineTaskOp) PipelineSpecOp {
+// DAGPipelineTask adds a DAGPipelineTask, with specified name and task name, to the PipelineSpec.
+// Any number of DAGPipelineTask modifier can be passed to transform it.
+func DAGPipelineTask(name, taskName string, ops ...PipelineTaskOp) PipelineSpecOp {
 	return func(ps *v1alpha1.PipelineSpec) {
-		pTask := &v1alpha1.PipelineTask{
-			Name: name,
+		pTask := &v1alpha1.DAGPipelineTask{
+			PipelineTask: v1alpha1.PipelineTask{Name: name},
+			Conditions:   nil,
+			RunAfter:     nil,
 		}
 		if taskName != "" {
 			pTask.TaskRef = &v1alpha1.TaskRef{
@@ -181,13 +183,13 @@ func PipelineRunResult(name, value string) PipelineRunStatusOp {
 }
 
 func PipelineTaskSpec(spec *v1alpha1.TaskSpec) PipelineTaskOp {
-	return func(pt *v1alpha1.PipelineTask) {
+	return func(pt *v1alpha1.DAGPipelineTask) {
 		pt.TaskSpec = spec
 	}
 }
 
 func Retries(retries int) PipelineTaskOp {
-	return func(pt *v1alpha1.PipelineTask) {
+	return func(pt *v1alpha1.DAGPipelineTask) {
 		pt.Retries = retries
 	}
 }
@@ -195,22 +197,22 @@ func Retries(retries int) PipelineTaskOp {
 // RunAfter will update the provided Pipeline Task to indicate that it
 // should be run after the provided list of Pipeline Task names.
 func RunAfter(tasks ...string) PipelineTaskOp {
-	return func(pt *v1alpha1.PipelineTask) {
+	return func(pt *v1alpha1.DAGPipelineTask) {
 		pt.RunAfter = tasks
 	}
 }
 
 // PipelineTaskRefKind sets the TaskKind to the PipelineTaskRef.
 func PipelineTaskRefKind(kind v1alpha1.TaskKind) PipelineTaskOp {
-	return func(pt *v1alpha1.PipelineTask) {
+	return func(pt *v1alpha1.DAGPipelineTask) {
 		pt.TaskRef.Kind = kind
 	}
 }
 
-// PipelineTaskParam adds a ResourceParam, with specified name and value, to the PipelineTask.
+// PipelineTaskParam adds a ResourceParam, with specified name and value, to the DAGPipelineTask.
 func PipelineTaskParam(name string, value string, additionalValues ...string) PipelineTaskOp {
 	arrayOrString := ArrayOrString(value, additionalValues...)
-	return func(pt *v1alpha1.PipelineTask) {
+	return func(pt *v1alpha1.DAGPipelineTask) {
 		pt.Params = append(pt.Params, v1alpha1.Param{
 			Name:  name,
 			Value: *arrayOrString,
@@ -226,11 +228,11 @@ func From(tasks ...string) PipelineTaskInputResourceOp {
 	}
 }
 
-// PipelineTaskInputResource adds an input resource to the PipelineTask with the specified
+// PipelineTaskInputResource adds an input resource to the DAGPipelineTask with the specified
 // name, pointing at the declared resource.
 // Any number of PipelineTaskInputResource modifies can be passed to transform it.
 func PipelineTaskInputResource(name, resource string, ops ...PipelineTaskInputResourceOp) PipelineTaskOp {
-	return func(pt *v1alpha1.PipelineTask) {
+	return func(pt *v1alpha1.DAGPipelineTask) {
 		r := v1alpha1.PipelineTaskInputResource{
 			Name:     name,
 			Resource: resource,
@@ -245,10 +247,10 @@ func PipelineTaskInputResource(name, resource string, ops ...PipelineTaskInputRe
 	}
 }
 
-// PipelineTaskOutputResource adds an output resource to the PipelineTask with the specified
+// PipelineTaskOutputResource adds an output resource to the DAGPipelineTask with the specified
 // name, pointing at the declared resource.
 func PipelineTaskOutputResource(name, resource string) PipelineTaskOp {
-	return func(pt *v1alpha1.PipelineTask) {
+	return func(pt *v1alpha1.DAGPipelineTask) {
 		r := v1alpha1.PipelineTaskOutputResource{
 			Name:     name,
 			Resource: resource,
@@ -260,11 +262,11 @@ func PipelineTaskOutputResource(name, resource string) PipelineTaskOp {
 	}
 }
 
-// PipelineTaskCondition adds a condition to the PipelineTask with the
+// PipelineTaskCondition adds a condition to the DAGPipelineTask with the
 // specified conditionRef. Any number of PipelineTaskCondition modifiers can be passed
 // to transform it
 func PipelineTaskCondition(conditionRef string, ops ...PipelineTaskConditionOp) PipelineTaskOp {
-	return func(pt *v1alpha1.PipelineTask) {
+	return func(pt *v1alpha1.DAGPipelineTask) {
 		c := &v1alpha1.PipelineTaskCondition{
 			ConditionRef: conditionRef,
 		}
@@ -303,7 +305,7 @@ func PipelineTaskConditionResource(name, resource string, from ...string) Pipeli
 }
 
 func PipelineTaskWorkspaceBinding(name, workspace string) PipelineTaskOp {
-	return func(pt *v1alpha1.PipelineTask) {
+	return func(pt *v1alpha1.DAGPipelineTask) {
 		pt.Workspaces = append(pt.Workspaces, v1alpha1.WorkspacePipelineTaskBinding{
 			Name:      name,
 			Workspace: workspace,
@@ -311,9 +313,9 @@ func PipelineTaskWorkspaceBinding(name, workspace string) PipelineTaskOp {
 	}
 }
 
-// PipelineTaskTimeout sets the timeout for the PipelineTask.
+// PipelineTaskTimeout sets the timeout for the DAGPipelineTask.
 func PipelineTaskTimeout(duration time.Duration) PipelineTaskOp {
-	return func(pt *v1alpha1.PipelineTask) {
+	return func(pt *v1alpha1.DAGPipelineTask) {
 		pt.Timeout = &metav1.Duration{Duration: duration}
 	}
 }

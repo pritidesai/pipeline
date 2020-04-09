@@ -35,7 +35,11 @@ func TestPipeline_Validate(t *testing.T) {
 		p: &v1beta1.Pipeline{
 			ObjectMeta: metav1.ObjectMeta{Name: "pipeline"},
 			Spec: v1beta1.PipelineSpec{
-				Tasks: []v1beta1.PipelineTask{{Name: "foo", TaskRef: &v1beta1.TaskRef{Name: "foo-task"}}},
+				Tasks: []v1beta1.DAGPipelineTask{{
+					PipelineTask: v1beta1.PipelineTask{
+						Name: "foo", TaskRef: &v1beta1.TaskRef{Name: "foo-task"}},
+				},
+				},
 			},
 		},
 		failureExpected: false,
@@ -49,16 +53,18 @@ func TestPipeline_Validate(t *testing.T) {
 				}, {
 					Name: "wonderful-resource", Type: v1beta1.PipelineResourceTypeImage,
 				}},
-				Tasks: []v1beta1.PipelineTask{{
-					Name:    "bar",
-					TaskRef: &v1beta1.TaskRef{Name: "bar-task"},
-					Resources: &v1beta1.PipelineTaskResources{
-						Inputs: []v1beta1.PipelineTaskInputResource{{
-							Name: "some-workspace", Resource: "great-resource",
-						}},
-						Outputs: []v1beta1.PipelineTaskOutputResource{{
-							Name: "some-imagee", Resource: "wonderful-resource",
-						}},
+				Tasks: []v1beta1.DAGPipelineTask{{
+					PipelineTask: v1beta1.PipelineTask{
+						Name:    "bar",
+						TaskRef: &v1beta1.TaskRef{Name: "bar-task"},
+						Resources: &v1beta1.PipelineTaskResources{
+							Inputs: []v1beta1.PipelineTaskInputResource{{
+								Name: "some-workspace", Resource: "great-resource",
+							}},
+							Outputs: []v1beta1.PipelineTaskOutputResource{{
+								Name: "some-imagee", Resource: "wonderful-resource",
+							}},
+						},
 					},
 					Conditions: []v1beta1.PipelineTaskCondition{{
 						ConditionRef: "some-condition",
@@ -67,12 +73,14 @@ func TestPipeline_Validate(t *testing.T) {
 						}},
 					}},
 				}, {
-					Name:    "foo",
-					TaskRef: &v1beta1.TaskRef{Name: "foo-task"},
-					Resources: &v1beta1.PipelineTaskResources{
-						Inputs: []v1beta1.PipelineTaskInputResource{{
-							Name: "some-imagee", Resource: "wonderful-resource", From: []string{"bar"},
-						}},
+					PipelineTask: v1beta1.PipelineTask{
+						Name:    "foo",
+						TaskRef: &v1beta1.TaskRef{Name: "foo-task"},
+						Resources: &v1beta1.PipelineTaskResources{
+							Inputs: []v1beta1.PipelineTaskInputResource{{
+								Name: "some-imagee", Resource: "wonderful-resource", From: []string{"bar"},
+							}},
+						},
 					},
 					Conditions: []v1beta1.PipelineTaskCondition{{
 						ConditionRef: "some-condition-2",
@@ -89,7 +97,10 @@ func TestPipeline_Validate(t *testing.T) {
 		p: &v1beta1.Pipeline{
 			ObjectMeta: metav1.ObjectMeta{Name: "pipe.line"},
 			Spec: v1beta1.PipelineSpec{
-				Tasks: []v1beta1.PipelineTask{{Name: "foo", TaskRef: &v1beta1.TaskRef{Name: "foo-task"}}},
+				Tasks: []v1beta1.DAGPipelineTask{{
+					PipelineTask: v1beta1.PipelineTask{
+						Name: "foo", TaskRef: &v1beta1.TaskRef{Name: "foo-task"}},
+				}},
 			},
 		},
 		failureExpected: true,
@@ -110,8 +121,11 @@ func TestPipeline_Validate(t *testing.T) {
 		p: &v1beta1.Pipeline{
 			ObjectMeta: metav1.ObjectMeta{Name: "pipeline"},
 			Spec: v1beta1.PipelineSpec{
-				Tasks: []v1beta1.PipelineTask{
-					{Name: "foo"},
+				Tasks: []v1beta1.DAGPipelineTask{{
+					PipelineTask: v1beta1.PipelineTask{
+						Name: "foo",
+					},
+				},
 				},
 			},
 		},
@@ -121,8 +135,8 @@ func TestPipeline_Validate(t *testing.T) {
 		p: &v1beta1.Pipeline{
 			ObjectMeta: metav1.ObjectMeta{Name: "pipeline"},
 			Spec: v1beta1.PipelineSpec{
-				Tasks: []v1beta1.PipelineTask{
-					{
+				Tasks: []v1beta1.DAGPipelineTask{{
+					PipelineTask: v1beta1.PipelineTask{
 						Name:    "foo",
 						TaskRef: &v1beta1.TaskRef{Name: "foo-task"},
 						TaskSpec: &v1beta1.TaskSpec{
@@ -132,6 +146,7 @@ func TestPipeline_Validate(t *testing.T) {
 						},
 					},
 				},
+				},
 			},
 		},
 		failureExpected: true,
@@ -140,11 +155,12 @@ func TestPipeline_Validate(t *testing.T) {
 		p: &v1beta1.Pipeline{
 			ObjectMeta: metav1.ObjectMeta{Name: "pipeline"},
 			Spec: v1beta1.PipelineSpec{
-				Tasks: []v1beta1.PipelineTask{
-					{
+				Tasks: []v1beta1.DAGPipelineTask{{
+					PipelineTask: v1beta1.PipelineTask{
 						Name:     "foo",
 						TaskSpec: &v1beta1.TaskSpec{},
 					},
+				},
 				},
 			},
 		},
@@ -154,15 +170,15 @@ func TestPipeline_Validate(t *testing.T) {
 		p: &v1beta1.Pipeline{
 			ObjectMeta: metav1.ObjectMeta{Name: "pipeline"},
 			Spec: v1beta1.PipelineSpec{
-				Tasks: []v1beta1.PipelineTask{
-					{
+				Tasks: []v1beta1.DAGPipelineTask{{
+					PipelineTask: v1beta1.PipelineTask{
 						Name: "foo",
 						TaskSpec: &v1beta1.TaskSpec{
 							Steps: []v1beta1.Step{{
 								Container: corev1.Container{Name: "foo", Image: "bar"},
 							}},
 						},
-					},
+					}},
 				},
 			},
 		},
@@ -172,9 +188,9 @@ func TestPipeline_Validate(t *testing.T) {
 		p: &v1beta1.Pipeline{
 			ObjectMeta: metav1.ObjectMeta{Name: "pipeline"},
 			Spec: v1beta1.PipelineSpec{
-				Tasks: []v1beta1.PipelineTask{
-					{Name: "foo", TaskRef: &v1beta1.TaskRef{Name: "foo-task"}},
-					{Name: "foo", TaskRef: &v1beta1.TaskRef{Name: "foo-task"}},
+				Tasks: []v1beta1.DAGPipelineTask{
+					{PipelineTask: v1beta1.PipelineTask{Name: "foo", TaskRef: &v1beta1.TaskRef{Name: "foo-task"}}},
+					{PipelineTask: v1beta1.PipelineTask{Name: "foo", TaskRef: &v1beta1.TaskRef{Name: "foo-task"}}},
 				},
 			},
 		},
@@ -184,7 +200,10 @@ func TestPipeline_Validate(t *testing.T) {
 		p: &v1beta1.Pipeline{
 			ObjectMeta: metav1.ObjectMeta{Name: "pipeline"},
 			Spec: v1beta1.PipelineSpec{
-				Tasks: []v1beta1.PipelineTask{{Name: "", TaskRef: &v1beta1.TaskRef{Name: "foo-task"}}},
+				Tasks: []v1beta1.DAGPipelineTask{{
+					PipelineTask: v1beta1.PipelineTask{
+						Name: "", TaskRef: &v1beta1.TaskRef{Name: "foo-task"}},
+				}},
 			},
 		},
 		failureExpected: true,
@@ -193,7 +212,10 @@ func TestPipeline_Validate(t *testing.T) {
 		p: &v1beta1.Pipeline{
 			ObjectMeta: metav1.ObjectMeta{Name: "pipeline"},
 			Spec: v1beta1.PipelineSpec{
-				Tasks: []v1beta1.PipelineTask{{Name: "_foo", TaskRef: &v1beta1.TaskRef{Name: "foo-task"}}},
+				Tasks: []v1beta1.DAGPipelineTask{{
+					PipelineTask: v1beta1.PipelineTask{
+						Name: "_foo", TaskRef: &v1beta1.TaskRef{Name: "foo-task"}},
+				}},
 			},
 		},
 		failureExpected: true,
@@ -202,7 +224,10 @@ func TestPipeline_Validate(t *testing.T) {
 		p: &v1beta1.Pipeline{
 			ObjectMeta: metav1.ObjectMeta{Name: "pipeline"},
 			Spec: v1beta1.PipelineSpec{
-				Tasks: []v1beta1.PipelineTask{{Name: "fooTask", TaskRef: &v1beta1.TaskRef{Name: "foo-task"}}},
+				Tasks: []v1beta1.DAGPipelineTask{{
+					PipelineTask: v1beta1.PipelineTask{
+						Name: "fooTask", TaskRef: &v1beta1.TaskRef{Name: "foo-task"}},
+				}},
 			},
 		},
 		failureExpected: true,
@@ -211,7 +236,10 @@ func TestPipeline_Validate(t *testing.T) {
 		p: &v1beta1.Pipeline{
 			ObjectMeta: metav1.ObjectMeta{Name: "pipeline"},
 			Spec: v1beta1.PipelineSpec{
-				Tasks: []v1beta1.PipelineTask{{Name: "foo", TaskRef: &v1beta1.TaskRef{Name: "_foo-task"}}},
+				Tasks: []v1beta1.DAGPipelineTask{{
+					PipelineTask: v1beta1.PipelineTask{
+						Name: "foo", TaskRef: &v1beta1.TaskRef{Name: "_foo-task"}},
+				}},
 			},
 		},
 		failureExpected: true,
@@ -223,9 +251,11 @@ func TestPipeline_Validate(t *testing.T) {
 				Resources: []v1beta1.PipelineDeclaredResource{{
 					Name: "great-resource", Type: v1beta1.PipelineResourceTypeGit,
 				}},
-				Tasks: []v1beta1.PipelineTask{{
-					Name:    "bar",
-					TaskRef: &v1beta1.TaskRef{Name: "bar-task"},
+				Tasks: []v1beta1.DAGPipelineTask{{
+					PipelineTask: v1beta1.PipelineTask{
+						Name:    "bar",
+						TaskRef: &v1beta1.TaskRef{Name: "bar-task"},
+					},
 					Conditions: []v1beta1.PipelineTaskCondition{{
 						ConditionRef: "some-condition",
 						Resources: []v1beta1.PipelineTaskInputResource{{
@@ -246,12 +276,14 @@ func TestPipeline_Validate(t *testing.T) {
 				}, {
 					Name: "foo-is-baz", Type: v1beta1.ParamTypeString,
 				}},
-				Tasks: []v1beta1.PipelineTask{{
-					Name:    "bar",
-					TaskRef: &v1beta1.TaskRef{Name: "bar-task"},
-					Params: []v1beta1.Param{{
-						Name: "a-param", Value: v1beta1.ArrayOrString{StringVal: "$(baz) and $(foo-is-baz)"},
-					}},
+				Tasks: []v1beta1.DAGPipelineTask{{
+					PipelineTask: v1beta1.PipelineTask{
+						Name:    "bar",
+						TaskRef: &v1beta1.TaskRef{Name: "bar-task"},
+						Params: []v1beta1.Param{{
+							Name: "a-param", Value: v1beta1.ArrayOrString{StringVal: "$(baz) and $(foo-is-baz)"},
+						}},
+					},
 				}},
 			},
 		},
@@ -266,12 +298,14 @@ func TestPipeline_Validate(t *testing.T) {
 				}, {
 					Name: "foo-is-baz", Type: v1beta1.ParamTypeArray,
 				}},
-				Tasks: []v1beta1.PipelineTask{{
-					Name:    "bar",
-					TaskRef: &v1beta1.TaskRef{Name: "bar-task"},
-					Params: []v1beta1.Param{{
-						Name: "a-param", Value: v1beta1.ArrayOrString{ArrayVal: []string{"$(baz)", "and", "$(foo-is-baz)"}},
-					}},
+				Tasks: []v1beta1.DAGPipelineTask{{
+					PipelineTask: v1beta1.PipelineTask{
+						Name:    "bar",
+						TaskRef: &v1beta1.TaskRef{Name: "bar-task"},
+						Params: []v1beta1.Param{{
+							Name: "a-param", Value: v1beta1.ArrayOrString{ArrayVal: []string{"$(baz)", "and", "$(foo-is-baz)"}},
+						}},
+					},
 				}},
 			},
 		},
@@ -286,12 +320,14 @@ func TestPipeline_Validate(t *testing.T) {
 				}, {
 					Name: "foo-is-baz", Type: v1beta1.ParamTypeArray,
 				}},
-				Tasks: []v1beta1.PipelineTask{{
-					Name:    "bar",
-					TaskRef: &v1beta1.TaskRef{Name: "bar-task"},
-					Params: []v1beta1.Param{{
-						Name: "a-param", Value: v1beta1.ArrayOrString{ArrayVal: []string{"$(baz[*])", "and", "$(foo-is-baz[*])"}},
-					}},
+				Tasks: []v1beta1.DAGPipelineTask{{
+					PipelineTask: v1beta1.PipelineTask{
+						Name:    "bar",
+						TaskRef: &v1beta1.TaskRef{Name: "bar-task"},
+						Params: []v1beta1.Param{{
+							Name: "a-param", Value: v1beta1.ArrayOrString{ArrayVal: []string{"$(baz[*])", "and", "$(foo-is-baz[*])"}},
+						}},
+					},
 				}},
 			},
 		},
@@ -304,12 +340,14 @@ func TestPipeline_Validate(t *testing.T) {
 				Params: []v1beta1.ParamSpec{{
 					Name: "baz", Type: v1beta1.ParamTypeString,
 				}},
-				Tasks: []v1beta1.PipelineTask{{
-					Name:    "bar",
-					TaskRef: &v1beta1.TaskRef{Name: "bar-task"},
-					Params: []v1beta1.Param{{
-						Name: "a-param", Value: v1beta1.ArrayOrString{StringVal: "$(input.workspace.$(baz))"},
-					}},
+				Tasks: []v1beta1.DAGPipelineTask{{
+					PipelineTask: v1beta1.PipelineTask{
+						Name:    "bar",
+						TaskRef: &v1beta1.TaskRef{Name: "bar-task"},
+						Params: []v1beta1.Param{{
+							Name: "a-param", Value: v1beta1.ArrayOrString{StringVal: "$(input.workspace.$(baz))"},
+						}},
+					},
 				}},
 			},
 		},
@@ -322,13 +360,15 @@ func TestPipeline_Validate(t *testing.T) {
 				Resources: []v1beta1.PipelineDeclaredResource{{
 					Name: "great-resource", Type: v1beta1.PipelineResourceTypeGit,
 				}},
-				Tasks: []v1beta1.PipelineTask{{
-					Name:    "foo",
-					TaskRef: &v1beta1.TaskRef{Name: "foo-task"},
-					Resources: &v1beta1.PipelineTaskResources{
-						Inputs: []v1beta1.PipelineTaskInputResource{{
-							Name: "the-resource", Resource: "great-resource", From: []string{"bar"},
-						}},
+				Tasks: []v1beta1.DAGPipelineTask{{
+					PipelineTask: v1beta1.PipelineTask{
+						Name:    "foo",
+						TaskRef: &v1beta1.TaskRef{Name: "foo-task"},
+						Resources: &v1beta1.PipelineTaskResources{
+							Inputs: []v1beta1.PipelineTaskInputResource{{
+								Name: "the-resource", Resource: "great-resource", From: []string{"bar"},
+							}},
+						},
 					},
 				}},
 			},
@@ -342,15 +382,19 @@ func TestPipeline_Validate(t *testing.T) {
 				Resources: []v1beta1.PipelineDeclaredResource{{
 					Name: "great-resource", Type: v1beta1.PipelineResourceTypeGit,
 				}},
-				Tasks: []v1beta1.PipelineTask{{
-					Name: "baz", TaskRef: &v1beta1.TaskRef{Name: "baz-task"},
+				Tasks: []v1beta1.DAGPipelineTask{{
+					PipelineTask: v1beta1.PipelineTask{
+						Name: "baz", TaskRef: &v1beta1.TaskRef{Name: "baz-task"},
+					},
 				}, {
-					Name:    "foo",
-					TaskRef: &v1beta1.TaskRef{Name: "foo-task"},
-					Resources: &v1beta1.PipelineTaskResources{
-						Inputs: []v1beta1.PipelineTaskInputResource{{
-							Name: "the-resource", Resource: "great-resource", From: []string{"bar"},
-						}},
+					PipelineTask: v1beta1.PipelineTask{
+						Name:    "foo",
+						TaskRef: &v1beta1.TaskRef{Name: "foo-task"},
+						Resources: &v1beta1.PipelineTaskResources{
+							Inputs: []v1beta1.PipelineTaskInputResource{{
+								Name: "the-resource", Resource: "great-resource", From: []string{"bar"},
+							}},
+						},
 					},
 				}},
 			},
@@ -366,13 +410,15 @@ func TestPipeline_Validate(t *testing.T) {
 				}, {
 					Name: "duplicate-resource", Type: v1beta1.PipelineResourceTypeGit,
 				}},
-				Tasks: []v1beta1.PipelineTask{{
-					Name:    "foo",
-					TaskRef: &v1beta1.TaskRef{Name: "foo-task"},
-					Resources: &v1beta1.PipelineTaskResources{
-						Inputs: []v1beta1.PipelineTaskInputResource{{
-							Name: "the-resource", Resource: "duplicate-resource",
-						}},
+				Tasks: []v1beta1.DAGPipelineTask{{
+					PipelineTask: v1beta1.PipelineTask{
+						Name:    "foo",
+						TaskRef: &v1beta1.TaskRef{Name: "foo-task"},
+						Resources: &v1beta1.PipelineTaskResources{
+							Inputs: []v1beta1.PipelineTaskInputResource{{
+								Name: "the-resource", Resource: "duplicate-resource",
+							}},
+						},
 					},
 				}},
 			},
@@ -386,16 +432,18 @@ func TestPipeline_Validate(t *testing.T) {
 				Resources: []v1beta1.PipelineDeclaredResource{{
 					Name: "great-resource", Type: v1beta1.PipelineResourceTypeGit,
 				}},
-				Tasks: []v1beta1.PipelineTask{{
-					Name:    "foo",
-					TaskRef: &v1beta1.TaskRef{Name: "foo-task"},
-					Resources: &v1beta1.PipelineTaskResources{
-						Inputs: []v1beta1.PipelineTaskInputResource{{
-							Name: "the-resource", Resource: "great-resource",
-						}},
-						Outputs: []v1beta1.PipelineTaskOutputResource{{
-							Name: "the-magic-resource", Resource: "missing-resource",
-						}},
+				Tasks: []v1beta1.DAGPipelineTask{{
+					PipelineTask: v1beta1.PipelineTask{
+						Name:    "foo",
+						TaskRef: &v1beta1.TaskRef{Name: "foo-task"},
+						Resources: &v1beta1.PipelineTaskResources{
+							Inputs: []v1beta1.PipelineTaskInputResource{{
+								Name: "the-resource", Resource: "great-resource",
+							}},
+							Outputs: []v1beta1.PipelineTaskOutputResource{{
+								Name: "the-magic-resource", Resource: "missing-resource",
+							}},
+						},
 					},
 				}},
 			},
@@ -409,16 +457,18 @@ func TestPipeline_Validate(t *testing.T) {
 				Resources: []v1beta1.PipelineDeclaredResource{{
 					Name: "great-resource", Type: v1beta1.PipelineResourceTypeGit,
 				}},
-				Tasks: []v1beta1.PipelineTask{{
-					Name:    "foo",
-					TaskRef: &v1beta1.TaskRef{Name: "foo-task"},
-					Resources: &v1beta1.PipelineTaskResources{
-						Inputs: []v1beta1.PipelineTaskInputResource{{
-							Name: "the-resource", Resource: "missing-resource",
-						}},
-						Outputs: []v1beta1.PipelineTaskOutputResource{{
-							Name: "the-magic-resource", Resource: "great-resource",
-						}},
+				Tasks: []v1beta1.DAGPipelineTask{{
+					PipelineTask: v1beta1.PipelineTask{
+						Name:    "foo",
+						TaskRef: &v1beta1.TaskRef{Name: "foo-task"},
+						Resources: &v1beta1.PipelineTaskResources{
+							Inputs: []v1beta1.PipelineTaskInputResource{{
+								Name: "the-resource", Resource: "missing-resource",
+							}},
+							Outputs: []v1beta1.PipelineTaskOutputResource{{
+								Name: "the-magic-resource", Resource: "great-resource",
+							}},
+						},
 					},
 				}},
 			},
@@ -429,9 +479,11 @@ func TestPipeline_Validate(t *testing.T) {
 		p: &v1beta1.Pipeline{
 			ObjectMeta: metav1.ObjectMeta{Name: "pipeline"},
 			Spec: v1beta1.PipelineSpec{
-				Tasks: []v1beta1.PipelineTask{{
-					Name:    "bar",
-					TaskRef: &v1beta1.TaskRef{Name: "bar-task"},
+				Tasks: []v1beta1.DAGPipelineTask{{
+					PipelineTask: v1beta1.PipelineTask{
+						Name:    "bar",
+						TaskRef: &v1beta1.TaskRef{Name: "bar-task"},
+					},
 					Conditions: []v1beta1.PipelineTaskCondition{{
 						ConditionRef: "some-condition",
 						Resources: []v1beta1.PipelineTaskInputResource{{
@@ -447,11 +499,15 @@ func TestPipeline_Validate(t *testing.T) {
 		p: &v1beta1.Pipeline{
 			ObjectMeta: metav1.ObjectMeta{Name: "pipeline"},
 			Spec: v1beta1.PipelineSpec{
-				Tasks: []v1beta1.PipelineTask{{
-					Name: "foo", TaskRef: &v1beta1.TaskRef{Name: "foo-task"},
+				Tasks: []v1beta1.DAGPipelineTask{{
+					PipelineTask: v1beta1.PipelineTask{
+						Name: "foo", TaskRef: &v1beta1.TaskRef{Name: "foo-task"},
+					},
 				}, {
-					Name:    "bar",
-					TaskRef: &v1beta1.TaskRef{Name: "bar-task"},
+					PipelineTask: v1beta1.PipelineTask{
+						Name:    "bar",
+						TaskRef: &v1beta1.TaskRef{Name: "bar-task"},
+					},
 					Conditions: []v1beta1.PipelineTaskCondition{{
 						ConditionRef: "some-condition",
 						Resources: []v1beta1.PipelineTaskInputResource{{
@@ -472,21 +528,25 @@ func TestPipeline_Validate(t *testing.T) {
 				}, {
 					Name: "wonderful-resource", Type: v1beta1.PipelineResourceTypeImage,
 				}},
-				Tasks: []v1beta1.PipelineTask{{
-					Name:    "bar",
-					TaskRef: &v1beta1.TaskRef{Name: "bar-task"},
-					Resources: &v1beta1.PipelineTaskResources{
-						Inputs: []v1beta1.PipelineTaskInputResource{{
-							Name: "some-resource", Resource: "great-resource",
-						}},
+				Tasks: []v1beta1.DAGPipelineTask{{
+					PipelineTask: v1beta1.PipelineTask{
+						Name:    "bar",
+						TaskRef: &v1beta1.TaskRef{Name: "bar-task"},
+						Resources: &v1beta1.PipelineTaskResources{
+							Inputs: []v1beta1.PipelineTaskInputResource{{
+								Name: "some-resource", Resource: "great-resource",
+							}},
+						},
 					},
 				}, {
-					Name:    "foo",
-					TaskRef: &v1beta1.TaskRef{Name: "foo-task"},
-					Resources: &v1beta1.PipelineTaskResources{
-						Inputs: []v1beta1.PipelineTaskInputResource{{
-							Name: "wow-image", Resource: "wonderful-resource", From: []string{"bar"},
-						}},
+					PipelineTask: v1beta1.PipelineTask{
+						Name:    "foo",
+						TaskRef: &v1beta1.TaskRef{Name: "foo-task"},
+						Resources: &v1beta1.PipelineTaskResources{
+							Inputs: []v1beta1.PipelineTaskInputResource{{
+								Name: "wow-image", Resource: "wonderful-resource", From: []string{"bar"},
+							}},
+						},
 					},
 				}},
 			},
@@ -497,12 +557,14 @@ func TestPipeline_Validate(t *testing.T) {
 		p: &v1beta1.Pipeline{
 			ObjectMeta: metav1.ObjectMeta{Name: "pipeline"},
 			Spec: v1beta1.PipelineSpec{
-				Tasks: []v1beta1.PipelineTask{{
-					Name:    "foo",
-					TaskRef: &v1beta1.TaskRef{Name: "foo-task"},
-					Params: []v1beta1.Param{{
-						Name: "a-param", Value: v1beta1.ArrayOrString{Type: v1beta1.ParamTypeString, StringVal: "$(params.does-not-exist)"},
-					}},
+				Tasks: []v1beta1.DAGPipelineTask{{
+					PipelineTask: v1beta1.PipelineTask{
+						Name:    "foo",
+						TaskRef: &v1beta1.TaskRef{Name: "foo-task"},
+						Params: []v1beta1.Param{{
+							Name: "a-param", Value: v1beta1.ArrayOrString{Type: v1beta1.ParamTypeString, StringVal: "$(params.does-not-exist)"},
+						}},
+					},
 				}},
 			},
 		},
@@ -515,12 +577,14 @@ func TestPipeline_Validate(t *testing.T) {
 				Params: []v1beta1.ParamSpec{{
 					Name: "foo", Type: v1beta1.ParamTypeString,
 				}},
-				Tasks: []v1beta1.PipelineTask{{
-					Name:    "foo",
-					TaskRef: &v1beta1.TaskRef{Name: "foo-task"},
-					Params: []v1beta1.Param{{
-						Name: "a-param", Value: v1beta1.ArrayOrString{Type: v1beta1.ParamTypeString, StringVal: "$(params.foo) and $(params.does-not-exist)"},
-					}},
+				Tasks: []v1beta1.DAGPipelineTask{{
+					PipelineTask: v1beta1.PipelineTask{
+						Name:    "foo",
+						TaskRef: &v1beta1.TaskRef{Name: "foo-task"},
+						Params: []v1beta1.Param{{
+							Name: "a-param", Value: v1beta1.ArrayOrString{Type: v1beta1.ParamTypeString, StringVal: "$(params.foo) and $(params.does-not-exist)"},
+						}},
+					},
 				}},
 			},
 		},
@@ -533,9 +597,11 @@ func TestPipeline_Validate(t *testing.T) {
 				Params: []v1beta1.ParamSpec{{
 					Name: "foo", Type: "invalidtype",
 				}},
-				Tasks: []v1beta1.PipelineTask{{
-					Name:    "foo",
-					TaskRef: &v1beta1.TaskRef{Name: "foo-task"},
+				Tasks: []v1beta1.DAGPipelineTask{{
+					PipelineTask: v1beta1.PipelineTask{
+						Name:    "foo",
+						TaskRef: &v1beta1.TaskRef{Name: "foo-task"},
+					},
 				}},
 			},
 		},
@@ -548,10 +614,12 @@ func TestPipeline_Validate(t *testing.T) {
 				Params: []v1beta1.ParamSpec{{
 					Name: "foo", Type: v1beta1.ParamTypeArray, Default: &v1beta1.ArrayOrString{Type: v1beta1.ParamTypeString, StringVal: "astring"},
 				}},
-				Tasks: []v1beta1.PipelineTask{{
-					Name:    "foo",
-					TaskRef: &v1beta1.TaskRef{Name: "foo-task"},
-				}},
+				Tasks: []v1beta1.DAGPipelineTask{{
+					PipelineTask: v1beta1.PipelineTask{
+						Name:    "foo",
+						TaskRef: &v1beta1.TaskRef{Name: "foo-task"},
+					}},
+				},
 			},
 		},
 		failureExpected: true,
@@ -563,9 +631,11 @@ func TestPipeline_Validate(t *testing.T) {
 				Params: []v1beta1.ParamSpec{{
 					Name: "foo", Type: v1beta1.ParamTypeString, Default: &v1beta1.ArrayOrString{Type: v1beta1.ParamTypeArray, ArrayVal: []string{"anarray", "elements"}},
 				}},
-				Tasks: []v1beta1.PipelineTask{{
-					Name:    "foo",
-					TaskRef: &v1beta1.TaskRef{Name: "foo-task"},
+				Tasks: []v1beta1.DAGPipelineTask{{
+					PipelineTask: v1beta1.PipelineTask{
+						Name:    "foo",
+						TaskRef: &v1beta1.TaskRef{Name: "foo-task"},
+					},
 				}},
 			},
 		},
@@ -578,12 +648,14 @@ func TestPipeline_Validate(t *testing.T) {
 				Params: []v1beta1.ParamSpec{{
 					Name: "baz", Type: v1beta1.ParamTypeString, Default: &v1beta1.ArrayOrString{Type: v1beta1.ParamTypeArray, ArrayVal: []string{"anarray", "elements"}},
 				}},
-				Tasks: []v1beta1.PipelineTask{{
-					Name:    "bar",
-					TaskRef: &v1beta1.TaskRef{Name: "bar-task"},
-					Params: []v1beta1.Param{{
-						Name: "a-param", Value: v1beta1.ArrayOrString{Type: v1beta1.ParamTypeString, StringVal: "$(params.baz)"},
-					}},
+				Tasks: []v1beta1.DAGPipelineTask{{
+					PipelineTask: v1beta1.PipelineTask{
+						Name:    "bar",
+						TaskRef: &v1beta1.TaskRef{Name: "bar-task"},
+						Params: []v1beta1.Param{{
+							Name: "a-param", Value: v1beta1.ArrayOrString{Type: v1beta1.ParamTypeString, StringVal: "$(params.baz)"},
+						}},
+					},
 				}},
 			},
 		},
@@ -596,12 +668,14 @@ func TestPipeline_Validate(t *testing.T) {
 				Params: []v1beta1.ParamSpec{{
 					Name: "baz", Type: v1beta1.ParamTypeString, Default: &v1beta1.ArrayOrString{Type: v1beta1.ParamTypeArray, ArrayVal: []string{"anarray", "elements"}},
 				}},
-				Tasks: []v1beta1.PipelineTask{{
-					Name:    "bar",
-					TaskRef: &v1beta1.TaskRef{Name: "bar-task"},
-					Params: []v1beta1.Param{{
-						Name: "a-param", Value: v1beta1.ArrayOrString{Type: v1beta1.ParamTypeString, StringVal: "$(params.baz[*])"},
-					}},
+				Tasks: []v1beta1.DAGPipelineTask{{
+					PipelineTask: v1beta1.PipelineTask{
+						Name:    "bar",
+						TaskRef: &v1beta1.TaskRef{Name: "bar-task"},
+						Params: []v1beta1.Param{{
+							Name: "a-param", Value: v1beta1.ArrayOrString{Type: v1beta1.ParamTypeString, StringVal: "$(params.baz[*])"},
+						}},
+					},
 				}},
 			},
 		},
@@ -614,12 +688,14 @@ func TestPipeline_Validate(t *testing.T) {
 				Params: []v1beta1.ParamSpec{{
 					Name: "baz", Type: v1beta1.ParamTypeString, Default: &v1beta1.ArrayOrString{Type: v1beta1.ParamTypeArray, ArrayVal: []string{"anarray", "elements"}},
 				}},
-				Tasks: []v1beta1.PipelineTask{{
-					Name:    "bar",
-					TaskRef: &v1beta1.TaskRef{Name: "bar-task"},
-					Params: []v1beta1.Param{{
-						Name: "a-param", Value: v1beta1.ArrayOrString{Type: v1beta1.ParamTypeArray, ArrayVal: []string{"value: $(params.baz)", "last"}},
-					}},
+				Tasks: []v1beta1.DAGPipelineTask{{
+					PipelineTask: v1beta1.PipelineTask{
+						Name:    "bar",
+						TaskRef: &v1beta1.TaskRef{Name: "bar-task"},
+						Params: []v1beta1.Param{{
+							Name: "a-param", Value: v1beta1.ArrayOrString{Type: v1beta1.ParamTypeArray, ArrayVal: []string{"value: $(params.baz)", "last"}},
+						}},
+					},
 				}},
 			},
 		},
@@ -632,12 +708,14 @@ func TestPipeline_Validate(t *testing.T) {
 				Params: []v1beta1.ParamSpec{{
 					Name: "baz", Type: v1beta1.ParamTypeString, Default: &v1beta1.ArrayOrString{Type: v1beta1.ParamTypeArray, ArrayVal: []string{"anarray", "elements"}},
 				}},
-				Tasks: []v1beta1.PipelineTask{{
-					Name:    "bar",
-					TaskRef: &v1beta1.TaskRef{Name: "bar-task"},
-					Params: []v1beta1.Param{{
-						Name: "a-param", Value: v1beta1.ArrayOrString{Type: v1beta1.ParamTypeArray, ArrayVal: []string{"value: $(params.baz[*])", "last"}},
-					}},
+				Tasks: []v1beta1.DAGPipelineTask{{
+					PipelineTask: v1beta1.PipelineTask{
+						Name:    "bar",
+						TaskRef: &v1beta1.TaskRef{Name: "bar-task"},
+						Params: []v1beta1.Param{{
+							Name: "a-param", Value: v1beta1.ArrayOrString{Type: v1beta1.ParamTypeArray, ArrayVal: []string{"value: $(params.baz[*])", "last"}},
+						}},
+					},
 				}},
 			},
 		},
@@ -647,10 +725,16 @@ func TestPipeline_Validate(t *testing.T) {
 		p: &v1beta1.Pipeline{
 			ObjectMeta: metav1.ObjectMeta{Name: "pipeline"},
 			Spec: v1beta1.PipelineSpec{
-				Tasks: []v1beta1.PipelineTask{{
-					Name: "foo", TaskRef: &v1beta1.TaskRef{Name: "foo-task"}, RunAfter: []string{"bar"},
+				Tasks: []v1beta1.DAGPipelineTask{{
+					PipelineTask: v1beta1.PipelineTask{
+						Name: "foo", TaskRef: &v1beta1.TaskRef{Name: "foo-task"},
+					},
+					RunAfter: []string{"bar"},
 				}, {
-					Name: "bar", TaskRef: &v1beta1.TaskRef{Name: "bar-task"}, RunAfter: []string{"foo"},
+					PipelineTask: v1beta1.PipelineTask{
+						Name: "bar", TaskRef: &v1beta1.TaskRef{Name: "bar-task"},
+					},
+					RunAfter: []string{"foo"},
 				}},
 			},
 		},
@@ -660,8 +744,10 @@ func TestPipeline_Validate(t *testing.T) {
 		p: &v1beta1.Pipeline{
 			ObjectMeta: metav1.ObjectMeta{Name: "pipeline"},
 			Spec: v1beta1.PipelineSpec{
-				Tasks: []v1beta1.PipelineTask{{
-					Name: "foo", TaskRef: &v1beta1.TaskRef{Name: "foo"},
+				Tasks: []v1beta1.DAGPipelineTask{{
+					PipelineTask: v1beta1.PipelineTask{
+						Name: "foo", TaskRef: &v1beta1.TaskRef{Name: "foo"},
+					},
 				}},
 				Workspaces: []v1beta1.WorkspacePipelineDeclaration{{
 					Name: "foo",
@@ -676,12 +762,14 @@ func TestPipeline_Validate(t *testing.T) {
 		p: &v1beta1.Pipeline{
 			ObjectMeta: metav1.ObjectMeta{Name: "pipeline"},
 			Spec: v1beta1.PipelineSpec{
-				Tasks: []v1beta1.PipelineTask{{
-					Name: "foo", TaskRef: &v1beta1.TaskRef{Name: "foo"},
-					Workspaces: []v1beta1.WorkspacePipelineTaskBinding{{
-						Name:      "taskWorkspaceName",
-						Workspace: "pipelineWorkspaceName",
-					}},
+				Tasks: []v1beta1.DAGPipelineTask{{
+					PipelineTask: v1beta1.PipelineTask{
+						Name: "foo", TaskRef: &v1beta1.TaskRef{Name: "foo"},
+						Workspaces: []v1beta1.WorkspacePipelineTaskBinding{{
+							Name:      "taskWorkspaceName",
+							Workspace: "pipelineWorkspaceName",
+						}},
+					},
 				}},
 				Workspaces: []v1beta1.WorkspacePipelineDeclaration{{
 					Name: "foo",
@@ -705,7 +793,7 @@ func TestPipeline_Validate(t *testing.T) {
 		name: "task params results malformed variable substitution expression",
 		p: &v1beta1.Pipeline{
 			ObjectMeta: metav1.ObjectMeta{Name: "name"}, Spec: v1beta1.PipelineSpec{
-				Tasks: []v1beta1.PipelineTask{{
+				Tasks: []v1beta1.DAGPipelineTask{{
 					Name: "a-task", TaskRef: &v1beta1.TaskRef{Name: "a-task"},
 				}, {
 					Name: "b-task", TaskRef: &v1beta1.TaskRef{Name: "b-task"},
@@ -723,7 +811,7 @@ func TestPipeline_Validate(t *testing.T) {
 				Params: []v1beta1.ParamSpec{{
 					Name: "foo", Type: v1beta1.ParamTypeString,
 				}},
-				Tasks: []v1beta1.PipelineTask{{
+				Tasks: []v1beta1.DAGPipelineTask{{
 					TaskSpec: &v1beta1.TaskSpec{
 						Results: []v1beta1.TaskResult{{
 							Name: "output",

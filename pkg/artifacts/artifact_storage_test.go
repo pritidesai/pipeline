@@ -68,8 +68,8 @@ var (
 				Name: "output",
 				Type: "git",
 			}},
-			Tasks: []v1alpha1.PipelineTask{
-				{
+			Tasks: []v1alpha1.DAGPipelineTask{{
+				PipelineTask: v1alpha1.PipelineTask{
 					Name: "task1",
 					TaskRef: &v1alpha1.TaskRef{
 						Name: "task",
@@ -80,8 +80,8 @@ var (
 							Resource: "output",
 						}},
 					},
-				},
-				{
+				}}, {
+				PipelineTask: v1alpha1.PipelineTask{
 					Name: "task2",
 					TaskRef: &v1alpha1.TaskRef{
 						Name: "task",
@@ -94,7 +94,7 @@ var (
 						}},
 					},
 				},
-			},
+			}},
 		},
 	}
 )
@@ -393,8 +393,8 @@ func TestInitializeArtifactStorageNoStorageNeeded(t *testing.T) {
 			Name:      "pipelineruntest",
 		},
 		Spec: v1alpha1.PipelineSpec{
-			Tasks: []v1alpha1.PipelineTask{
-				{
+			Tasks: []v1alpha1.DAGPipelineTask{{
+				PipelineTask: v1alpha1.PipelineTask{
 					Name: "task1",
 					TaskRef: &v1alpha1.TaskRef{
 						Name: "task",
@@ -409,8 +409,8 @@ func TestInitializeArtifactStorageNoStorageNeeded(t *testing.T) {
 							Resource: "resource",
 						}},
 					},
-				},
-				{
+				}}, {
+				PipelineTask: v1alpha1.PipelineTask{
 					Name: "task2",
 					TaskRef: &v1alpha1.TaskRef{
 						Name: "task",
@@ -426,7 +426,7 @@ func TestInitializeArtifactStorageNoStorageNeeded(t *testing.T) {
 						}},
 					},
 				},
-			},
+			}},
 		},
 	}
 	pipelinerun := &v1alpha1.PipelineRun{

@@ -38,40 +38,58 @@ import (
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 )
 
-var pts = []v1alpha1.PipelineTask{{
-	Name:    "mytask1",
-	TaskRef: &v1alpha1.TaskRef{Name: "task"},
+var pts = []v1alpha1.DAGPipelineTask{{
+	PipelineTask: v1alpha1.PipelineTask{
+		Name:    "mytask1",
+		TaskRef: &v1alpha1.TaskRef{Name: "task"},
+	},
 }, {
-	Name:    "mytask2",
-	TaskRef: &v1alpha1.TaskRef{Name: "task"},
+	PipelineTask: v1alpha1.PipelineTask{
+		Name:    "mytask2",
+		TaskRef: &v1alpha1.TaskRef{Name: "task"},
+	},
 }, {
-	Name:    "mytask3",
-	TaskRef: &v1alpha1.TaskRef{Name: "clustertask"},
+	PipelineTask: v1alpha1.PipelineTask{
+		Name:    "mytask3",
+		TaskRef: &v1alpha1.TaskRef{Name: "clustertask"},
+	},
 }, {
-	Name:    "mytask4",
-	TaskRef: &v1alpha1.TaskRef{Name: "task"},
-	Retries: 1,
+	PipelineTask: v1alpha1.PipelineTask{
+		Name:    "mytask4",
+		TaskRef: &v1alpha1.TaskRef{Name: "task"},
+		Retries: 1,
+	},
 }, {
-	Name:    "mytask5",
-	TaskRef: &v1alpha1.TaskRef{Name: "cancelledTask"},
-	Retries: 2,
+	PipelineTask: v1alpha1.PipelineTask{
+		Name:    "mytask5",
+		TaskRef: &v1alpha1.TaskRef{Name: "cancelledTask"},
+		Retries: 2,
+	},
 }, {
-	Name:    "mytask6",
-	TaskRef: &v1alpha1.TaskRef{Name: "taskWithConditions"},
+	PipelineTask: v1alpha1.PipelineTask{
+		Name:    "mytask6",
+		TaskRef: &v1alpha1.TaskRef{Name: "taskWithConditions"},
+	},
 	Conditions: []v1alpha1.PipelineTaskCondition{{
 		ConditionRef: "always-true",
 	}},
 }, {
-	Name:     "mytask7",
-	TaskRef:  &v1alpha1.TaskRef{Name: "taskWithOneParent"},
+	PipelineTask: v1alpha1.PipelineTask{
+		Name:    "mytask7",
+		TaskRef: &v1alpha1.TaskRef{Name: "taskWithOneParent"},
+	},
 	RunAfter: []string{"mytask6"},
 }, {
-	Name:     "mytask8",
-	TaskRef:  &v1alpha1.TaskRef{Name: "taskWithTwoParents"},
+	PipelineTask: v1alpha1.PipelineTask{
+		Name:    "mytask8",
+		TaskRef: &v1alpha1.TaskRef{Name: "taskWithTwoParents"},
+	},
 	RunAfter: []string{"mytask1", "mytask6"},
 }, {
-	Name:     "mytask9",
-	TaskRef:  &v1alpha1.TaskRef{Name: "taskHasParentWithRunAfter"},
+	PipelineTask: v1alpha1.PipelineTask{
+		Name:    "mytask9",
+		TaskRef: &v1alpha1.TaskRef{Name: "taskHasParentWithRunAfter"},
+	},
 	RunAfter: []string{"mytask8"},
 }}
 
@@ -206,76 +224,76 @@ func newTaskRun(tr v1alpha1.TaskRun) *v1alpha1.TaskRun {
 }
 
 var noneStartedState = PipelineRunState{{
-	PipelineTask: &pts[0],
-	TaskRunName:  "pipelinerun-mytask1",
-	TaskRun:      nil,
+	DAGPipelineTask: &pts[0],
+	TaskRunName:     "pipelinerun-mytask1",
+	TaskRun:         nil,
 	ResolvedTaskResources: &resources.ResolvedTaskResources{
 		TaskSpec: &task.Spec,
 	},
 }, {
-	PipelineTask: &pts[1],
-	TaskRunName:  "pipelinerun-mytask2",
-	TaskRun:      nil,
+	DAGPipelineTask: &pts[1],
+	TaskRunName:     "pipelinerun-mytask2",
+	TaskRun:         nil,
 	ResolvedTaskResources: &resources.ResolvedTaskResources{
 		TaskSpec: &task.Spec,
 	},
 }}
 var oneStartedState = PipelineRunState{{
-	PipelineTask: &pts[0],
-	TaskRunName:  "pipelinerun-mytask1",
-	TaskRun:      makeStarted(trs[0]),
+	DAGPipelineTask: &pts[0],
+	TaskRunName:     "pipelinerun-mytask1",
+	TaskRun:         makeStarted(trs[0]),
 	ResolvedTaskResources: &resources.ResolvedTaskResources{
 		TaskSpec: &task.Spec,
 	},
 }, {
-	PipelineTask: &pts[1],
-	TaskRunName:  "pipelinerun-mytask2",
-	TaskRun:      nil,
+	DAGPipelineTask: &pts[1],
+	TaskRunName:     "pipelinerun-mytask2",
+	TaskRun:         nil,
 	ResolvedTaskResources: &resources.ResolvedTaskResources{
 		TaskSpec: &task.Spec,
 	},
 }}
 var oneFinishedState = PipelineRunState{{
-	PipelineTask: &pts[0],
-	TaskRunName:  "pipelinerun-mytask1",
-	TaskRun:      makeSucceeded(trs[0]),
+	DAGPipelineTask: &pts[0],
+	TaskRunName:     "pipelinerun-mytask1",
+	TaskRun:         makeSucceeded(trs[0]),
 	ResolvedTaskResources: &resources.ResolvedTaskResources{
 		TaskSpec: &task.Spec,
 	},
 }, {
-	PipelineTask: &pts[1],
-	TaskRunName:  "pipelinerun-mytask2",
-	TaskRun:      nil,
+	DAGPipelineTask: &pts[1],
+	TaskRunName:     "pipelinerun-mytask2",
+	TaskRun:         nil,
 	ResolvedTaskResources: &resources.ResolvedTaskResources{
 		TaskSpec: &task.Spec,
 	},
 }}
 var oneFailedState = PipelineRunState{{
-	PipelineTask: &pts[0],
-	TaskRunName:  "pipelinerun-mytask1",
-	TaskRun:      makeFailed(trs[0]),
+	DAGPipelineTask: &pts[0],
+	TaskRunName:     "pipelinerun-mytask1",
+	TaskRun:         makeFailed(trs[0]),
 	ResolvedTaskResources: &resources.ResolvedTaskResources{
 		TaskSpec: &task.Spec,
 	},
 }, {
-	PipelineTask: &pts[1],
-	TaskRunName:  "pipelinerun-mytask2",
-	TaskRun:      nil,
+	DAGPipelineTask: &pts[1],
+	TaskRunName:     "pipelinerun-mytask2",
+	TaskRun:         nil,
 	ResolvedTaskResources: &resources.ResolvedTaskResources{
 		TaskSpec: &task.Spec,
 	},
 }}
 var allFinishedState = PipelineRunState{{
-	PipelineTask: &pts[0],
-	TaskRunName:  "pipelinerun-mytask1",
-	TaskRun:      makeSucceeded(trs[0]),
+	DAGPipelineTask: &pts[0],
+	TaskRunName:     "pipelinerun-mytask1",
+	TaskRun:         makeSucceeded(trs[0]),
 	ResolvedTaskResources: &resources.ResolvedTaskResources{
 		TaskSpec: &task.Spec,
 	},
 }, {
-	PipelineTask: &pts[1],
-	TaskRunName:  "pipelinerun-mytask2",
-	TaskRun:      makeSucceeded(trs[0]),
+	DAGPipelineTask: &pts[1],
+	TaskRunName:     "pipelinerun-mytask2",
+	TaskRun:         makeSucceeded(trs[0]),
 	ResolvedTaskResources: &resources.ResolvedTaskResources{
 		TaskSpec: &task.Spec,
 	},
@@ -294,9 +312,9 @@ var failedTaskConditionCheckState = TaskConditionCheckState{{
 }}
 
 var conditionCheckSuccessNoTaskStartedState = PipelineRunState{{
-	PipelineTask: &pts[5],
-	TaskRunName:  "pipeleinerun-conditionaltask",
-	TaskRun:      nil,
+	DAGPipelineTask: &pts[5],
+	TaskRunName:     "pipeleinerun-conditionaltask",
+	TaskRun:         nil,
 	ResolvedTaskResources: &resources.ResolvedTaskResources{
 		TaskSpec: &task.Spec,
 	},
@@ -304,9 +322,9 @@ var conditionCheckSuccessNoTaskStartedState = PipelineRunState{{
 }}
 
 var conditionCheckStartedState = PipelineRunState{{
-	PipelineTask: &pts[5],
-	TaskRunName:  "pipeleinerun-conditionaltask",
-	TaskRun:      nil,
+	DAGPipelineTask: &pts[5],
+	TaskRunName:     "pipeleinerun-conditionaltask",
+	TaskRun:         nil,
 	ResolvedTaskResources: &resources.ResolvedTaskResources{
 		TaskSpec: &task.Spec,
 	},
@@ -318,9 +336,9 @@ var conditionCheckStartedState = PipelineRunState{{
 }}
 
 var conditionCheckFailedWithNoOtherTasksState = PipelineRunState{{
-	PipelineTask: &pts[5],
-	TaskRunName:  "pipeleinerun-conditionaltask",
-	TaskRun:      nil,
+	DAGPipelineTask: &pts[5],
+	TaskRunName:     "pipeleinerun-conditionaltask",
+	TaskRun:         nil,
 	ResolvedTaskResources: &resources.ResolvedTaskResources{
 		TaskSpec: &task.Spec,
 	},
@@ -328,18 +346,18 @@ var conditionCheckFailedWithNoOtherTasksState = PipelineRunState{{
 }}
 
 var conditionCheckFailedWithOthersPassedState = PipelineRunState{{
-	PipelineTask: &pts[5],
-	TaskRunName:  "pipeleinerun-conditionaltask",
-	TaskRun:      nil,
+	DAGPipelineTask: &pts[5],
+	TaskRunName:     "pipeleinerun-conditionaltask",
+	TaskRun:         nil,
 	ResolvedTaskResources: &resources.ResolvedTaskResources{
 		TaskSpec: &task.Spec,
 	},
 	ResolvedConditionChecks: failedTaskConditionCheckState,
 },
 	{
-		PipelineTask: &pts[0],
-		TaskRunName:  "pipelinerun-mytask1",
-		TaskRun:      makeSucceeded(trs[0]),
+		DAGPipelineTask: &pts[0],
+		TaskRunName:     "pipelinerun-mytask1",
+		TaskRun:         makeSucceeded(trs[0]),
 		ResolvedTaskResources: &resources.ResolvedTaskResources{
 			TaskSpec: &task.Spec,
 		},
@@ -347,18 +365,18 @@ var conditionCheckFailedWithOthersPassedState = PipelineRunState{{
 }
 
 var conditionCheckFailedWithOthersFailedState = PipelineRunState{{
-	PipelineTask: &pts[5],
-	TaskRunName:  "pipeleinerun-conditionaltask",
-	TaskRun:      nil,
+	DAGPipelineTask: &pts[5],
+	TaskRunName:     "pipeleinerun-conditionaltask",
+	TaskRun:         nil,
 	ResolvedTaskResources: &resources.ResolvedTaskResources{
 		TaskSpec: &task.Spec,
 	},
 	ResolvedConditionChecks: failedTaskConditionCheckState,
 },
 	{
-		PipelineTask: &pts[0],
-		TaskRunName:  "pipelinerun-mytask1",
-		TaskRun:      makeFailed(trs[0]),
+		DAGPipelineTask: &pts[0],
+		TaskRunName:     "pipelinerun-mytask1",
+		TaskRun:         makeFailed(trs[0]),
 		ResolvedTaskResources: &resources.ResolvedTaskResources{
 			TaskSpec: &task.Spec,
 		},
@@ -369,82 +387,82 @@ var conditionCheckFailedWithOthersFailedState = PipelineRunState{{
 // task -> parent.cc skipped
 var taskWithParentSkippedState = PipelineRunState{{
 	TaskRunName:             "taskrunName",
-	PipelineTask:            &pts[5],
+	DAGPipelineTask:         &pts[5],
 	ResolvedConditionChecks: failedTaskConditionCheckState,
 }, {
-	TaskRunName:  "childtaskrun",
-	PipelineTask: &pts[6],
+	TaskRunName:     "childtaskrun",
+	DAGPipelineTask: &pts[6],
 }}
 
 // task -> 2 parents -> one of which is skipped
 var taskWithMultipleParentsSkippedState = PipelineRunState{{
-	TaskRunName:  "task0taskrun",
-	PipelineTask: &pts[0],
-	TaskRun:      makeSucceeded(trs[0]), // This parent is successful
+	TaskRunName:     "task0taskrun",
+	DAGPipelineTask: &pts[0],
+	TaskRun:         makeSucceeded(trs[0]), // This parent is successful
 }, {
 	TaskRunName:             "taskrunName",
-	PipelineTask:            &pts[5],
+	DAGPipelineTask:         &pts[5],
 	ResolvedConditionChecks: failedTaskConditionCheckState, // This one was skipped
 }, {
-	TaskRunName:  "childtaskrun",
-	PipelineTask: &pts[7], // This should also be skipped.
+	TaskRunName:     "childtaskrun",
+	DAGPipelineTask: &pts[7], // This should also be skipped.
 }}
 
 // task -> parent -> grandparent is a skipped task
 var taskWithGrandParentSkippedState = PipelineRunState{{
-	TaskRunName:  "task0taskrun",
-	PipelineTask: &pts[0],
-	TaskRun:      makeSucceeded(trs[0]), // Passed
+	TaskRunName:     "task0taskrun",
+	DAGPipelineTask: &pts[0],
+	TaskRun:         makeSucceeded(trs[0]), // Passed
 }, {
 	TaskRunName:             "skippedTaskRun",
-	PipelineTask:            &pts[5],
+	DAGPipelineTask:         &pts[5],
 	ResolvedConditionChecks: failedTaskConditionCheckState, // Skipped
 }, {
-	TaskRunName:  "anothertaskrun",
-	PipelineTask: &pts[7], // Should be skipped
+	TaskRunName:     "anothertaskrun",
+	DAGPipelineTask: &pts[7], // Should be skipped
 }, {
-	TaskRunName:  "taskrun",
-	PipelineTask: &pts[8], // Should also be skipped
+	TaskRunName:     "taskrun",
+	DAGPipelineTask: &pts[8], // Should also be skipped
 }}
 
 var taskWithGrandParentsOneFailedState = PipelineRunState{{
-	TaskRunName:  "task0taskrun",
-	PipelineTask: &pts[0],
-	TaskRun:      makeSucceeded(trs[0]), // Passed
+	TaskRunName:     "task0taskrun",
+	DAGPipelineTask: &pts[0],
+	TaskRun:         makeSucceeded(trs[0]), // Passed
 }, {
 	TaskRunName:             "skippedTaskRun",
-	PipelineTask:            &pts[5],
+	DAGPipelineTask:         &pts[5],
 	TaskRun:                 makeFailed(trs[0]), // Failed; so pipeline should fail
 	ResolvedConditionChecks: successTaskConditionCheckState,
 }, {
-	TaskRunName:  "anothertaskrun",
-	PipelineTask: &pts[7],
+	TaskRunName:     "anothertaskrun",
+	DAGPipelineTask: &pts[7],
 }, {
-	TaskRunName:  "taskrun",
-	PipelineTask: &pts[8],
+	TaskRunName:     "taskrun",
+	DAGPipelineTask: &pts[8],
 }}
 
 var taskWithGrandParentsOneNotRunState = PipelineRunState{{
-	TaskRunName:  "task0taskrun",
-	PipelineTask: &pts[0],
-	TaskRun:      makeSucceeded(trs[0]), // Passed
+	TaskRunName:     "task0taskrun",
+	DAGPipelineTask: &pts[0],
+	TaskRun:         makeSucceeded(trs[0]), // Passed
 }, {
-	TaskRunName:  "skippedTaskRun",
-	PipelineTask: &pts[5],
+	TaskRunName:     "skippedTaskRun",
+	DAGPipelineTask: &pts[5],
 	// No TaskRun so task has not been run, and pipeline should be running
 	ResolvedConditionChecks: successTaskConditionCheckState,
 }, {
-	TaskRunName:  "anothertaskrun",
-	PipelineTask: &pts[7],
+	TaskRunName:     "anothertaskrun",
+	DAGPipelineTask: &pts[7],
 }, {
-	TaskRunName:  "taskrun",
-	PipelineTask: &pts[8],
+	TaskRunName:     "taskrun",
+	DAGPipelineTask: &pts[8],
 }}
 
 var taskCancelled = PipelineRunState{{
-	PipelineTask: &pts[4],
-	TaskRunName:  "pipelinerun-mytask1",
-	TaskRun:      withCancelled(makeRetried(trs[0])),
+	DAGPipelineTask: &pts[4],
+	TaskRunName:     "pipelinerun-mytask1",
+	TaskRun:         withCancelled(makeRetried(trs[0])),
 	ResolvedTaskResources: &resources.ResolvedTaskResources{
 		TaskSpec: &task.Spec,
 	},
@@ -517,9 +535,9 @@ var taskWithOptionalResources = &v1alpha1.Task{
 }
 
 func DagFromState(state PipelineRunState) (*dag.Graph, error) {
-	pts := []v1alpha1.PipelineTask{}
+	pts := []v1alpha1.DAGPipelineTask{}
 	for _, rprt := range state {
-		pts = append(pts, *rprt.PipelineTask)
+		pts = append(pts, *rprt.DAGPipelineTask)
 	}
 	return dag.Build(v1alpha1.PipelineTaskList(pts))
 }
@@ -686,54 +704,54 @@ func TestGetNextTasks(t *testing.T) {
 func TestGetNextTaskWithRetries(t *testing.T) {
 
 	var taskCancelledByStatusState = PipelineRunState{{
-		PipelineTask: &pts[4], // 2 retries needed
-		TaskRunName:  "pipelinerun-mytask1",
-		TaskRun:      withCancelled(makeRetried(trs[0])),
+		DAGPipelineTask: &pts[4], // 2 retries needed
+		TaskRunName:     "pipelinerun-mytask1",
+		TaskRun:         withCancelled(makeRetried(trs[0])),
 		ResolvedTaskResources: &resources.ResolvedTaskResources{
 			TaskSpec: &task.Spec,
 		},
 	}}
 
 	var taskCancelledBySpecState = PipelineRunState{{
-		PipelineTask: &pts[4],
-		TaskRunName:  "pipelinerun-mytask1",
-		TaskRun:      withCancelledBySpec(makeRetried(trs[0])),
+		DAGPipelineTask: &pts[4],
+		TaskRunName:     "pipelinerun-mytask1",
+		TaskRun:         withCancelledBySpec(makeRetried(trs[0])),
 		ResolvedTaskResources: &resources.ResolvedTaskResources{
 			TaskSpec: &task.Spec,
 		},
 	}}
 
 	var taskRunningState = PipelineRunState{{
-		PipelineTask: &pts[4],
-		TaskRunName:  "pipelinerun-mytask1",
-		TaskRun:      makeStarted(trs[0]),
+		DAGPipelineTask: &pts[4],
+		TaskRunName:     "pipelinerun-mytask1",
+		TaskRun:         makeStarted(trs[0]),
 		ResolvedTaskResources: &resources.ResolvedTaskResources{
 			TaskSpec: &task.Spec,
 		},
 	}}
 
 	var taskSucceededState = PipelineRunState{{
-		PipelineTask: &pts[4],
-		TaskRunName:  "pipelinerun-mytask1",
-		TaskRun:      makeSucceeded(trs[0]),
+		DAGPipelineTask: &pts[4],
+		TaskRunName:     "pipelinerun-mytask1",
+		TaskRun:         makeSucceeded(trs[0]),
 		ResolvedTaskResources: &resources.ResolvedTaskResources{
 			TaskSpec: &task.Spec,
 		},
 	}}
 
 	var taskRetriedState = PipelineRunState{{
-		PipelineTask: &pts[3], // 1 retry needed
-		TaskRunName:  "pipelinerun-mytask1",
-		TaskRun:      withCancelled(makeRetried(trs[0])),
+		DAGPipelineTask: &pts[3], // 1 retry needed
+		TaskRunName:     "pipelinerun-mytask1",
+		TaskRun:         withCancelled(makeRetried(trs[0])),
 		ResolvedTaskResources: &resources.ResolvedTaskResources{
 			TaskSpec: &task.Spec,
 		},
 	}}
 
 	var taskExpectedState = PipelineRunState{{
-		PipelineTask: &pts[4], // 2 retries needed
-		TaskRunName:  "pipelinerun-mytask1",
-		TaskRun:      withRetries(makeFailed(trs[0])),
+		DAGPipelineTask: &pts[4], // 2 retries needed
+		TaskRunName:     "pipelinerun-mytask1",
+		TaskRun:         withRetries(makeFailed(trs[0])),
 		ResolvedTaskResources: &resources.ResolvedTaskResources{
 			TaskSpec: &task.Spec,
 		},
@@ -804,72 +822,72 @@ func TestGetNextTaskWithRetries(t *testing.T) {
 func TestIsDone(t *testing.T) {
 
 	var taskCancelledByStatusState = PipelineRunState{{
-		PipelineTask: &pts[4], // 2 retries needed
-		TaskRunName:  "pipelinerun-mytask1",
-		TaskRun:      withCancelled(makeRetried(trs[0])),
+		DAGPipelineTask: &pts[4], // 2 retries needed
+		TaskRunName:     "pipelinerun-mytask1",
+		TaskRun:         withCancelled(makeRetried(trs[0])),
 		ResolvedTaskResources: &resources.ResolvedTaskResources{
 			TaskSpec: &task.Spec,
 		},
 	}}
 
 	var taskCancelledBySpecState = PipelineRunState{{
-		PipelineTask: &pts[4],
-		TaskRunName:  "pipelinerun-mytask1",
-		TaskRun:      withCancelledBySpec(makeRetried(trs[0])),
+		DAGPipelineTask: &pts[4],
+		TaskRunName:     "pipelinerun-mytask1",
+		TaskRun:         withCancelledBySpec(makeRetried(trs[0])),
 		ResolvedTaskResources: &resources.ResolvedTaskResources{
 			TaskSpec: &task.Spec,
 		},
 	}}
 
 	var taskRunningState = PipelineRunState{{
-		PipelineTask: &pts[4],
-		TaskRunName:  "pipelinerun-mytask1",
-		TaskRun:      makeStarted(trs[0]),
+		DAGPipelineTask: &pts[4],
+		TaskRunName:     "pipelinerun-mytask1",
+		TaskRun:         makeStarted(trs[0]),
 		ResolvedTaskResources: &resources.ResolvedTaskResources{
 			TaskSpec: &task.Spec,
 		},
 	}}
 
 	var taskSucceededState = PipelineRunState{{
-		PipelineTask: &pts[4],
-		TaskRunName:  "pipelinerun-mytask1",
-		TaskRun:      makeSucceeded(trs[0]),
+		DAGPipelineTask: &pts[4],
+		TaskRunName:     "pipelinerun-mytask1",
+		TaskRun:         makeSucceeded(trs[0]),
 		ResolvedTaskResources: &resources.ResolvedTaskResources{
 			TaskSpec: &task.Spec,
 		},
 	}}
 
 	var taskRetriedState = PipelineRunState{{
-		PipelineTask: &pts[3], // 1 retry needed
-		TaskRunName:  "pipelinerun-mytask1",
-		TaskRun:      withCancelled(makeRetried(trs[0])),
+		DAGPipelineTask: &pts[3], // 1 retry needed
+		TaskRunName:     "pipelinerun-mytask1",
+		TaskRun:         withCancelled(makeRetried(trs[0])),
 		ResolvedTaskResources: &resources.ResolvedTaskResources{
 			TaskSpec: &task.Spec,
 		},
 	}}
 
 	var taskExpectedState = PipelineRunState{{
-		PipelineTask: &pts[4], // 2 retries needed
-		TaskRunName:  "pipelinerun-mytask1",
-		TaskRun:      withRetries(makeFailed(trs[0])),
+		DAGPipelineTask: &pts[4], // 2 retries needed
+		TaskRunName:     "pipelinerun-mytask1",
+		TaskRun:         withRetries(makeFailed(trs[0])),
 		ResolvedTaskResources: &resources.ResolvedTaskResources{
 			TaskSpec: &task.Spec,
 		},
 	}}
 
 	var noPipelineTaskState = PipelineRunState{{
-		PipelineTask: nil,
-		TaskRunName:  "pipelinerun-mytask1",
-		TaskRun:      withRetries(makeFailed(trs[0])),
+		DAGPipelineTask: nil,
+		TaskRunName:     "pipelinerun-mytask1",
+		TaskRun:         withRetries(makeFailed(trs[0])),
 		ResolvedTaskResources: &resources.ResolvedTaskResources{
 			TaskSpec: &task.Spec,
 		},
 	}}
 
 	var noTaskRunState = PipelineRunState{{
-		PipelineTask: &pts[4], // 2 retries needed
-		TaskRunName:  "pipelinerun-mytask1",
-		TaskRun:      nil,
+		DAGPipelineTask: &pts[4], // 2 retries needed
+		TaskRunName:     "pipelinerun-mytask1",
+		TaskRun:         nil,
 		ResolvedTaskResources: &resources.ResolvedTaskResources{
 			TaskSpec: &task.Spec,
 		},
@@ -979,9 +997,9 @@ func TestSuccessfulPipelineTaskNames(t *testing.T) {
 func TestGetPipelineConditionStatus(t *testing.T) {
 
 	var taskRetriedState = PipelineRunState{{
-		PipelineTask: &pts[3], // 1 retry needed
-		TaskRunName:  "pipelinerun-mytask1",
-		TaskRun:      withCancelled(makeRetried(trs[0])),
+		DAGPipelineTask: &pts[3], // 1 retry needed
+		TaskRunName:     "pipelinerun-mytask1",
+		TaskRun:         withCancelled(makeRetried(trs[0])),
 		ResolvedTaskResources: &resources.ResolvedTaskResources{
 			TaskSpec: &task.Spec,
 		},
@@ -1173,16 +1191,16 @@ func TestResolvePipelineRun(t *testing.T) {
 
 	p := tb.Pipeline("pipelines", tb.PipelineSpec(
 		tb.PipelineDeclaredResource("git-resource", "git"),
-		tb.PipelineTask("mytask1", "task",
+		tb.DAGPipelineTask("mytask1", "task",
 			tb.PipelineTaskInputResource("input1", "git-resource"),
 		),
-		tb.PipelineTask("mytask2", "task",
+		tb.DAGPipelineTask("mytask2", "task",
 			tb.PipelineTaskOutputResource("output1", "git-resource"),
 		),
-		tb.PipelineTask("mytask3", "task",
+		tb.DAGPipelineTask("mytask3", "task",
 			tb.PipelineTaskOutputResource("output1", "git-resource"),
 		),
-		tb.PipelineTask("mytask4", "",
+		tb.DAGPipelineTask("mytask4", "",
 			tb.PipelineTaskSpec(&v1alpha1.TaskSpec{TaskSpec: v1beta1.TaskSpec{
 				Steps: []v1alpha1.Step{{Container: corev1.Container{
 					Name: "step1",
@@ -1216,9 +1234,9 @@ func TestResolvePipelineRun(t *testing.T) {
 		t.Fatalf("Error getting tasks for fake pipeline %s: %s", p.ObjectMeta.Name, err)
 	}
 	expectedState := PipelineRunState{{
-		PipelineTask: &p.Spec.Tasks[0],
-		TaskRunName:  "pipelinerun-mytask1-9l9zj",
-		TaskRun:      nil,
+		DAGPipelineTask: &p.Spec.Tasks[0],
+		TaskRunName:     "pipelinerun-mytask1-9l9zj",
+		TaskRun:         nil,
 		ResolvedTaskResources: &resources.ResolvedTaskResources{
 			TaskName: task.Name,
 			TaskSpec: &task.Spec,
@@ -1228,9 +1246,9 @@ func TestResolvePipelineRun(t *testing.T) {
 			Outputs: map[string]*v1alpha1.PipelineResource{},
 		},
 	}, {
-		PipelineTask: &p.Spec.Tasks[1],
-		TaskRunName:  "pipelinerun-mytask2-mz4c7",
-		TaskRun:      nil,
+		DAGPipelineTask: &p.Spec.Tasks[1],
+		TaskRunName:     "pipelinerun-mytask2-mz4c7",
+		TaskRun:         nil,
 		ResolvedTaskResources: &resources.ResolvedTaskResources{
 			TaskName: task.Name,
 			TaskSpec: &task.Spec,
@@ -1240,9 +1258,9 @@ func TestResolvePipelineRun(t *testing.T) {
 			},
 		},
 	}, {
-		PipelineTask: &p.Spec.Tasks[2],
-		TaskRunName:  "pipelinerun-mytask3-mssqb",
-		TaskRun:      nil,
+		DAGPipelineTask: &p.Spec.Tasks[2],
+		TaskRunName:     "pipelinerun-mytask3-mssqb",
+		TaskRun:         nil,
 		ResolvedTaskResources: &resources.ResolvedTaskResources{
 			TaskName: task.Name,
 			TaskSpec: &task.Spec,
@@ -1252,9 +1270,9 @@ func TestResolvePipelineRun(t *testing.T) {
 			},
 		},
 	}, {
-		PipelineTask: &p.Spec.Tasks[3],
-		TaskRunName:  "pipelinerun-mytask4-78c5n",
-		TaskRun:      nil,
+		DAGPipelineTask: &p.Spec.Tasks[3],
+		TaskRunName:     "pipelinerun-mytask4-78c5n",
+		TaskRun:         nil,
 		ResolvedTaskResources: &resources.ResolvedTaskResources{
 			TaskName: "",
 			TaskSpec: &task.Spec,
@@ -1269,15 +1287,21 @@ func TestResolvePipelineRun(t *testing.T) {
 }
 
 func TestResolvePipelineRun_PipelineTaskHasNoResources(t *testing.T) {
-	pts := []v1alpha1.PipelineTask{{
-		Name:    "mytask1",
-		TaskRef: &v1alpha1.TaskRef{Name: "task"},
+	pts := []v1alpha1.DAGPipelineTask{{
+		PipelineTask: v1alpha1.PipelineTask{
+			Name:    "mytask1",
+			TaskRef: &v1alpha1.TaskRef{Name: "task"},
+		},
 	}, {
-		Name:    "mytask2",
-		TaskRef: &v1alpha1.TaskRef{Name: "task"},
+		PipelineTask: v1alpha1.PipelineTask{
+			Name:    "mytask2",
+			TaskRef: &v1alpha1.TaskRef{Name: "task"},
+		},
 	}, {
-		Name:    "mytask3",
-		TaskRef: &v1alpha1.TaskRef{Name: "task"},
+		PipelineTask: v1alpha1.PipelineTask{
+			Name:    "mytask3",
+			TaskRef: &v1alpha1.TaskRef{Name: "task"},
+		},
 	}}
 	providedResources := map[string]*v1alpha1.PipelineResource{}
 
@@ -1312,9 +1336,11 @@ func TestResolvePipelineRun_PipelineTaskHasNoResources(t *testing.T) {
 }
 
 func TestResolvePipelineRun_TaskDoesntExist(t *testing.T) {
-	pts := []v1alpha1.PipelineTask{{
-		Name:    "mytask1",
-		TaskRef: &v1alpha1.TaskRef{Name: "task"},
+	pts := []v1alpha1.DAGPipelineTask{{
+		PipelineTask: v1alpha1.PipelineTask{
+			Name:    "mytask1",
+			TaskRef: &v1alpha1.TaskRef{Name: "task"},
+		},
 	}}
 	providedResources := map[string]*v1alpha1.PipelineResource{}
 
@@ -1355,14 +1381,14 @@ func TestResolvePipelineRun_ResourceBindingsDontExist(t *testing.T) {
 	}{{
 		name: "input doesnt exist",
 		p: tb.Pipeline("pipelines", tb.PipelineSpec(
-			tb.PipelineTask("mytask1", "task",
+			tb.DAGPipelineTask("mytask1", "task",
 				tb.PipelineTaskInputResource("input1", "git-resource"),
 			),
 		)),
 	}, {
 		name: "output doesnt exist",
 		p: tb.Pipeline("pipelines", tb.PipelineSpec(
-			tb.PipelineTask("mytask1", "task",
+			tb.DAGPipelineTask("mytask1", "task",
 				tb.PipelineTaskOutputResource("input1", "git-resource"),
 			),
 		)),
@@ -1396,7 +1422,7 @@ func TestResolvePipelineRun_withExistingTaskRuns(t *testing.T) {
 
 	p := tb.Pipeline("pipelines", tb.PipelineSpec(
 		tb.PipelineDeclaredResource("git-resource", "git"),
-		tb.PipelineTask("mytask-with-a-really-long-name-to-trigger-truncation", "task",
+		tb.DAGPipelineTask("mytask-with-a-really-long-name-to-trigger-truncation", "task",
 			tb.PipelineTaskInputResource("input1", "git-resource"),
 		),
 	))
@@ -1438,9 +1464,9 @@ func TestResolvePipelineRun_withExistingTaskRuns(t *testing.T) {
 		t.Fatalf("Error getting tasks for fake pipeline %s: %s", p.ObjectMeta.Name, err)
 	}
 	expectedState := PipelineRunState{{
-		PipelineTask: &p.Spec.Tasks[0],
-		TaskRunName:  "pipelinerun-mytask-with-a-really-long-name-to-trigger-tru-9l9zj",
-		TaskRun:      nil,
+		DAGPipelineTask: &p.Spec.Tasks[0],
+		TaskRunName:     "pipelinerun-mytask-with-a-really-long-name-to-trigger-tru-9l9zj",
+		TaskRun:         nil,
 		ResolvedTaskResources: &resources.ResolvedTaskResources{
 			TaskName: task.Name,
 			TaskSpec: &task.Spec,
@@ -1460,7 +1486,7 @@ func TestResolvedPipelineRun_PipelineTaskHasOptionalResources(t *testing.T) {
 	names.TestingSeed()
 	p := tb.Pipeline("pipelines", tb.PipelineSpec(
 		tb.PipelineDeclaredResource("git-resource", "git"),
-		tb.PipelineTask("mytask1", "task",
+		tb.DAGPipelineTask("mytask1", "task",
 			tb.PipelineTaskInputResource("required-input", "git-resource"),
 			tb.PipelineTaskOutputResource("required-output", "git-resource"),
 		),
@@ -1491,9 +1517,9 @@ func TestResolvedPipelineRun_PipelineTaskHasOptionalResources(t *testing.T) {
 		t.Fatalf("Error getting tasks for fake pipeline %s: %s", p.ObjectMeta.Name, err)
 	}
 	expectedState := PipelineRunState{{
-		PipelineTask: &p.Spec.Tasks[0],
-		TaskRunName:  "pipelinerun-mytask1-9l9zj",
-		TaskRun:      nil,
+		DAGPipelineTask: &p.Spec.Tasks[0],
+		TaskRunName:     "pipelinerun-mytask1-9l9zj",
+		TaskRun:         nil,
 		ResolvedTaskResources: &resources.ResolvedTaskResources{
 			TaskName: taskWithOptionalResources.Name,
 			TaskSpec: &taskWithOptionalResources.Spec,
@@ -1525,9 +1551,11 @@ func TestResolveConditionChecks(t *testing.T) {
 		ConditionRef: "always-true",
 	}
 
-	pts := []v1alpha1.PipelineTask{{
-		Name:       "mytask1",
-		TaskRef:    &v1alpha1.TaskRef{Name: "task"},
+	pts := []v1alpha1.DAGPipelineTask{{
+		PipelineTask: v1alpha1.PipelineTask{
+			Name:    "mytask1",
+			TaskRef: &v1alpha1.TaskRef{Name: "task"},
+		},
 		Conditions: []v1alpha1.PipelineTaskCondition{ptc},
 	}}
 	providedResources := map[string]*v1alpha1.PipelineResource{}
@@ -1628,9 +1656,11 @@ func TestResolveConditionChecks_MultipleConditions(t *testing.T) {
 		Params:       []v1alpha1.Param{{Name: "path", Value: *tb.ArrayOrString("$(params.path-test)")}, {Name: "image", Value: *tb.ArrayOrString("$(params.image-test)")}},
 	}
 
-	pts := []v1alpha1.PipelineTask{{
-		Name:       "mytask1",
-		TaskRef:    &v1alpha1.TaskRef{Name: "task"},
+	pts := []v1alpha1.DAGPipelineTask{{
+		PipelineTask: v1alpha1.PipelineTask{
+			Name:    "mytask1",
+			TaskRef: &v1alpha1.TaskRef{Name: "task"},
+		},
 		Conditions: []v1alpha1.PipelineTaskCondition{ptc1, ptc2},
 	}}
 	providedResources := map[string]*v1alpha1.PipelineResource{}
@@ -1698,9 +1728,11 @@ func TestResolveConditionChecks_ConditionDoesNotExist(t *testing.T) {
 	trName := "pipelinerun-mytask1-9l9zj"
 	ccName := "pipelinerun-mytask1-9l9zj-does-not-exist-mz4c7"
 
-	pts := []v1alpha1.PipelineTask{{
-		Name:    "mytask1",
-		TaskRef: &v1alpha1.TaskRef{Name: "task"},
+	pts := []v1alpha1.DAGPipelineTask{{
+		PipelineTask: v1alpha1.PipelineTask{
+			Name:    "mytask1",
+			TaskRef: &v1alpha1.TaskRef{Name: "task"},
+		},
 		Conditions: []v1alpha1.PipelineTaskCondition{{
 			ConditionRef: "does-not-exist",
 		}},
@@ -1755,9 +1787,11 @@ func TestResolveConditionCheck_UseExistingConditionCheckName(t *testing.T) {
 		ConditionRef: "always-true",
 	}
 
-	pts := []v1alpha1.PipelineTask{{
-		Name:       "mytask1",
-		TaskRef:    &v1alpha1.TaskRef{Name: "task"},
+	pts := []v1alpha1.DAGPipelineTask{{
+		PipelineTask: v1alpha1.PipelineTask{
+			Name:    "mytask1",
+			TaskRef: &v1alpha1.TaskRef{Name: "task"},
+		},
 		Conditions: []v1alpha1.PipelineTaskCondition{ptc},
 	}}
 	providedResources := map[string]*v1alpha1.PipelineResource{}
@@ -1831,9 +1865,11 @@ func TestResolvedConditionCheck_WithResources(t *testing.T) {
 		}},
 	}
 
-	pts := []v1alpha1.PipelineTask{{
-		Name:       "mytask1",
-		TaskRef:    &v1alpha1.TaskRef{Name: "task"},
+	pts := []v1alpha1.DAGPipelineTask{{
+		PipelineTask: v1alpha1.PipelineTask{
+			Name:    "mytask1",
+			TaskRef: &v1alpha1.TaskRef{Name: "task"},
+		},
 		Conditions: []v1alpha1.PipelineTaskCondition{ptc},
 	}}
 

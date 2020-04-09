@@ -24,8 +24,8 @@ import (
 
 // ResultRef is a type that represents a reference to a task run result
 type ResultRef struct {
-	PipelineTask string
-	Result       string
+	DAGPipelineTask string
+	Result          string
 }
 
 const (
@@ -49,8 +49,8 @@ func NewResultRefs(expressions []string) ([]*ResultRef, error) {
 			return nil, fmt.Errorf("Invalid result reference expression: %v", err)
 		}
 		resultRefs = append(resultRefs, &ResultRef{
-			PipelineTask: pipelineTask,
-			Result:       result,
+			DAGPipelineTask: pipelineTask,
+			Result:          result,
 		})
 	}
 	return resultRefs, nil

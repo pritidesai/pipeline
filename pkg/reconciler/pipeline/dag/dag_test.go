@@ -37,21 +37,33 @@ func testGraph(t *testing.T) *dag.Graph {
 	//   \ /    z
 	//    w
 	t.Helper()
-	tasks := []v1alpha1.PipelineTask{{
-		Name: "a",
+	tasks := []v1alpha1.DAGPipelineTask{{
+		PipelineTask: v1alpha1.PipelineTask{
+			Name: "a",
+		},
 	}, {
-		Name: "b",
+		PipelineTask: v1alpha1.PipelineTask{
+			Name: "b",
+		},
 	}, {
-		Name:     "w",
+		PipelineTask: v1alpha1.PipelineTask{
+			Name: "w",
+		},
 		RunAfter: []string{"b", "y"},
 	}, {
-		Name:     "x",
+		PipelineTask: v1alpha1.PipelineTask{
+			Name: "x",
+		},
 		RunAfter: []string{"a"},
 	}, {
-		Name:     "y",
+		PipelineTask: v1alpha1.PipelineTask{
+			Name: "y",
+		},
 		RunAfter: []string{"a", "x"},
 	}, {
-		Name:     "z",
+		PipelineTask: v1alpha1.PipelineTask{
+			Name: "z",
+		},
 		RunAfter: []string{"x"},
 	}}
 	g, err := dag.Build(v1alpha1.PipelineTaskList(tasks))
@@ -236,7 +248,7 @@ func TestBuild_Parallel(t *testing.T) {
 	p := &v1alpha1.Pipeline{
 		ObjectMeta: metav1.ObjectMeta{Name: "pipeline"},
 		Spec: v1alpha1.PipelineSpec{
-			Tasks: []v1alpha1.PipelineTask{a, b, c},
+			Tasks: []v1alpha1.DAGPipelineTask{a, b, c},
 		},
 	}
 	expectedDAG := &dag.Graph{

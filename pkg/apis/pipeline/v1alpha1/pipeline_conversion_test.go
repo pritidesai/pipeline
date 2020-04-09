@@ -73,42 +73,62 @@ func TestPipelineConversion(t *testing.T) {
 				Workspaces: []WorkspacePipelineDeclaration{{
 					Name: "workspace1",
 				}},
-				Tasks: []PipelineTask{{
-					Name: "task1",
-					TaskRef: &TaskRef{
-						Name: "taskref",
+				Tasks: []DAGPipelineTask{{
+					PipelineTask: PipelineTask{
+						Name: "task1",
+						TaskRef: &TaskRef{
+							Name: "taskref",
+						},
+						TaskSpec: nil,
+						Retries:  10,
+						Resources: &PipelineTaskResources{
+							Inputs: []v1beta1.PipelineTaskInputResource{{
+								Name:     "input1",
+								Resource: "resource1",
+							}},
+							Outputs: []v1beta1.PipelineTaskOutputResource{{
+								Name:     "output1",
+								Resource: "resource2",
+							}},
+						},
+						Params: []Param{{
+							Name:  "param1",
+							Value: v1beta1.ArrayOrString{StringVal: "str", Type: v1beta1.ParamTypeString},
+						}},
+						Workspaces: []WorkspacePipelineTaskBinding{{
+							Name:      "w1",
+							Workspace: "workspace1",
+						}},
 					},
 					Conditions: []PipelineTaskCondition{{
 						ConditionRef: "condition1",
 					}},
-					Retries:  10,
 					RunAfter: []string{"task1"},
-					Resources: &PipelineTaskResources{
-						Inputs: []v1beta1.PipelineTaskInputResource{{
-							Name:     "input1",
-							Resource: "resource1",
+				}, {
+					PipelineTask: PipelineTask{Name: "task2",
+						TaskSpec: &TaskSpec{TaskSpec: v1beta1.TaskSpec{
+							Steps: []v1beta1.Step{{Container: corev1.Container{
+								Image: "foo",
+							}}},
 						}},
-						Outputs: []v1beta1.PipelineTaskOutputResource{{
-							Name:     "output1",
-							Resource: "resource2",
+						Params: []Param{{
+							Name:  "param1",
+							Value: v1beta1.ArrayOrString{StringVal: "str", Type: v1beta1.ParamTypeString},
+						}},
+						Workspaces: []WorkspacePipelineTaskBinding{{
+							Name:      "w1",
+							Workspace: "workspace1",
+						}},
+						Timeout: &metav1.Duration{Duration: 5 * time.Minute},
+					},
+				}, {
+					PipelineTask: PipelineTask{Name: "task2",
+						TaskSpec: &TaskSpec{TaskSpec: v1beta1.TaskSpec{
+							Steps: []v1beta1.Step{{Container: corev1.Container{
+								Image: "foo",
+							}}},
 						}},
 					},
-					Params: []Param{{
-						Name:  "param1",
-						Value: v1beta1.ArrayOrString{StringVal: "str", Type: v1beta1.ParamTypeString},
-					}},
-					Workspaces: []WorkspacePipelineTaskBinding{{
-						Name:      "w1",
-						Workspace: "workspace1",
-					}},
-					Timeout: &metav1.Duration{Duration: 5 * time.Minute},
-				}, {
-					Name: "task2",
-					TaskSpec: &TaskSpec{TaskSpec: v1beta1.TaskSpec{
-						Steps: []v1beta1.Step{{Container: corev1.Container{
-							Image: "foo",
-						}}},
-					}},
 					RunAfter: []string{"task1"},
 				}},
 			},
@@ -127,26 +147,28 @@ func TestPipelineConversion(t *testing.T) {
 					Type:        v1beta1.ParamTypeString,
 					Description: "My first param",
 				}},
-				Tasks: []PipelineTask{{
-					Name: "task2",
-					TaskSpec: &TaskSpec{
-						TaskSpec: v1beta1.TaskSpec{
-							Steps: []v1beta1.Step{{Container: corev1.Container{
-								Image: "foo",
-							}}},
-							Resources: &v1beta1.TaskResources{
-								Inputs: []v1beta1.TaskResource{{ResourceDeclaration: v1beta1.ResourceDeclaration{
+				Tasks: []DAGPipelineTask{{
+					PipelineTask: PipelineTask{
+						Name: "task2",
+						TaskSpec: &TaskSpec{
+							TaskSpec: v1beta1.TaskSpec{
+								Steps: []v1beta1.Step{{Container: corev1.Container{
+									Image: "foo",
+								}}},
+								Resources: &v1beta1.TaskResources{
+									Inputs: []v1beta1.TaskResource{{ResourceDeclaration: v1beta1.ResourceDeclaration{
+										Name: "input-1",
+										Type: resource.PipelineResourceTypeGit,
+									}}},
+								},
+							},
+							Inputs: &Inputs{
+								Resources: []TaskResource{{ResourceDeclaration: ResourceDeclaration{
 									Name: "input-1",
 									Type: resource.PipelineResourceTypeGit,
 								}}},
-							},
-						},
-						Inputs: &Inputs{
-							Resources: []TaskResource{{ResourceDeclaration: ResourceDeclaration{
-								Name: "input-1",
-								Type: resource.PipelineResourceTypeGit,
-							}}},
-						}},
+							}},
+					},
 					RunAfter: []string{"task1"},
 				}},
 			},

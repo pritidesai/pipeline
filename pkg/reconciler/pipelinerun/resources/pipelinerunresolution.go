@@ -69,7 +69,7 @@ const (
 type ResolvedPipelineRunTask struct {
 	TaskRunName           string
 	TaskRun               *v1alpha1.TaskRun
-	PipelineTask          *v1alpha1.PipelineTask
+	PipelineTask          *v1alpha1.DAGPipelineTask
 	ResolvedTaskResources *resources.ResolvedTaskResources
 	// ConditionChecks ~~TaskRuns but for evaling conditions
 	ResolvedConditionChecks TaskConditionCheckState // Could also be a TaskRun or maybe just a Pod?
@@ -292,7 +292,7 @@ func ResolvePipelineRun(
 	getTaskRun resources.GetTaskRun,
 	getClusterTask resources.GetClusterTask,
 	getCondition GetCondition,
-	tasks []v1alpha1.PipelineTask,
+	tasks []v1alpha1.DAGPipelineTask,
 	providedResources map[string]*v1alpha1.PipelineResource,
 ) (PipelineRunState, error) {
 
@@ -503,7 +503,7 @@ func isSkipped(rprt *ResolvedPipelineRunTask, stateMap map[string]*ResolvedPipel
 	return false
 }
 
-func resolveConditionChecks(pt *v1alpha1.PipelineTask, taskRunStatus map[string]*v1alpha1.PipelineRunTaskRunStatus, taskRunName string, getTaskRun resources.GetTaskRun, getCondition GetCondition, providedResources map[string]*v1alpha1.PipelineResource) ([]*ResolvedConditionCheck, error) {
+func resolveConditionChecks(pt *v1alpha1.DAGPipelineTask, taskRunStatus map[string]*v1alpha1.PipelineRunTaskRunStatus, taskRunName string, getTaskRun resources.GetTaskRun, getCondition GetCondition, providedResources map[string]*v1alpha1.PipelineResource) ([]*ResolvedConditionCheck, error) {
 	rccs := []*ResolvedConditionCheck{}
 	for i := range pt.Conditions {
 		ptc := pt.Conditions[i]
@@ -552,7 +552,7 @@ func resolveConditionChecks(pt *v1alpha1.PipelineTask, taskRunStatus map[string]
 
 // ResolvePipelineTaskResources matches PipelineResources referenced by pt inputs and outputs with the
 // providedResources and returns an instance of ResolvedTaskResources.
-func ResolvePipelineTaskResources(pt v1alpha1.PipelineTask, ts *v1alpha1.TaskSpec, taskName string, kind v1alpha1.TaskKind, providedResources map[string]*v1alpha1.PipelineResource) (*resources.ResolvedTaskResources, error) {
+func ResolvePipelineTaskResources(pt v1alpha1.DAGPipelineTask, ts *v1alpha1.TaskSpec, taskName string, kind v1alpha1.TaskKind, providedResources map[string]*v1alpha1.PipelineResource) (*resources.ResolvedTaskResources, error) {
 	rtr := resources.ResolvedTaskResources{
 		TaskName: taskName,
 		TaskSpec: ts,

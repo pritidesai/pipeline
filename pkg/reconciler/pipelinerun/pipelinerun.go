@@ -609,7 +609,7 @@ func getPipelineRunResults(pipelineSpec *v1alpha1.PipelineSpec, resolvedResultRe
 	stringReplacements := map[string]string{}
 
 	for _, resolvedResultRef := range resolvedResultRefs {
-		replaceTarget := fmt.Sprintf("%s.%s.%s.%s", v1beta1.ResultTaskPart, resolvedResultRef.ResultReference.PipelineTask, v1beta1.ResultResultPart, resolvedResultRef.ResultReference.Result)
+		replaceTarget := fmt.Sprintf("%s.%s.%s.%s", v1beta1.ResultTaskPart, resolvedResultRef.ResultReference.DAGPipelineTask, v1beta1.ResultResultPart, resolvedResultRef.ResultReference.Result)
 		stringReplacements[replaceTarget] = resolvedResultRef.Value.StringVal
 	}
 	for _, result := range pipelineSpec.Results {

@@ -32,7 +32,7 @@ type PipelineSpec struct {
 	// Pipeline's tasks as inputs and outputs.
 	Resources []PipelineDeclaredResource `json:"resources,omitempty"`
 	// Tasks declares the graph of Tasks that execute when this Pipeline is run.
-	Tasks []PipelineTask `json:"tasks,omitempty"`
+	Tasks []DAGPipelineTask `json:"tasks,omitempty"`
 	// Params declares a list of input parameters that must be supplied when
 	// this Pipeline is run.
 	Params []ParamSpec `json:"params,omitempty"`
@@ -117,23 +117,15 @@ type PipelineTask struct {
 	// +optional
 	TaskSpec *TaskSpec `json:"taskSpec,omitempty"`
 
-	// Conditions is a list of conditions that need to be true for the task to run
-	// +optional
-	Conditions []PipelineTaskCondition `json:"conditions,omitempty"`
-
 	// Retries represents how many times this task should be retried in case of task failure: ConditionSucceeded set to False
 	// +optional
 	Retries int `json:"retries,omitempty"`
-
-	// RunAfter is the list of PipelineTask names that should be executed before
-	// this Task executes. (Used to force a specific ordering in graph execution.)
-	// +optional
-	RunAfter []string `json:"runAfter,omitempty"`
 
 	// Resources declares the resources given to this task as inputs and
 	// outputs.
 	// +optional
 	Resources *PipelineTaskResources `json:"resources,omitempty"`
+
 	// Parameters declares parameters passed to this task.
 	// +optional
 	Params []Param `json:"params,omitempty"`
@@ -150,11 +142,28 @@ type PipelineTask struct {
 	Timeout *metav1.Duration `json:"timeout,omitempty"`
 }
 
-func (pt PipelineTask) HashKey() string {
+// DAGPipelineTask defines a task in a Pipeline, passing inputs from both
+// Params and from the output of previous tasks.
+type DAGPipelineTask struct {
+	// DAGPipelineTask defines a task in a Pipeline, passing inputs from both
+	// Params and from the output of previous tasks.
+	PipelineTask
+
+	// Conditions is a list of conditions that need to be true for the task to run
+	// +optional
+	Conditions []PipelineTaskCondition `json:"conditions,omitempty"`
+
+	// RunAfter is the list of DAGPipelineTask names that should be executed before
+	// this Task executes. (Used to force a specific ordering in graph execution.)
+	// +optional
+	RunAfter []string `json:"runAfter,omitempty"`
+}
+
+func (pt DAGPipelineTask) HashKey() string {
 	return pt.Name
 }
 
-func (pt PipelineTask) Deps() []string {
+func (pt DAGPipelineTask) Deps() []string {
 	deps := []string{}
 	deps = append(deps, pt.RunAfter...)
 	if pt.Resources != nil {
@@ -172,7 +181,7 @@ func (pt PipelineTask) Deps() []string {
 			if ok {
 				if resultRefs, err := v1beta1.NewResultRefs(expressions); err == nil {
 					for _, resultRef := range resultRefs {
-						deps = append(deps, resultRef.PipelineTask)
+						deps = append(deps, resultRef.DAGPipelineTask)
 					}
 				}
 			}
@@ -184,7 +193,7 @@ func (pt PipelineTask) Deps() []string {
 		if ok {
 			if resultRefs, err := v1beta1.NewResultRefs(expressions); err == nil {
 				for _, resultRef := range resultRefs {
-					deps = append(deps, resultRef.PipelineTask)
+					deps = append(deps, resultRef.DAGPipelineTask)
 				}
 			}
 		}
@@ -193,7 +202,7 @@ func (pt PipelineTask) Deps() []string {
 	return deps
 }
 
-type PipelineTaskList []PipelineTask
+type PipelineTaskList []DAGPipelineTask
 
 func (l PipelineTaskList) Items() []dag.Task {
 	tasks := []dag.Task{}
@@ -206,7 +215,7 @@ func (l PipelineTaskList) Items() []dag.Task {
 // PipelineTaskParam is used to provide arbitrary string parameters to a Task.
 type PipelineTaskParam = v1beta1.PipelineTaskParam
 
-// PipelineTaskCondition allows a PipelineTask to declare a Condition to be evaluated before
+// PipelineTaskCondition allows a DAGPipelineTask to declare a Condition to be evaluated before
 // the Task is run.
 type PipelineTaskCondition = v1beta1.PipelineTaskCondition
 

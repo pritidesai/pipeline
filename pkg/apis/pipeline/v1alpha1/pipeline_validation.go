@@ -90,7 +90,7 @@ func isOutput(outputs []PipelineTaskOutputResource, resource string) bool {
 
 // validateFrom ensures that the `from` values make sense: that they rely on values from Tasks
 // that ran previously, and that the PipelineResource is actually an output of the Task it should come from.
-func validateFrom(tasks []PipelineTask) error {
+func validateFrom(tasks []DAGPipelineTask) error {
 	taskOutputs := map[string][]PipelineTaskOutputResource{}
 	for _, task := range tasks {
 		var to []PipelineTaskOutputResource
@@ -128,7 +128,7 @@ func validateFrom(tasks []PipelineTask) error {
 // validateGraph ensures the Pipeline's dependency Graph (DAG) make sense: that there is no dependency
 // cycle or that they rely on values from Tasks that ran previously, and that the PipelineResource
 // is actually an output of the Task it should come from.
-func validateGraph(tasks []PipelineTask) error {
+func validateGraph(tasks []DAGPipelineTask) error {
 	if _, err := dag.Build(PipelineTaskList(tasks)); err != nil {
 		return err
 	}
@@ -212,7 +212,7 @@ func (ps *PipelineSpec) Validate(ctx context.Context) *apis.FieldError {
 	return nil
 }
 
-func validatePipelineWorkspaces(wss []WorkspacePipelineDeclaration, pts []PipelineTask) *apis.FieldError {
+func validatePipelineWorkspaces(wss []WorkspacePipelineDeclaration, pts []DAGPipelineTask) *apis.FieldError {
 	// Workspace names must be non-empty and unique.
 	wsTable := make(map[string]struct{})
 	for i, ws := range wss {
@@ -240,7 +240,7 @@ func validatePipelineWorkspaces(wss []WorkspacePipelineDeclaration, pts []Pipeli
 	return nil
 }
 
-func validatePipelineParameterVariables(tasks []PipelineTask, params []ParamSpec) *apis.FieldError {
+func validatePipelineParameterVariables(tasks []DAGPipelineTask, params []ParamSpec) *apis.FieldError {
 	parameterNames := map[string]struct{}{}
 	arrayParameterNames := map[string]struct{}{}
 
@@ -278,7 +278,7 @@ func validatePipelineParameterVariables(tasks []PipelineTask, params []ParamSpec
 	return validatePipelineVariables(tasks, "params", parameterNames, arrayParameterNames)
 }
 
-func validatePipelineVariables(tasks []PipelineTask, prefix string, paramNames map[string]struct{}, arrayParamNames map[string]struct{}) *apis.FieldError {
+func validatePipelineVariables(tasks []DAGPipelineTask, prefix string, paramNames map[string]struct{}, arrayParamNames map[string]struct{}) *apis.FieldError {
 	for _, task := range tasks {
 		for _, param := range task.Params {
 			if param.Value.Type == ParamTypeString {
