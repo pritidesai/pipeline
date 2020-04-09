@@ -105,17 +105,21 @@ func TestPipelineRunConversion(t *testing.T) {
 			Spec: PipelineRunSpec{
 				PipelineSpec: &PipelineSpec{
 					Tasks: []PipelineTask{{
-						Name: "task1",
-						TaskRef: &TaskRef{
-							Name: "taskref",
+						BasePipelineTask: BasePipelineTask{
+							Name: "task1",
+							TaskRef: &TaskRef{
+								Name: "taskref",
+							},
 						},
 					}, {
-						Name: "task2",
-						TaskSpec: &TaskSpec{TaskSpec: v1beta1.TaskSpec{
-							Steps: []v1beta1.Step{{Container: corev1.Container{
-								Image: "foo",
-							}}},
-						}},
+						BasePipelineTask: BasePipelineTask{
+							Name: "task2",
+							TaskSpec: &TaskSpec{TaskSpec: v1beta1.TaskSpec{
+								Steps: []v1beta1.Step{{Container: corev1.Container{
+									Image: "foo",
+								}}},
+							}},
+						},
 						RunAfter: []string{"task1"},
 					}},
 				},

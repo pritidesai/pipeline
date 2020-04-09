@@ -139,7 +139,9 @@ func PipelineParamSpec(name string, pt v1alpha1.ParamType, ops ...ParamSpecOp) P
 func PipelineTask(name, taskName string, ops ...PipelineTaskOp) PipelineSpecOp {
 	return func(ps *v1alpha1.PipelineSpec) {
 		pTask := &v1alpha1.PipelineTask{
-			Name: name,
+			BasePipelineTask: v1alpha1.BasePipelineTask{Name: name},
+			Conditions:       nil,
+			RunAfter:         nil,
 		}
 		if taskName != "" {
 			pTask.TaskRef = &v1alpha1.TaskRef{

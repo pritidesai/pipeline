@@ -43,6 +43,10 @@ type PipelineSpec struct {
 	// Results are values that this pipeline can output once run
 	// +optional
 	Results []PipelineResult `json:"results,omitempty"`
+	// Finally declares the list of Tasks that execute just before leaving the Pipeline
+	// i.e. either after all Tasks are finished executing successfully
+	// or after a failure which would result in ending the Pipeline
+	Finally []FinalPipelineTask `json:"finally,omitempty"`
 }
 
 // PipelineResult used to describe the results of a pipeline
@@ -103,7 +107,7 @@ func (p *Pipeline) Copy() PipelineInterface {
 
 // PipelineTask defines a task in a Pipeline, passing inputs from both
 // Params and from the output of previous tasks.
-type PipelineTask struct {
+type BasePipelineTask struct {
 	// Name is the name of this task within the context of a Pipeline. Name is
 	// used as a coordinate with the `from` and `runAfter` fields to establish
 	// the execution order of tasks relative to one another.
@@ -117,23 +121,15 @@ type PipelineTask struct {
 	// +optional
 	TaskSpec *TaskSpec `json:"taskSpec,omitempty"`
 
-	// Conditions is a list of conditions that need to be true for the task to run
-	// +optional
-	Conditions []PipelineTaskCondition `json:"conditions,omitempty"`
-
 	// Retries represents how many times this task should be retried in case of task failure: ConditionSucceeded set to False
 	// +optional
 	Retries int `json:"retries,omitempty"`
-
-	// RunAfter is the list of PipelineTask names that should be executed before
-	// this Task executes. (Used to force a specific ordering in graph execution.)
-	// +optional
-	RunAfter []string `json:"runAfter,omitempty"`
 
 	// Resources declares the resources given to this task as inputs and
 	// outputs.
 	// +optional
 	Resources *PipelineTaskResources `json:"resources,omitempty"`
+
 	// Parameters declares parameters passed to this task.
 	// +optional
 	Params []Param `json:"params,omitempty"`
@@ -148,6 +144,29 @@ type PipelineTask struct {
 	// Refer Go's ParseDuration documentation for expected format: https://golang.org/pkg/time/#ParseDuration
 	// +optional
 	Timeout *metav1.Duration `json:"timeout,omitempty"`
+}
+
+// PipelineTask defines a task in a Pipeline, passing inputs from both
+// Params and from the output of previous tasks.
+type PipelineTask struct {
+	// PipelineTask defines a task in a Pipeline, passing inputs from both
+	// Params and from the output of previous tasks.
+	BasePipelineTask
+
+	// Conditions is a list of conditions that need to be true for the task to run
+	// +optional
+	Conditions []PipelineTaskCondition `json:"conditions,omitempty"`
+
+	// RunAfter is the list of PipelineTask names that should be executed before
+	// this Task executes. (Used to force a specific ordering in graph execution.)
+	// +optional
+	RunAfter []string `json:"runAfter,omitempty"`
+}
+
+type FinalPipelineTask struct {
+	// PipelineTask defines a task in a Pipeline, passing inputs from both
+	// Params and from the output of previous tasks.
+	BasePipelineTask
 }
 
 func (pt PipelineTask) HashKey() string {
