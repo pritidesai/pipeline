@@ -70,6 +70,7 @@ type ResolvedPipelineRunTask struct {
 	TaskRunName           string
 	TaskRun               *v1alpha1.TaskRun
 	PipelineTask          *v1alpha1.PipelineTask
+	FinalPipelineTask     *v1alpha1.FinalPipelineTask
 	ResolvedTaskResources *resources.ResolvedTaskResources
 	// ConditionChecks ~~TaskRuns but for evaling conditions
 	ResolvedConditionChecks TaskConditionCheckState // Could also be a TaskRun or maybe just a Pod?
@@ -128,6 +129,19 @@ func (t ResolvedPipelineRunTask) IsCancelled() bool {
 
 	return c.IsFalse() && c.Reason == v1alpha1.TaskRunSpecStatusCancelled
 }
+
+func (t ResolvedPipelineRunTask) IsFinalTaskDone() bool {
+	if t.TaskRun == nil {
+		return false
+	}
+	c := t.TaskRun.Status.GetCondition(apis.ConditionSucceeded)
+	if c == nil {
+		return false
+	}
+
+	return c.Status == corev1.ConditionTrue || c.Status == corev1.ConditionFalse
+}
+
 
 // ToMap returns a map that maps pipeline task name to the resolved pipeline run task
 func (state PipelineRunState) ToMap() map[string]*ResolvedPipelineRunTask {
@@ -368,6 +382,77 @@ func ResolvePipelineRun(
 	return state, nil
 }
 
+func ResolvePipelineRunFinalTasks(
+	ctx context.Context,
+	pipelineRun v1alpha1.PipelineRun,
+	getTask resources.GetTask,
+	getTaskRun resources.GetTaskRun,
+	getClusterTask resources.GetClusterTask,
+	finalTasks []v1alpha1.FinalPipelineTask,
+	providedResources map[string]*v1alpha1.PipelineResource,
+) (PipelineRunState, error) {
+
+	state := []*ResolvedPipelineRunTask{}
+	for _, ft := range finalTasks {
+		rprt := ResolvedPipelineRunTask{
+			FinalPipelineTask: &ft,
+			TaskRunName:       getTaskRunName(pipelineRun.Status.TaskRuns, ft.Name, pipelineRun.Name),
+		}
+
+		// Find the Task that this PipelineTask is using
+		var (
+			t        v1alpha1.TaskInterface
+			err      error
+			spec     v1alpha1.TaskSpec
+			taskName string
+			kind     v1alpha1.TaskKind
+		)
+
+		if ft.TaskRef != nil {
+			if ft.TaskRef.Kind == v1alpha1.ClusterTaskKind {
+				t, err = getClusterTask(ft.TaskRef.Name)
+			} else {
+				t, err = getTask(ft.TaskRef.Name)
+			}
+			if err != nil {
+				return nil, &TaskNotFoundError{
+					Name: ft.TaskRef.Name,
+					Msg:  err.Error(),
+				}
+			}
+			spec = t.TaskSpec()
+			taskName = t.TaskMetadata().Name
+			kind = ft.TaskRef.Kind
+		} else {
+			spec = *ft.TaskSpec
+		}
+		spec.SetDefaults(contexts.WithUpgradeViaDefaulting(ctx))
+		if err := spec.ConvertTo(ctx, &v1beta1.TaskSpec{}); err != nil {
+			return nil, err
+		}
+		rtr, err := ResolveFinalPipelineTaskResources(ft, &spec, taskName, kind, providedResources)
+		if err != nil {
+			return nil, fmt.Errorf("couldn't match referenced resources with declared resources: %w", err)
+		}
+
+		rprt.ResolvedTaskResources = rtr
+
+		taskRun, err := getTaskRun(rprt.TaskRunName)
+		if err != nil {
+			if !errors.IsNotFound(err) {
+				return nil, fmt.Errorf("error retrieving TaskRun %s: %w", rprt.TaskRunName, err)
+			}
+		}
+		if taskRun != nil {
+			rprt.TaskRun = taskRun
+		}
+
+		// Add this task to the state of the PipelineRun
+		state = append(state, &rprt)
+	}
+	return state, nil
+}
+
 // getConditionCheckName should return a unique name for a `ConditionCheck` if one has not already been defined, and the existing one otherwise.
 func getConditionCheckName(taskRunStatus map[string]*v1alpha1.PipelineRunTaskRunStatus, trName, conditionRegisterName string) string {
 	trStatus, ok := taskRunStatus[trName]
@@ -474,6 +559,66 @@ func GetPipelineConditionStatus(pr *v1alpha1.PipelineRun, state PipelineRunState
 	}
 }
 
+
+func GetPipelineFinalTasksConditionStatus(pr *v1alpha1.PipelineRun, state PipelineRunState, logger *zap.SugaredLogger) *apis.Condition {
+	// We have 4 different states here:
+	// 1. Timed out -> Failed
+	// 2. Any one TaskRun has failed - >Failed. This should change with #1020 and #1023
+	// 3. All tasks are done or are skipped (i.e. condition check failed).-> Success
+	// 4. A Task or Condition is running right now  or there are things left to run -> Running
+	if pr.IsTimedOut() {
+		return &apis.Condition{
+			Type:    apis.ConditionSucceeded,
+			Status:  corev1.ConditionFalse,
+			Reason:  ReasonTimedOut,
+			Message: fmt.Sprintf("PipelineRun %q failed to finish within %q", pr.Name, pr.Spec.Timeout.Duration.String()),
+		}
+	}
+
+	// A single failed task mean we fail the pipeline
+	for _, rprt := range state {
+		if rprt.IsCancelled() {
+			logger.Infof("TaskRun %s is cancelled, so PipelineRun %s is cancelled", rprt.TaskRunName, pr.Name)
+			return &apis.Condition{
+				Type:    apis.ConditionSucceeded,
+				Status:  corev1.ConditionFalse,
+				Reason:  ReasonCancelled,
+				Message: fmt.Sprintf("TaskRun %s has cancelled", rprt.TaskRun.Name),
+			}
+		}
+	}
+
+	allTasks := []string{}
+	completedTasks := []string{}
+
+	// Check to see if all tasks are success or skipped
+	for _, rprt := range state {
+		allTasks = append(allTasks, rprt.FinalPipelineTask.Name)
+		if rprt.IsFinalTaskDone() {
+			completedTasks = append(completedTasks, rprt.FinalPipelineTask.Name)
+		}
+	}
+
+	if reflect.DeepEqual(allTasks, completedTasks) {
+		logger.Infof("All TaskRuns have finished for PipelineRun %s so it has finished", pr.Name)
+		return &apis.Condition{
+			Type:    apis.ConditionSucceeded,
+			Status:  corev1.ConditionTrue,
+			Reason:  ReasonCompleted,
+			Message: fmt.Sprintf("Tasks Completed: %d", len(completedTasks)),
+		}
+	}
+
+	// Hasn't timed out; no taskrun failed yet; and not all tasks have finished....
+	// Must keep running then....
+	return &apis.Condition{
+		Type:    apis.ConditionSucceeded,
+		Status:  corev1.ConditionUnknown,
+		Reason:  ReasonRunning,
+		Message: fmt.Sprintf("Tasks Completed: %d, Incomplete: %d", len(completedTasks), len(allTasks)-len(completedTasks)),
+	}
+}
+
 // isSkipped returns true if a Task in a TaskRun will not be run either because
 //  its Condition Checks failed or because one of the parent tasks's conditions failed
 // Note that this means isSkipped returns false if a conditionCheck is in progress
@@ -576,6 +721,47 @@ func ResolvePipelineTaskResources(pt v1alpha1.PipelineTask, ts *v1alpha1.TaskSpe
 			}
 		}
 		for _, taskOutput := range pt.Resources.Outputs {
+			if resource, ok := providedResources[taskOutput.Resource]; ok {
+				rtr.Outputs[taskOutput.Name] = resource
+			} else {
+				if ts.Resources == nil || ts.Resources.Outputs == nil {
+					return nil, fmt.Errorf("pipelineTask tried to use output resource %s not present in declared resources", taskOutput.Resource)
+				}
+				for _, r := range ts.Resources.Outputs {
+					if r.Name == taskOutput.Name && !r.Optional {
+						return nil, fmt.Errorf("pipelineTask tried to use output resource %s not present in declared resources", taskOutput.Resource)
+					}
+				}
+			}
+		}
+	}
+	return &rtr, nil
+}
+
+func ResolveFinalPipelineTaskResources(ft v1alpha1.FinalPipelineTask, ts *v1alpha1.TaskSpec, taskName string, kind v1alpha1.TaskKind, providedResources map[string]*v1alpha1.PipelineResource) (*resources.ResolvedTaskResources, error) {
+	rtr := resources.ResolvedTaskResources{
+		TaskName: taskName,
+		TaskSpec: ts,
+		Kind:     kind,
+		Inputs:   map[string]*v1alpha1.PipelineResource{},
+		Outputs:  map[string]*v1alpha1.PipelineResource{},
+	}
+	if ft.Resources != nil {
+		for _, taskInput := range ft.Resources.Inputs {
+			if resource, ok := providedResources[taskInput.Resource]; ok {
+				rtr.Inputs[taskInput.Name] = resource
+			} else {
+				if ts.Resources == nil || ts.Resources.Inputs == nil {
+					return nil, fmt.Errorf("pipelineTask tried to use input resource %s not present in declared resources", taskInput.Resource)
+				}
+				for _, r := range ts.Resources.Inputs {
+					if r.Name == taskInput.Name && !r.Optional {
+						return nil, fmt.Errorf("pipelineTask tried to use input resource %s not present in declared resources", taskInput.Resource)
+					}
+				}
+			}
+		}
+		for _, taskOutput := range ft.Resources.Outputs {
 			if resource, ok := providedResources[taskOutput.Resource]; ok {
 				rtr.Outputs[taskOutput.Name] = resource
 			} else {

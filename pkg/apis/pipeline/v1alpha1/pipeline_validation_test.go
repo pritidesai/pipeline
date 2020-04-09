@@ -369,6 +369,49 @@ func TestPipeline_Validate(t *testing.T) {
 			tb.PipelineWorkspaceDeclaration("foo"),
 		)),
 		failureExpected: true,
+	}, {
+		name: "task params results malformed variable substitution expression",
+		p: tb.Pipeline("name", "namespace", tb.PipelineSpec(
+			tb.PipelineTask("a-task", "a-task"),
+			tb.PipelineTask("b-task", "b-task",
+				tb.PipelineTaskParam("b-param", "$(tasks.a-task.resultTypo.bResult)"),
+			),
+		)),
+		failureExpected: true,
+	}, {
+		name: "valid pipeline with one final task",
+		p: tb.Pipeline("pipeline", "namespace", tb.PipelineSpec(
+			tb.PipelineTask("foo", "foo-task"),
+			tb.FinalPipelineTask("final", "final-task"),
+		)),
+		failureExpected: false,
+	}, {
+		name: "invalid pipeline with duplicate final tasks",
+		p: tb.Pipeline("pipeline", "namespace", tb.PipelineSpec(
+			tb.FinalPipelineTask("foo", "final-task-1"),
+			tb.FinalPipelineTask("foo", "final-task-2"),
+		)),
+		failureExpected: true,
+	}, {
+		name: "invalid pipeline with final task same as non final task",
+		p: tb.Pipeline("pipeline", "namespace", tb.PipelineSpec(
+			tb.PipelineTask("foo", "foo-task"),
+			tb.FinalPipelineTask("foo", "final-task"),
+		)),
+		failureExpected: true,
+	}, {
+		name: "final task missing tasfref and taskspec",
+		p: tb.Pipeline("pipeline", "namespace", tb.PipelineSpec(
+			tb.FinalPipelineTask("", ""),
+			tb.FinalPipelineTask("", "", tb.FinalPipelineTaskSpec(&v1alpha1.TaskSpec{})),
+		)),
+		failureExpected: true,
+	}, {
+		name: "undefined parameter variable in final task",
+		p: tb.Pipeline("pipeline", "namespace", tb.PipelineSpec(
+			tb.FinalPipelineTask("foo", "foo-task",
+				tb.FinalPipelineTaskParam("param1", "$(params.does-not-exist)")))),
+		failureExpected: true,
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -71,6 +71,10 @@ type PipelineSpec struct {
 	// Results are values that this pipeline can output once run
 	// +optional
 	Results []PipelineResult `json:"results,omitempty"`
+	// Finally declares the list of Tasks that execute just before leaving the Pipeline
+	// i.e. either after all Tasks are finished executing successfully
+	// or after a failure which would result in ending the Pipeline
+	Finally []FinalPipelineTask `json:"finally,omitempty"`
 }
 
 // PipelineResult used to describe the results of a pipeline
@@ -119,6 +123,47 @@ type PipelineTask struct {
 	// outputs.
 	// +optional
 	Resources *PipelineTaskResources `json:"resources,omitempty"`
+	// Parameters declares parameters passed to this task.
+	// +optional
+	Params []Param `json:"params,omitempty"`
+
+	// Workspaces maps workspaces from the pipeline spec to the workspaces
+	// declared in the Task.
+	// +optional
+	Workspaces []WorkspacePipelineTaskBinding `json:"workspaces,omitempty"`
+
+	// Time after which the TaskRun times out. Defaults to 1 hour.
+	// Specified TaskRun timeout should be less than 24h.
+	// Refer Go's ParseDuration documentation for expected format: https://golang.org/pkg/time/#ParseDuration
+	// +optional
+	Timeout *metav1.Duration `json:"timeout,omitempty"`
+}
+
+// PipelineTask defines a task in a Pipeline, passing inputs from both
+// Params and from the output of previous tasks.
+type FinalPipelineTask struct {
+	// Name is the name of this task within the context of a Pipeline. Name is
+	// used as a coordinate with the `from` and `runAfter` fields to establish
+	// the execution order of tasks relative to one another.
+	Name string `json:"name,omitempty"`
+
+	// TaskRef is a reference to a task definition.
+	// +optional
+	TaskRef *TaskRef `json:"taskRef,omitempty"`
+
+	// TaskSpec is specification of a task
+	// +optional
+	TaskSpec *TaskSpec `json:"taskSpec,omitempty"`
+
+	// Retries represents how many times this task should be retried in case of task failure: ConditionSucceeded set to False
+	// +optional
+	Retries int `json:"retries,omitempty"`
+
+	// Resources declares the resources given to this task as inputs and
+	// outputs.
+	// +optional
+	Resources *FinalPipelineTaskResources `json:"resources,omitempty"`
+
 	// Parameters declares parameters passed to this task.
 	// +optional
 	Params []Param `json:"params,omitempty"`
@@ -232,6 +277,24 @@ type PipelineTaskInputResource struct {
 // dependency in a Task to the resource in the Pipeline's DeclaredPipelineResources
 // that should be used.
 type PipelineTaskOutputResource struct {
+	// Name is the name of the PipelineResource as declared by the Task.
+	Name string `json:"name"`
+	// Resource is the name of the DeclaredPipelineResource to use.
+	Resource string `json:"resource"`
+}
+
+// FinalPipelineTaskResources just like PipelineTaskResources for final tasks
+type FinalPipelineTaskResources struct {
+	// Inputs holds the mapping from the PipelineResources declared in
+	// DeclaredPipelineResources to the input PipelineResources required by the Task.
+	Inputs []FinalPipelineTaskInputResource `json:"inputs,omitempty"`
+	// Outputs holds the mapping from the PipelineResources declared in
+	// DeclaredPipelineResources to the input PipelineResources required by the Task.
+	Outputs []PipelineTaskOutputResource `json:"outputs,omitempty"`
+}
+
+// FinalPipelineTaskInputResource just like PipelineTaskInputResource for final tasks
+type FinalPipelineTaskInputResource struct {
 	// Name is the name of the PipelineResource as declared by the Task.
 	Name string `json:"name"`
 	// Resource is the name of the DeclaredPipelineResource to use.

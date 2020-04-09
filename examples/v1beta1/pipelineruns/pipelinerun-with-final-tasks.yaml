@@ -1,0 +1,61 @@
+# Task producing failure by exiting with 1
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: failure-task
+spec:
+  steps:
+    - name: fail
+      image: ubuntu
+      script: exit 1
+---
+
+# Task producing success by exiting with 0
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: successful-task
+spec:
+  steps:
+    - name: success
+      image: ubuntu
+      script: |
+        exit 0
+---
+
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: pipeline-with-final-tasks
+spec:
+  tasks:
+    - name: pre-work
+      taskRef:
+        Name: successful-task
+    - name: unit-test
+      taskRef:
+        Name: successful-task
+      runAfter:
+        - pre-work
+    - name: integration-test
+      taskRef:
+        Name: successful-task
+      runAfter:
+        - unit-test
+  finally:
+    - name: cleanup-test
+      taskRef:
+        Name: successful-task
+    - name: report-results
+      taskRef:
+        Name: successful-task
+---
+
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  name: pipelinerun-with-final-tasks
+spec:
+  pipelineRef:
+    name: pipeline-with-final-tasks
+---

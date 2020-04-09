@@ -51,6 +51,14 @@ func (source *PipelineSpec) ConvertTo(ctx context.Context, sink *v1beta1.Pipelin
 			}
 		}
 	}
+	if len(source.Finally) > 0 {
+		sink.Finally = make([]v1beta1.FinalPipelineTask, len(source.Finally))
+		for i := range source.Finally {
+			if err := source.Finally[i].ConvertTo(ctx, &sink.Finally[i]); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
@@ -66,6 +74,22 @@ func (source *PipelineTask) ConvertTo(ctx context.Context, sink *v1beta1.Pipelin
 	sink.Conditions = source.Conditions
 	sink.Retries = source.Retries
 	sink.RunAfter = source.RunAfter
+	sink.Resources = source.Resources
+	sink.Params = source.Params
+	sink.Workspaces = source.Workspaces
+	return nil
+}
+
+func (source *FinalPipelineTask) ConvertTo(ctx context.Context, sink *v1beta1.FinalPipelineTask) error {
+	sink.Name = source.Name
+	sink.TaskRef = source.TaskRef
+	if source.TaskSpec != nil {
+		sink.TaskSpec = &v1beta1.TaskSpec{}
+		if err := source.TaskSpec.ConvertTo(ctx, sink.TaskSpec); err != nil {
+			return err
+		}
+	}
+	sink.Retries = source.Retries
 	sink.Resources = source.Resources
 	sink.Params = source.Params
 	sink.Workspaces = source.Workspaces
@@ -96,6 +120,14 @@ func (sink *PipelineSpec) ConvertFrom(ctx context.Context, source v1beta1.Pipeli
 			}
 		}
 	}
+	if len(source.Finally) > 0 {
+		sink.Finally = make([]FinalPipelineTask, len(source.Finally))
+		for i := range source.Finally {
+			if err := sink.Finally[i].ConvertFrom(ctx, source.Finally[i]); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
@@ -111,6 +143,22 @@ func (sink *PipelineTask) ConvertFrom(ctx context.Context, source v1beta1.Pipeli
 	sink.Conditions = source.Conditions
 	sink.Retries = source.Retries
 	sink.RunAfter = source.RunAfter
+	sink.Resources = source.Resources
+	sink.Params = source.Params
+	sink.Workspaces = source.Workspaces
+	return nil
+}
+
+func (sink *FinalPipelineTask) ConvertFrom(ctx context.Context, source v1beta1.FinalPipelineTask) error {
+	sink.Name = source.Name
+	sink.TaskRef = source.TaskRef
+	if source.TaskSpec != nil {
+		sink.TaskSpec = &TaskSpec{}
+		if err := sink.TaskSpec.ConvertFrom(ctx, source.TaskSpec); err != nil {
+			return err
+		}
+	}
+	sink.Retries = source.Retries
 	sink.Resources = source.Resources
 	sink.Params = source.Params
 	sink.Workspaces = source.Workspaces

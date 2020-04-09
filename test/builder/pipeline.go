@@ -36,6 +36,9 @@ type PipelineSpecOp func(*v1alpha1.PipelineSpec)
 // PipelineTaskOp is an operation which modify a PipelineTask struct.
 type PipelineTaskOp func(*v1alpha1.PipelineTask)
 
+// FinalPipelineTaskOp is an operation which modify a FinalPipelineTask struct.
+type FinalPipelineTaskOp func(*v1alpha1.FinalPipelineTask)
+
 // PipelineRunOp is an operation which modify a PipelineRun struct.
 type PipelineRunOp func(*v1alpha1.PipelineRun)
 
@@ -153,6 +156,25 @@ func PipelineTask(name, taskName string, ops ...PipelineTaskOp) PipelineSpecOp {
 	}
 }
 
+// FinalPipelineTask adds a PipelineTask, with specified name and task name, to the PipelineSpec.
+// Any number of FinalPipelineTask modifier can be passed to transform it.
+func FinalPipelineTask(name, taskName string, ops ...FinalPipelineTaskOp) PipelineSpecOp {
+	return func(ps *v1alpha1.PipelineSpec) {
+		pTask := &v1alpha1.FinalPipelineTask{
+			Name: name,
+		}
+		if taskName != "" {
+			pTask.TaskRef = &v1alpha1.TaskRef{
+				Name: taskName,
+			}
+		}
+		for _, op := range ops {
+			op(pTask)
+		}
+		ps.Finally = append(ps.Finally, *pTask)
+	}
+}
+
 func PipelineResult(name, value, description string, ops ...PipelineOp) PipelineSpecOp {
 	return func(ps *v1alpha1.PipelineSpec) {
 		pResult := &v1beta1.PipelineResult{
@@ -176,6 +198,12 @@ func PipelineRunResult(name, value string) PipelineRunStatusOp {
 
 func PipelineTaskSpec(spec *v1alpha1.TaskSpec) PipelineTaskOp {
 	return func(pt *v1alpha1.PipelineTask) {
+		pt.TaskSpec = spec
+	}
+}
+
+func FinalPipelineTaskSpec(spec *v1alpha1.TaskSpec) FinalPipelineTaskOp {
+	return func(pt *v1alpha1.FinalPipelineTask) {
 		pt.TaskSpec = spec
 	}
 }
@@ -205,6 +233,17 @@ func PipelineTaskRefKind(kind v1alpha1.TaskKind) PipelineTaskOp {
 func PipelineTaskParam(name string, value string, additionalValues ...string) PipelineTaskOp {
 	arrayOrString := ArrayOrString(value, additionalValues...)
 	return func(pt *v1alpha1.PipelineTask) {
+		pt.Params = append(pt.Params, v1alpha1.Param{
+			Name:  name,
+			Value: *arrayOrString,
+		})
+	}
+}
+
+// FinalPipelineTaskParam adds a ResourceParam, with specified name and value, to the PipelineTask.
+func FinalPipelineTaskParam(name string, value string, additionalValues ...string) FinalPipelineTaskOp {
+	arrayOrString := ArrayOrString(value, additionalValues...)
+	return func(pt *v1alpha1.FinalPipelineTask) {
 		pt.Params = append(pt.Params, v1alpha1.Param{
 			Name:  name,
 			Value: *arrayOrString,
