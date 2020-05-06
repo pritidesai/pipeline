@@ -89,7 +89,7 @@ func isOutput(outputs []PipelineTaskOutputResource, resource string) bool {
 
 // validateFrom ensures that the `from` values make sense: that they rely on values from Tasks
 // that ran previously, and that the PipelineResource is actually an output of the Task it should come from.
-func validateFrom(tasks []PipelineTask) error {
+func ValidateFrom(tasks []PipelineTask) error {
 	taskOutputs := map[string][]PipelineTaskOutputResource{}
 	for _, task := range tasks {
 		var to []PipelineTaskOutputResource
@@ -189,7 +189,7 @@ func (ps *PipelineSpec) Validate(ctx context.Context) *apis.FieldError {
 	}
 
 	// The from values should make sense
-	if err := validateFrom(ps.Tasks); err != nil {
+	if err := ValidateFrom(ps.Tasks); err != nil {
 		return apis.ErrInvalidValue(err.Error(), "spec.tasks.resources.inputs.from")
 	}
 
@@ -208,7 +208,7 @@ func (ps *PipelineSpec) Validate(ctx context.Context) *apis.FieldError {
 	}
 
 	// Validate the pipeline's workspaces.
-	if err := validatePipelineWorkspaces(ps.Workspaces, ps.Tasks); err != nil {
+	if err := ValidatePipelineWorkspaces(ps.Workspaces, ps.Tasks); err != nil {
 		return err
 	}
 
@@ -220,7 +220,7 @@ func (ps *PipelineSpec) Validate(ctx context.Context) *apis.FieldError {
 	return nil
 }
 
-func validatePipelineWorkspaces(wss []WorkspacePipelineDeclaration, pts []PipelineTask) *apis.FieldError {
+func ValidatePipelineWorkspaces(wss []WorkspacePipelineDeclaration, pts []PipelineTask) *apis.FieldError {
 	// Workspace names must be non-empty and unique.
 	wsTable := make(map[string]struct{})
 	for i, ws := range wss {

@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+
 	"github.com/tektoncd/pipeline/pkg/apis/validate"
 	"github.com/tektoncd/pipeline/pkg/list"
 	"github.com/tektoncd/pipeline/pkg/reconciler/pipeline/dag"
@@ -79,52 +81,6 @@ func validateDeclaredResources(ps *PipelineSpec) error {
 	return nil
 }
 
-func isOutput(outputs []PipelineTaskOutputResource, resource string) bool {
-	for _, output := range outputs {
-		if output.Resource == resource {
-			return true
-		}
-	}
-	return false
-}
-
-// validateFrom ensures that the `from` values make sense: that they rely on values from Tasks
-// that ran previously, and that the PipelineResource is actually an output of the Task it should come from.
-func validateFrom(tasks []PipelineTask) error {
-	taskOutputs := map[string][]PipelineTaskOutputResource{}
-	for _, task := range tasks {
-		var to []PipelineTaskOutputResource
-		if task.Resources != nil {
-			to = make([]PipelineTaskOutputResource, len(task.Resources.Outputs))
-			copy(to, task.Resources.Outputs)
-		}
-		taskOutputs[task.Name] = to
-	}
-	for _, t := range tasks {
-		inputResources := []PipelineTaskInputResource{}
-		if t.Resources != nil {
-			inputResources = append(inputResources, t.Resources.Inputs...)
-		}
-
-		for _, c := range t.Conditions {
-			inputResources = append(inputResources, c.Resources...)
-		}
-
-		for _, rd := range inputResources {
-			for _, pt := range rd.From {
-				outputs, found := taskOutputs[pt]
-				if !found {
-					return fmt.Errorf("expected resource %s to be from task %s, but task %s doesn't exist", rd.Resource, pt, pt)
-				}
-				if !isOutput(outputs, rd.Resource) {
-					return fmt.Errorf("the resource %s from %s must be an output but is an input", rd.Resource, pt)
-				}
-			}
-		}
-	}
-	return nil
-}
-
 // validateGraph ensures the Pipeline's dependency Graph (DAG) make sense: that there is no dependency
 // cycle or that they rely on values from Tasks that ran previously, and that the PipelineResource
 // is actually an output of the Task it should come from.
@@ -135,12 +91,48 @@ func validateGraph(tasks []PipelineTask) error {
 	return nil
 }
 
+func convertToBeta(tasks []PipelineTask) []v1beta1.PipelineTask {
+	betaTasks := []v1beta1.PipelineTask{{}}
+	for _, t := range tasks {
+		betaTask := v1beta1.PipelineTask{
+			Name:       t.Name,
+			TaskRef:    t.TaskRef,
+			Conditions: t.Conditions,
+			Retries:    t.Retries,
+			RunAfter:   t.RunAfter,
+			Resources:  t.Resources,
+			Params:     t.Params,
+			Workspaces: t.Workspaces,
+			Timeout:    t.Timeout,
+		}
+		if t.TaskSpec != nil {
+			betaTaskSpec := v1beta1.TaskSpec{
+				Resources:    t.TaskSpec.Resources,
+				Params:       t.TaskSpec.Params,
+				Description:  t.TaskSpec.Description,
+				Steps:        t.TaskSpec.Steps,
+				Volumes:      t.TaskSpec.Volumes,
+				StepTemplate: t.TaskSpec.StepTemplate,
+				Sidecars:     t.TaskSpec.Sidecars,
+				Workspaces:   t.TaskSpec.Workspaces,
+				Results:      t.TaskSpec.Results,
+			}
+			betaTask.TaskSpec = &betaTaskSpec
+		}
+		betaTasks = append(betaTasks, betaTask)
+	}
+	return betaTasks
+
+}
+
 // Validate checks that taskNames in the Pipeline are valid and that the graph
 // of Tasks expressed in the Pipeline makes sense.
 func (ps *PipelineSpec) Validate(ctx context.Context) *apis.FieldError {
 	if equality.Semantic.DeepEqual(ps, &PipelineSpec{}) {
 		return apis.ErrGeneric("expected at least one, got none", "spec.description", "spec.params", "spec.resources", "spec.tasks", "spec.workspaces")
 	}
+
+	betaTasks := convertToBeta(ps.Tasks)
 
 	// Names cannot be duplicated
 	taskNames := map[string]struct{}{}
@@ -190,7 +182,7 @@ func (ps *PipelineSpec) Validate(ctx context.Context) *apis.FieldError {
 	}
 
 	// The from values should make sense
-	if err := validateFrom(ps.Tasks); err != nil {
+	if err := v1beta1.ValidateFrom(betaTasks); err != nil {
 		return apis.ErrInvalidValue(err.Error(), "spec.tasks.resources.inputs.from")
 	}
 
@@ -205,38 +197,10 @@ func (ps *PipelineSpec) Validate(ctx context.Context) *apis.FieldError {
 	}
 
 	// Validate the pipeline's workspaces.
-	if err := validatePipelineWorkspaces(ps.Workspaces, ps.Tasks); err != nil {
+	if err := v1beta1.ValidatePipelineWorkspaces(ps.Workspaces, betaTasks); err != nil {
 		return err
 	}
 
-	return nil
-}
-
-func validatePipelineWorkspaces(wss []WorkspacePipelineDeclaration, pts []PipelineTask) *apis.FieldError {
-	// Workspace names must be non-empty and unique.
-	wsTable := make(map[string]struct{})
-	for i, ws := range wss {
-		if ws.Name == "" {
-			return apis.ErrInvalidValue(fmt.Sprintf("workspace %d has empty name", i), "spec.workspaces")
-		}
-		if _, ok := wsTable[ws.Name]; ok {
-			return apis.ErrInvalidValue(fmt.Sprintf("workspace with name %q appears more than once", ws.Name), "spec.workspaces")
-		}
-		wsTable[ws.Name] = struct{}{}
-	}
-
-	// Any workspaces used in PipelineTasks should have their name declared in the Pipeline's
-	// Workspaces list.
-	for ptIdx, pt := range pts {
-		for wsIdx, ws := range pt.Workspaces {
-			if _, ok := wsTable[ws.Workspace]; !ok {
-				return apis.ErrInvalidValue(
-					fmt.Sprintf("pipeline task %q expects workspace with name %q but none exists in pipeline spec", pt.Name, ws.Workspace),
-					fmt.Sprintf("spec.tasks[%d].workspaces[%d]", ptIdx, wsIdx),
-				)
-			}
-		}
-	}
 	return nil
 }
 
