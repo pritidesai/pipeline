@@ -165,6 +165,9 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		pr.Status.InitializeConditions()
 	}
 
+	// Initialize PipelineRun Status
+	pr.Status.InitializePipelineTaskState()
+
 	// In case of reconcile errors, we store the error in a multierror, attempt
 	// to update, and return the original error combined with any update error
 	var merr *multierror.Error
@@ -332,6 +335,7 @@ func (c *Reconciler) updatePipelineResults(ctx context.Context, pr *v1beta1.Pipe
 		pr.Status.PipelineResults = getPipelineRunResults(pipelineSpec, resolvedResultRefs)
 	}
 }
+
 func (c *Reconciler) reconcile(ctx context.Context, pr *v1beta1.PipelineRun) error {
 	// We may be reading a version of the object that was stored at an older version
 	// and may not have had all of the assumed default specified.
@@ -363,6 +367,10 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1beta1.PipelineRun) err
 	if err := storePipelineSpec(ctx, pr, pipelineSpec); err != nil {
 		c.Logger.Errorf("Failed to store PipelineSpec on PipelineRun.Status for pipelinerun %s: %v", pr.Name, err)
 	}
+
+	// Initialize pipeline task state with all DAG tasks based on pipelineSpec
+	// mark these tasks as not started if its already not part of the state
+	pr.Status.RunState.SetPipelineTasksToNotStarted(pipelineSpec)
 
 	// Propagate labels from Pipeline to PipelineRun.
 	if pr.ObjectMeta.Labels == nil {
@@ -556,7 +564,8 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1beta1.PipelineRun) err
 		}
 	}
 
-	candidateTasks, err := dag.GetSchedulable(d, pipelineState.SuccessfulPipelineTaskNames()...)
+	//
+	candidateTasks, err := dag.GetSchedulable(d, pr.Status.RunState.GetSucceededTasks()...)
 	if err != nil {
 		c.Logger.Errorf("Error getting potential next tasks for valid pipelinerun %s: %v", pr.Name, err)
 	}
@@ -602,6 +611,10 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1beta1.PipelineRun) err
 			}
 		}
 	}
+
+	// Update pipeline task state with the execution result of a Pipeline Task
+	pipelineState.UpdatePipelineTaskState(pr, d)
+
 	before := pr.Status.GetCondition(apis.ConditionSucceeded)
 	after := resources.GetPipelineConditionStatus(pr, pipelineState, c.Logger, d)
 	pr.Status.SetCondition(after)

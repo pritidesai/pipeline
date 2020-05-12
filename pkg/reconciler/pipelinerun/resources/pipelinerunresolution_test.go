@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -988,108 +989,197 @@ func TestGetPipelineConditionStatus(t *testing.T) {
 	tcs := []struct {
 		name           string
 		state          []*ResolvedPipelineRunTask
+		DAGTasks       map[string]string
 		expectedStatus corev1.ConditionStatus
 	}{{
-		name:           "no-tasks-started",
-		state:          noneStartedState,
+		name:  "no-tasks-started",
+		state: noneStartedState,
+		DAGTasks: map[string]string{
+			pts[0].Name: v1beta1.PipelineTaskNotStarted,
+			pts[1].Name: v1beta1.PipelineTaskNotStarted,
+		},
 		expectedStatus: corev1.ConditionUnknown,
 	}, {
-		name:           "one-task-started",
-		state:          oneStartedState,
+		name:  "one-task-started",
+		state: oneStartedState,
+		DAGTasks: map[string]string{
+			pts[0].Name: v1beta1.PipelineTaskNotStarted,
+			pts[1].Name: v1beta1.PipelineTaskNotStarted,
+		},
 		expectedStatus: corev1.ConditionUnknown,
 	}, {
-		name:           "one-task-finished",
-		state:          oneFinishedState,
+		name:  "one-task-finished",
+		state: oneFinishedState,
+		DAGTasks: map[string]string{
+			pts[0].Name: v1beta1.PipelineTaskSucceeded,
+			pts[1].Name: v1beta1.PipelineTaskNotStarted,
+		},
 		expectedStatus: corev1.ConditionUnknown,
 	}, {
-		name:           "one-task-failed",
-		state:          oneFailedState,
+		name:  "one-task-failed",
+		state: oneFailedState,
+		DAGTasks: map[string]string{
+			pts[0].Name: v1beta1.PipelineTaskFailed,
+			pts[1].Name: v1beta1.PipelineTaskNotStarted,
+		},
 		expectedStatus: corev1.ConditionFalse,
 	}, {
-		name:           "all-finished",
-		state:          allFinishedState,
+		name:  "all-finished",
+		state: allFinishedState,
+		DAGTasks: map[string]string{
+			pts[0].Name: v1beta1.PipelineTaskSucceeded,
+			pts[1].Name: v1beta1.PipelineTaskSucceeded,
+		},
 		expectedStatus: corev1.ConditionTrue,
 	}, {
-		name:           "one-retry-needed",
-		state:          taskRetriedState,
+		name:  "one-retry-needed",
+		state: taskRetriedState,
+		DAGTasks: map[string]string{
+			pts[1].Name: v1beta1.PipelineTaskCancelled,
+		},
 		expectedStatus: corev1.ConditionUnknown,
 	}, {
-		name:           "condition-success-no-task started",
-		state:          conditionCheckSuccessNoTaskStartedState,
+		name:  "condition-success-no-task started",
+		state: conditionCheckSuccessNoTaskStartedState,
+		DAGTasks: map[string]string{
+			pts[5].Name: v1beta1.PipelineTaskNotStarted,
+		},
 		expectedStatus: corev1.ConditionUnknown,
 	}, {
-		name:           "condition-check-in-progress",
-		state:          conditionCheckStartedState,
+		name:  "condition-check-in-progress",
+		state: conditionCheckStartedState,
+		DAGTasks: map[string]string{
+			pts[5].Name: v1beta1.PipelineTaskNotStarted,
+		},
 		expectedStatus: corev1.ConditionUnknown,
 	}, {
-		name:           "condition-failed-no-other-tasks", // 1 task pipeline with a condition that fails
-		state:          conditionCheckFailedWithNoOtherTasksState,
+		name:  "condition-failed-no-other-tasks", // 1 task pipeline with a condition that fails
+		state: conditionCheckFailedWithNoOtherTasksState,
+		DAGTasks: map[string]string{
+			pts[5].Name: v1beta1.PipelineTaskSkipped,
+		},
 		expectedStatus: corev1.ConditionTrue,
 	}, {
-		name:           "condition-failed-another-task-succeeded", // 1 task skipped due to condition, but others pass
-		state:          conditionCheckFailedWithOthersPassedState,
+		name:  "condition-failed-another-task-succeeded", // 1 task skipped due to condition, but others pass
+		state: conditionCheckFailedWithOthersPassedState,
+		DAGTasks: map[string]string{
+			pts[5].Name: v1beta1.PipelineTaskSkipped,
+			pts[0].Name: v1beta1.PipelineTaskSucceeded,
+		},
 		expectedStatus: corev1.ConditionTrue,
 	}, {
-		name:           "condition-failed-another-task-failed", // 1 task skipped due to condition, but others failed
-		state:          conditionCheckFailedWithOthersFailedState,
+		name:  "condition-failed-another-task-failed", // 1 task skipped due to condition, but others failed
+		state: conditionCheckFailedWithOthersFailedState,
+		DAGTasks: map[string]string{
+			pts[5].Name: v1beta1.PipelineTaskSkipped,
+			pts[0].Name: v1beta1.PipelineTaskFailed,
+		},
 		expectedStatus: corev1.ConditionFalse,
 	}, {
-		name:           "no-tasks-started",
-		state:          noneStartedState,
-		expectedStatus: corev1.ConditionUnknown,
+		name:  "task skipped due to condition failure in parent",
+		state: taskWithParentSkippedState,
+		DAGTasks: map[string]string{
+			pts[5].Name: v1beta1.PipelineTaskSkipped,
+			pts[6].Name: v1beta1.PipelineTaskSkipped,
+		},
+		expectedStatus: corev1.ConditionTrue,
 	}, {
-		name:           "one-task-started",
-		state:          oneStartedState,
-		expectedStatus: corev1.ConditionUnknown,
+		name:  "task with multiple parent tasks -> one of which is skipped",
+		state: taskWithMultipleParentsSkippedState,
+		DAGTasks: map[string]string{
+			pts[0].Name: v1beta1.PipelineTaskSucceeded,
+			pts[5].Name: v1beta1.PipelineTaskSkipped,
+			pts[7].Name: v1beta1.PipelineTaskSkipped,
+		},
+		expectedStatus: corev1.ConditionTrue,
 	}, {
-		name:           "one-task-finished",
-		state:          oneFinishedState,
-		expectedStatus: corev1.ConditionUnknown,
+		name:  "task with grand parent task skipped",
+		state: taskWithGrandParentSkippedState,
+		DAGTasks: map[string]string{
+			pts[0].Name: v1beta1.PipelineTaskSucceeded,
+			pts[5].Name: v1beta1.PipelineTaskSkipped,
+			pts[7].Name: v1beta1.PipelineTaskSkipped,
+			pts[8].Name: v1beta1.PipelineTaskSkipped,
+		},
+		expectedStatus: corev1.ConditionTrue,
 	}, {
-		name:           "one-task-failed",
-		state:          oneFailedState,
+		name:  "task with grand parents; one parent failed",
+		state: taskWithGrandParentsOneFailedState,
+		DAGTasks: map[string]string{
+			pts[0].Name: v1beta1.PipelineTaskSucceeded,
+			pts[5].Name: v1beta1.PipelineTaskFailed,
+			pts[7].Name: v1beta1.PipelineTaskNotStarted,
+			pts[8].Name: v1beta1.PipelineTaskNotStarted,
+		},
 		expectedStatus: corev1.ConditionFalse,
 	}, {
-		name:           "all-finished",
-		state:          allFinishedState,
-		expectedStatus: corev1.ConditionTrue,
-	}, {
-		name:           "one-retry-needed",
-		state:          taskRetriedState,
+		name:  "task with grand parents; one not run yet",
+		state: taskWithGrandParentsOneNotRunState,
+		DAGTasks: map[string]string{
+			pts[0].Name: v1beta1.PipelineTaskSucceeded,
+			pts[5].Name: v1beta1.PipelineTaskNotStarted,
+			pts[7].Name: v1beta1.PipelineTaskNotStarted,
+			pts[8].Name: v1beta1.PipelineTaskNotStarted,
+		},
 		expectedStatus: corev1.ConditionUnknown,
 	}, {
-		name:           "task skipped due to condition failure in parent",
-		state:          taskWithParentSkippedState,
-		expectedStatus: corev1.ConditionTrue,
-	}, {
-		name:           "task with multiple parent tasks -> one of which is skipped",
-		state:          taskWithMultipleParentsSkippedState,
-		expectedStatus: corev1.ConditionTrue,
-	}, {
-		name:           "task with grand parent task skipped",
-		state:          taskWithGrandParentSkippedState,
-		expectedStatus: corev1.ConditionTrue,
-	}, {
-		name:           "task with grand parents; one parent failed",
-		state:          taskWithGrandParentsOneFailedState,
+		name:  "cancelled task should result in cancelled pipeline",
+		state: taskCancelled,
+		DAGTasks: map[string]string{
+			pts[4].Name: v1beta1.PipelineTaskCancelled,
+		},
 		expectedStatus: corev1.ConditionFalse,
-	}, {
-		name:           "task with grand parents; one not run yet",
-		state:          taskWithGrandParentsOneNotRunState,
-		expectedStatus: corev1.ConditionUnknown,
 	}}
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
-			pr := tb.PipelineRun("somepipelinerun")
 			dag, err := DagFromState(tc.state)
 			if err != nil {
 				t.Fatalf("Unexpected error while buildig DAG for state %v: %v", tc.state, err)
+			}
+			pr := &v1beta1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{Name: "pipelinerun-no-tasks-started"},
+				Status: v1beta1.PipelineRunStatus{
+					PipelineRunStatusFields: v1beta1.PipelineRunStatusFields{
+						RunState: &v1beta1.PipelineTaskRunState{
+							DAGTasks: tc.DAGTasks,
+						},
+					},
+				},
 			}
 			c := GetPipelineConditionStatus(pr, tc.state, zap.NewNop().Sugar(), dag)
 			if c.Status != tc.expectedStatus {
 				t.Fatalf("Expected to get status %s but got %s for state %v", tc.expectedStatus, c.Status, tc.state)
 			}
 		})
+	}
+}
+
+// pipeline should result in timeout if its runtime exceeds its spec.Timeout based on its status.Timeout
+func TestGetPipelineConditionStatusForPipelineTimeouts(t *testing.T) {
+	dag, err := DagFromState(oneFinishedState)
+	if err != nil {
+		t.Fatalf("Unexpected error while buildig DAG for state %v: %v", oneFinishedState, err)
+	}
+	pr := &v1beta1.PipelineRun{
+		ObjectMeta: metav1.ObjectMeta{Name: "pipelinerun-no-tasks-started"},
+		Spec: v1beta1.PipelineRunSpec{
+			Timeout: &metav1.Duration{Duration: 1 * time.Minute},
+		},
+		Status: v1beta1.PipelineRunStatus{
+			PipelineRunStatusFields: v1beta1.PipelineRunStatusFields{
+				StartTime: &metav1.Time{Time: time.Now().Add(-2 * time.Minute)},
+				RunState: &v1beta1.PipelineTaskRunState{
+					DAGTasks: map[string]string{
+						pts[0].Name: v1beta1.PipelineTaskSucceeded,
+						pts[1].Name: v1beta1.PipelineTaskNotStarted,
+					},
+				},
+			},
+		},
+	}
+	c := GetPipelineConditionStatus(pr, oneFinishedState, zap.NewNop().Sugar(), dag)
+	if c.Status != corev1.ConditionFalse && c.Reason != ReasonTimedOut {
+		t.Fatalf("Expected to get status %s but got %s for state %v", corev1.ConditionFalse, c.Status, oneFinishedState)
 	}
 }
 
