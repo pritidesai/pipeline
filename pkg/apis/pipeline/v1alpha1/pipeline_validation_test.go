@@ -20,6 +20,8 @@ import (
 	"context"
 	"testing"
 
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	tb "github.com/tektoncd/pipeline/internal/builder/v1alpha1"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1alpha1"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
@@ -33,50 +35,78 @@ func TestPipeline_Validate(t *testing.T) {
 		failureExpected bool
 	}{{
 		name: "valid metadata",
-		p: tb.Pipeline("pipeline", tb.PipelineSpec(
-			tb.PipelineTask("foo", "foo-task"),
-		)),
+		p: &v1alpha1.Pipeline{
+			ObjectMeta: v1.ObjectMeta{Name: "pipeline"},
+			Spec: v1alpha1.PipelineSpec{
+				Tasks: []v1alpha1.PipelineTask{{
+					Name: "foo", TaskRef: &v1alpha1.TaskRef{Name: "foo-task"}}},
+			},
+		},
 		failureExpected: false,
 	}, {
-		name: "period in name",
-		p: tb.Pipeline("pipe.line", tb.PipelineSpec(
-			tb.PipelineTask("foo", "foo-task"),
-		)),
+		name: "period in pipeline name",
+		p: &v1alpha1.Pipeline{
+			ObjectMeta: v1.ObjectMeta{Name: "pipe.line"},
+			Spec: v1alpha1.PipelineSpec{
+				Tasks: []v1alpha1.PipelineTask{{
+					Name: "foo", TaskRef: &v1alpha1.TaskRef{Name: "foo-task"}}},
+			},
+		},
 		failureExpected: true,
 	}, {
 		name: "pipeline name too long",
-		p: tb.Pipeline("asdf123456789012345678901234567890123456789012345678901234567890", tb.PipelineSpec(
-			tb.PipelineTask("foo", "foo-task"),
-		)),
+		p: &v1alpha1.Pipeline{
+			ObjectMeta: v1.ObjectMeta{Name: "asdf123456789012345678901234567890123456789012345678901234567890"},
+			Spec: v1alpha1.PipelineSpec{
+				Tasks: []v1alpha1.PipelineTask{{
+					Name: "foo", TaskRef: &v1alpha1.TaskRef{Name: "foo-task"}}},
+			},
+		},
 		failureExpected: true,
 	}, {
-		name:            "pipeline spec missing",
-		p:               tb.Pipeline("pipeline"),
+		name: "pipeline spec missing",
+		p: &v1alpha1.Pipeline{
+			ObjectMeta: v1.ObjectMeta{Name: "pipeline"},
+		},
 		failureExpected: true,
 	}, {
 		name: "pipeline spec invalid (duplicate tasks)",
-		p: tb.Pipeline("pipeline", tb.PipelineSpec(
-			tb.PipelineTask("foo", "foo-task"),
-			tb.PipelineTask("foo", "foo-task"),
-		)),
+		p: &v1alpha1.Pipeline{
+			ObjectMeta: v1.ObjectMeta{Name: "pipeline"},
+			Spec: v1alpha1.PipelineSpec{
+				Tasks: []v1alpha1.PipelineTask{
+					{Name: "foo", TaskRef: &v1alpha1.TaskRef{Name: "foo-task"}},
+					{Name: "foo", TaskRef: &v1alpha1.TaskRef{Name: "foo-task"}},
+				},
+			},
+		},
 		failureExpected: true,
 	}, {
 		name: "pipeline spec empty task name",
-		p: tb.Pipeline("pipeline", tb.PipelineSpec(
-			tb.PipelineTask("", "foo-task"),
-		)),
+		p: &v1alpha1.Pipeline{
+			ObjectMeta: v1.ObjectMeta{Name: "pipeline"},
+			Spec: v1alpha1.PipelineSpec{
+				Tasks: []v1alpha1.PipelineTask{{Name: "", TaskRef: &v1alpha1.TaskRef{Name: "foo-task"}}},
+			},
+		},
 		failureExpected: true,
 	}, {
 		name: "pipeline spec invalid task name",
-		p: tb.Pipeline("pipeline", tb.PipelineSpec(
-			tb.PipelineTask("_foo", "foo-task"),
-		)),
+		p: &v1alpha1.Pipeline{
+			ObjectMeta: v1.ObjectMeta{Name: "pipeline"},
+			Spec: v1alpha1.PipelineSpec{
+				Tasks: []v1alpha1.PipelineTask{{Name: "_foo", TaskRef: &v1alpha1.TaskRef{Name: "foo-task"}}},
+			},
+		},
 		failureExpected: true,
 	}, {
 		name: "pipeline spec invalid task name 2",
-		p: tb.Pipeline("pipeline", tb.PipelineSpec(
-			tb.PipelineTask("FooTask", "foo-task"),
-		)),
+		p: &v1alpha1.Pipeline{
+			ObjectMeta: v1.ObjectMeta{Name: "pipeline"},
+			Spec: v1alpha1.PipelineSpec{
+				Tasks: []v1alpha1.PipelineTask{{Name: "fooTask", TaskRef: &v1alpha1.TaskRef{Name: "foo-task"}}},
+			},
+		},
 		failureExpected: true,
 	}, {
 		name: "pipeline spec invalid taskref name",
