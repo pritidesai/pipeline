@@ -261,6 +261,10 @@ type PipelineRunStatusFields struct {
 
 	// PipelineRunSpec contains the exact spec used to instantiate the run
 	PipelineSpec *PipelineSpec `json:"pipelineSpec,omitempty"`
+
+	// State with a list of successful, skipped, failed, and cancelled tasks
+	// +optional
+	State *PipelineRunPipelineTaskState `json:"pipelineRunPipelineTaskState,omitempty"`
 }
 
 // PipelineRunResult used to describe the results of a pipeline
@@ -337,4 +341,67 @@ func (pr *PipelineRun) GetTaskRunSpecs(pipelineTaskName string) (string, *PodTem
 		}
 	}
 	return serviceAccountName, taskPodTemplate
+}
+
+type PipelineRunPipelineTaskState struct {
+	// a list of tasks which were skipped for multiple reasons:
+	// (1) skipped because one or more Conditions failed
+	// (2) skipped because parent was skipped
+	// +optional
+	Skipped []string `json:"skipped,omitempty"`
+	// a list of tasks which were executed and successful
+	// +optional
+	Succeeded []string `json:"succeeded,omitempty"`
+	// a list of tasks which were executed but failed
+	// +optional
+	Failed []string `json:"failed,omitempty"`
+	// a list of tasks which were executing but cancelled
+	// +optional
+	Cancelled []string `json:"cancelled,omitempty"`
+	// a list of tasks which are currently getting executed
+	// +optional
+	Running []string `json:"running,omitempty"`
+	// a list of tasks which are still pending, have not executed
+	// +optional
+	Pending []string `json:"pending,omitempty"`
+	// a list of tasks which will be executed next
+	// +optional
+	Next       []string       `json:"next,omitempty"`
+	Retries    map[string]int `json:"retries,omitempty"`
+	DAGTasks   []string       `json:"dagTasks,omitempty"`
+	FinalTasks []string       `json:"finalTasks,omitempty"`
+}
+
+// GetState returns the PipelineRun State
+func (pr *PipelineRunStatus) GetPipelineTaskState() *PipelineRunPipelineTaskState {
+	if pr == nil {
+		return nil
+	}
+	if pr.State == nil {
+		pr.InitializePipelineTaskState()
+	}
+	return pr.State
+}
+
+// InitializeConditions will set all conditions in pipelineRunCondSet to unknown for the PipelineRun
+// and set the started time to the current time
+func (pr *PipelineRunStatus) InitializePipelineTaskState() {
+	if pr.State == nil {
+		pr.State = &PipelineRunPipelineTaskState{
+			Skipped:   []string{},
+			Succeeded: []string{},
+			Failed:    []string{},
+			Cancelled: []string{},
+			Running:   []string{},
+			Pending:   []string{},
+			Next:      []string{},
+			Retries:   map[string]int{},
+		}
+	}
+}
+
+// SetCondition sets the condition, unsetting previous conditions with the same
+// type as necessary.
+func (pr *PipelineRunStatus) SetPipelineTaskState(s *PipelineRunPipelineTaskState) {
+	pr.State = s
 }

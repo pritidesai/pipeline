@@ -19,8 +19,9 @@ package resources
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"strconv"
+
+	"github.com/davecgh/go-spew/spew"
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -183,7 +184,7 @@ func (state PipelineRunState) IsBeforeFirstTaskRun() bool {
 
 // GetNextTasks will return the next ResolvedPipelineRunTasks to execute, which are the ones in the
 // list of candidateTasks which aren't yet indicated in state to be running.
-func (state PipelineRunState) GetNextTasks(candidateTasks map[string]struct{}) []*ResolvedPipelineRunTask {
+func (state PipelineRunState) GetNextTasks(candidateTasks map[string]struct{}, runState *v1beta1.PipelineRunPipelineTaskState) []*ResolvedPipelineRunTask {
 	tasks := []*ResolvedPipelineRunTask{}
 	for _, t := range state {
 		if _, ok := candidateTasks[t.PipelineTask.Name]; ok && t.TaskRun == nil {
@@ -200,6 +201,21 @@ func (state PipelineRunState) GetNextTasks(candidateTasks map[string]struct{}) [
 			}
 		}
 	}
+	// list of tasks in execution queue is empty, check either pipeline has finished executing all pipelineTasks
+	// or any one of the pipelineTask has failed
+	spew.Dump("At this point runState looks like")
+	spew.Dump(runState)
+	spew.Dump("At this point runState looks like")
+	if len(tasks) == 0 {
+		if len(runState.Failed) > 0 || state.isDAGTasksFinished(runState) {
+			// return list of tasks with all final tasks
+			for _, t := range state {
+				if inList(runState.FinalTasks, t.PipelineTask.Name) {
+					tasks = append(tasks, t)
+				}
+			}
+		}
+	}
 	return tasks
 }
 
@@ -208,11 +224,8 @@ func (state PipelineRunState) GetNextTasks(candidateTasks map[string]struct{}) [
 func (state PipelineRunState) SuccessfulPipelineTaskNames() []string {
 	done := []string{}
 	for _, t := range state {
-		if t.TaskRun != nil {
-			c := t.TaskRun.Status.GetCondition(apis.ConditionSucceeded)
-			if c.IsTrue() {
-				done = append(done, t.PipelineTask.Name)
-			}
+		if t.IsSuccessful() {
+			done = append(done, t.PipelineTask.Name)
 		}
 	}
 	return done
@@ -422,68 +435,70 @@ func GetPipelineConditionStatus(pr *v1beta1.PipelineRun, state PipelineRunState,
 		}
 	}
 
-	// A single failed task mean we fail the pipeline
-	for _, rprt := range state {
-		if rprt.IsCancelled() {
-			logger.Infof("TaskRun %s is cancelled, so PipelineRun %s is cancelled", rprt.TaskRunName, pr.Name)
-			return &apis.Condition{
-				Type:    apis.ConditionSucceeded,
-				Status:  corev1.ConditionFalse,
-				Reason:  ReasonCancelled,
-				Message: fmt.Sprintf("TaskRun %s has cancelled", rprt.TaskRun.Name),
-			}
+	s := pr.Status.State
+	if len(s.Cancelled) != 0 {
+		logger.Infof("TaskRun %v is cancelled, so PipelineRun %s is cancelled", s.Cancelled, pr.Name)
+		return &apis.Condition{
+			Type:    apis.ConditionSucceeded,
+			Status:  corev1.ConditionFalse,
+			Reason:  ReasonCancelled,
+			Message: fmt.Sprintf("TaskRun %v has cancelled", s.Cancelled),
 		}
+	}
 
-		if rprt.IsFailure() { //IsDone ensures we have crossed the retry limit
-			logger.Infof("TaskRun %s has failed, so PipelineRun %s has failed, retries done: %b", rprt.TaskRunName, pr.Name, len(rprt.TaskRun.Status.RetriesStatus))
-			return &apis.Condition{
-				Type:    apis.ConditionSucceeded,
-				Status:  corev1.ConditionFalse,
-				Reason:  ReasonFailed,
-				Message: fmt.Sprintf("TaskRun %s has failed", rprt.TaskRun.Name),
-			}
+	// A single failed task mean we fail the pipeline
+	if len(s.Failed) != 0 {
+		// TODO Fix Retries
+		logger.Infof("TaskRun %v has failed, so PipelineRun %s has failed, retries done: %b", s.Failed, pr.Name, s.Retries)
+		return &apis.Condition{
+			Type:    apis.ConditionSucceeded,
+			Status:  corev1.ConditionFalse,
+			Reason:  ReasonFailed,
+			Message: fmt.Sprintf("TaskRun %v has failed", s.Failed),
 		}
 	}
 
 	allTasks := []string{}
-	successOrSkipTasks := []string{}
-	skipTasks := int(0)
-
-	// Check to see if all tasks are success or skipped
 	for _, rprt := range state {
 		allTasks = append(allTasks, rprt.PipelineTask.Name)
-		if rprt.IsSuccessful() {
-			successOrSkipTasks = append(successOrSkipTasks, rprt.PipelineTask.Name)
-		}
-		if isSkipped(rprt, state.ToMap(), dag) {
-			skipTasks++
-			successOrSkipTasks = append(successOrSkipTasks, rprt.PipelineTask.Name)
-		}
 	}
 
-	if reflect.DeepEqual(allTasks, successOrSkipTasks) {
+	// Check to see if all tasks are success or skipped
+	if state.isDAGTasksFinished(s) && state.isFinalTasksFinished(s) {
 		logger.Infof("All TaskRuns have finished for PipelineRun %s so it has finished", pr.Name)
 		reason := ReasonSucceeded
-		if skipTasks != 0 {
+		if len(pr.Status.State.Skipped) != 0 {
 			reason = ReasonCompleted
 		}
-
 		return &apis.Condition{
 			Type:    apis.ConditionSucceeded,
 			Status:  corev1.ConditionTrue,
 			Reason:  reason,
-			Message: fmt.Sprintf("Tasks Completed: %d, Skipped: %d", len(successOrSkipTasks)-skipTasks, skipTasks),
+			Message: fmt.Sprintf("Tasks Completed: %d, Skipped: %d", len(s.Succeeded), len(s.Skipped)),
 		}
 	}
 
 	// Hasn't timed out; no taskrun failed yet; and not all tasks have finished....
 	// Must keep running then....
 	return &apis.Condition{
-		Type:    apis.ConditionSucceeded,
-		Status:  corev1.ConditionUnknown,
-		Reason:  ReasonRunning,
-		Message: fmt.Sprintf("Tasks Completed: %d, Incomplete: %d, Skipped: %d", len(successOrSkipTasks)-skipTasks, len(allTasks)-len(successOrSkipTasks), skipTasks),
+		Type:   apis.ConditionSucceeded,
+		Status: corev1.ConditionUnknown,
+		Reason: ReasonRunning,
+		Message: fmt.Sprintf("Tasks Completed: %d, Incomplete: %d, Skipped: %d", len(s.Succeeded),
+			len(allTasks)-len(s.Succeeded)-len(s.Skipped), len(s.Skipped)),
 	}
+}
+
+func isFinished(allTasks, executedTasks []string) bool {
+	if len(allTasks) != len(executedTasks) {
+		return false
+	}
+	for _, v := range allTasks {
+		if !inList(executedTasks, v) {
+			return false
+		}
+	}
+	return true
 }
 
 // isSkipped returns true if a Task in a TaskRun will not be run either because
@@ -603,4 +618,131 @@ func ResolvePipelineTaskResources(pt v1beta1.PipelineTask, ts *v1beta1.TaskSpec,
 		}
 	}
 	return &rtr, nil
+}
+
+// SkippedPipelineTaskNames returns a list of tasks, including task such as
+// its Condition Checks failed or because one of the parent tasks's conditions failed
+// Note that this means a task would not be included if a conditionCheck is still in progress
+func (state PipelineRunState) skippedPipelineTaskNames(pr *v1beta1.PipelineRun, d *dag.Graph) []string {
+	tasks := []string{}
+	// retrieve the list of already skipped tasks
+	if pr.Status.State != nil {
+		tasks = pr.Status.State.Skipped
+	}
+	for _, t := range state {
+		// final tasks should not be skipped
+		if inList(pr.Status.State.FinalTasks, t.PipelineTask.Name) {
+			continue
+		}
+		// task is not skipped if it's associated TaskRun already exists
+		if t.TaskRun != nil {
+			continue
+		}
+		// Check if conditionChecks have failed, if so task is skipped
+		if len(t.ResolvedConditionChecks) > 0 {
+			// if conditionChecks are done but was not successful, the task was skipped
+			if t.ResolvedConditionChecks.IsDone() && !t.ResolvedConditionChecks.IsSuccess() {
+				// do not add if the task already exist in the list
+				if !inList(tasks, t.PipelineTask.Name) {
+					tasks = append(tasks, t.PipelineTask.Name)
+				}
+			}
+		}
+		// look at parent tasks to see if they have been skipped,
+		// if any of the parents have been skipped, skip this task as well
+		node := d.Nodes[t.PipelineTask.Name]
+		for _, p := range node.Prev {
+			// if the parent task is in the list of skipped tasks, add this task
+			if inList(tasks, p.Task.HashKey()) {
+				// do not add if the task already exist in the list
+				if !inList(tasks, t.PipelineTask.Name) {
+					tasks = append(tasks, t.PipelineTask.Name)
+				}
+			}
+		}
+	}
+	return tasks
+}
+
+// inList checks if an element already exist in the list or not
+func inList(tasks []string, task string) bool {
+	for _, t := range tasks {
+		if t == task {
+			return true
+		}
+	}
+	return false
+}
+
+func (state PipelineRunState) UpdatePipelineTaskState(pr *v1beta1.PipelineRun, d *dag.Graph) *v1beta1.PipelineRunPipelineTaskState {
+	s := pr.Status.GetPipelineTaskState()
+	s.Succeeded = state.SuccessfulPipelineTaskNames()
+	s.Skipped = state.skippedPipelineTaskNames(pr, d)
+	s.Failed = state.failedPipelineTaskNames()
+	s.Cancelled = state.cancelledPipelineTaskNames()
+	s.Retries = state.retriesPipelineTaskNames()
+	return s
+}
+
+// FailedPipelineTaskNames returns a list of the names of all of the PipelineTasks in state
+// which has failed. Right now, this list will only have one task at the max, since
+// pipeline exits when first failure is encountered
+func (state PipelineRunState) failedPipelineTaskNames() []string {
+	tasks := []string{}
+	for _, t := range state {
+		if t.IsFailure() {
+			if !inList(tasks, t.PipelineTask.Name) {
+				tasks = append(tasks, t.PipelineTask.Name)
+			}
+		}
+	}
+	return tasks
+}
+
+func (state PipelineRunState) cancelledPipelineTaskNames() []string {
+	tasks := []string{}
+	for _, t := range state {
+		if t.IsCancelled() {
+			if !inList(tasks, t.PipelineTask.Name) {
+				tasks = append(tasks, t.PipelineTask.Name)
+			}
+		}
+	}
+	return tasks
+}
+
+func (state PipelineRunState) retriesPipelineTaskNames() map[string]int {
+	tasks := map[string]int{}
+	for _, t := range state {
+		if t.TaskRun != nil {
+			tasks[t.PipelineTask.Name] = len(t.TaskRun.Status.RetriesStatus)
+		}
+	}
+	return tasks
+}
+
+func (state PipelineRunState) isDAGTasksFinished(runState *v1beta1.PipelineRunPipelineTaskState) bool {
+	for _, t := range state {
+		if !inList(runState.FinalTasks, t.PipelineTask.Name) {
+			if !inList(runState.Succeeded, t.PipelineTask.Name) && !inList(runState.Skipped, t.PipelineTask.Name) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func (state PipelineRunState) isFinalTasksFinished(runState *v1beta1.PipelineRunPipelineTaskState) bool {
+	for _, t := range state {
+		spew.Dump("Looking at final task")
+		spew.Dump(t.PipelineTask.Name)
+		if inList(runState.FinalTasks, t.PipelineTask.Name) {
+			spew.Dump("its a final task")
+			if !inList(runState.Succeeded, t.PipelineTask.Name) && !inList(runState.Skipped, t.PipelineTask.Name) && !inList(runState.Failed, t.PipelineTask.Name) {
+				spew.Dump("its not in succeeded, skipped, or failed so return false")
+				return false
+			}
+		}
+	}
+	return true
 }
