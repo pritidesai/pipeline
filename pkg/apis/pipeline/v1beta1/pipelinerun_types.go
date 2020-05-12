@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
+
 	"github.com/tektoncd/pipeline/pkg/apis/config"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline"
 	corev1 "k8s.io/api/core/v1"
@@ -261,6 +263,10 @@ type PipelineRunStatusFields struct {
 
 	// PipelineRunSpec contains the exact spec used to instantiate the run
 	PipelineSpec *PipelineSpec `json:"pipelineSpec,omitempty"`
+
+	// State with a list of successful, skipped, failed, and cancelled tasks
+	// +optional
+	RunState *PipelineTaskRunState `json:"runState,omitempty"`
 }
 
 // PipelineRunResult used to describe the results of a pipeline
@@ -337,4 +343,122 @@ func (pr *PipelineRun) GetTaskRunSpecs(pipelineTaskName string) (string, *PodTem
 		}
 	}
 	return serviceAccountName, taskPodTemplate
+}
+
+const (
+	// PipelineTaskNotStarted indicates that the PipelineTask haven't started executing yet
+	PipelineTaskNotStarted = "NotStarted"
+
+	// PipelineTaskFailed indicates that the reason for the failure status is that one of the TaskRuns failed
+	PipelineTaskFailed = "Failed"
+
+	// ReasonCancelled indicates that the reason for the cancelled status is that one of the TaskRuns cancelled
+	PipelineTaskCancelled = "Cancelled"
+
+	// ReasonSucceeded indicates that the reason for the finished status is that all of the TaskRuns
+	// completed successfully
+	PipelineTaskSucceeded = "Succeeded"
+
+	// ReasonCancelled indicates that the reason for the cancelled status is that one of the TaskRuns cancelled
+	PipelineTaskSkipped = "Skipped"
+)
+
+type PipelineTaskRunState struct {
+	// map of PipelineTasks and their execution state
+	// NotStarted for tasks which haven't started executing yet
+	// Succeeded
+	DAGTasks   map[string]string `json:"dagTasks,omitempty"`
+	FinalTasks map[string]string `json:"finalTasks,omitempty"`
+	// count of tasks which were not executed at all
+	NotStarted int `json:"notStarted,omitempty"`
+	// count of tasks which were skipped for multiple reasons:
+	// (1) skipped because one or more Conditions failed
+	// (2) skipped because parent was skipped
+	// +optional
+	Skipped int `json:"skipped,omitempty"`
+	// count of tasks which were executed and successful
+	// +optional
+	Succeeded int `json:"succeeded,omitempty"`
+	// count of tasks which were executed but failed
+	// +optional
+	Failed int `json:"failed,omitempty"`
+	// count of tasks which were executing but cancelled
+	// +optional
+	Cancelled int `json:"cancelled,omitempty"`
+}
+
+// InitializeConditions will set all conditions in pipelineRunCondSet to unknown for the PipelineRun
+// and set the started time to the current time
+func (pr *PipelineRunStatus) InitializePipelineTaskState() {
+	if pr.RunState == nil {
+		pr.RunState = &PipelineTaskRunState{
+			DAGTasks:   map[string]string{},
+			FinalTasks: map[string]string{},
+			NotStarted: 0,
+			Succeeded:  0,
+			Failed:     0,
+			Skipped:    0,
+			Cancelled:  0,
+		}
+	}
+}
+
+func (pts *PipelineTaskRunState) GetTaskState(taskName string) string {
+	if pts == nil {
+		return ""
+	}
+	if pts.FinalTasks == nil {
+		return ""
+	}
+	if _, t := pts.DAGTasks[taskName]; t {
+		return pts.DAGTasks[taskName]
+	}
+	if _, t := pts.FinalTasks[taskName]; t {
+		return pts.FinalTasks[taskName]
+	}
+	return ""
+}
+
+func (pts *PipelineTaskRunState) SetPipelineTasksToNotStarted(pipelineSpec *PipelineSpec) {
+	// making sure we handle uninitialized RunState here
+	// this function is meant to call after RunState is initialized using InitializePipelineTaskState
+	// if its not already initialized, initialize here instead of running into nil
+	spew.Dump("inside setPipelineTasksToNotStarted")
+	spew.Dump(pts)
+	// set all DAG PipelineTasks to Not Started if it doesnt exist in the map DAGTasks
+	for _, t := range pipelineSpec.Tasks {
+		if _, ok := pts.DAGTasks[t.Name]; !ok {
+			pts.DAGTasks[t.Name] = PipelineTaskNotStarted
+			pts.NotStarted += 1
+		}
+	}
+	// set all Final PipelineTasks to Not Started if it doesnt exist in the map FinalTasks
+	for _, t := range pipelineSpec.Finally {
+		if _, ok := pts.FinalTasks[t.Name]; !ok {
+			pts.FinalTasks[t.Name] = PipelineTaskNotStarted
+			pts.NotStarted += 1
+		}
+	}
+}
+
+func (pts *PipelineTaskRunState) GetSucceededTasks() []string {
+	tasks := []string{}
+
+	if pts == nil {
+		return tasks
+	}
+	if pts.FinalTasks == nil {
+		return tasks
+	}
+	for t, s := range pts.DAGTasks {
+		if s == PipelineTaskSucceeded {
+			tasks = append(tasks, t)
+		}
+	}
+	for t, s := range pts.FinalTasks {
+		if s == PipelineTaskSucceeded {
+			tasks = append(tasks, t)
+		}
+	}
+	return tasks
 }

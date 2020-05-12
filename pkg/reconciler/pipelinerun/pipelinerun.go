@@ -24,6 +24,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
+
 	"github.com/hashicorp/go-multierror"
 	"github.com/tektoncd/pipeline/pkg/apis/config"
 	apisconfig "github.com/tektoncd/pipeline/pkg/apis/config"
@@ -164,6 +166,9 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	} else {
 		pr.Status.InitializeConditions()
 	}
+
+	// Initialize PipelineRun Status
+	pr.Status.InitializePipelineTaskState()
 
 	// In case of reconcile errors, we store the error in a multierror, attempt
 	// to update, and return the original error combined with any update error
@@ -332,6 +337,16 @@ func (c *Reconciler) updatePipelineResults(ctx context.Context, pr *v1beta1.Pipe
 		pr.Status.PipelineResults = getPipelineRunResults(pipelineSpec, resolvedResultRefs)
 	}
 }
+
+func inList(tasks []string, task string) bool {
+	for _, t := range tasks {
+		if t == task {
+			return true
+		}
+	}
+	return false
+}
+
 func (c *Reconciler) reconcile(ctx context.Context, pr *v1beta1.PipelineRun) error {
 	// We may be reading a version of the object that was stored at an older version
 	// and may not have had all of the assumed default specified.
@@ -363,6 +378,12 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1beta1.PipelineRun) err
 	if err := storePipelineSpec(ctx, pr, pipelineSpec); err != nil {
 		c.Logger.Errorf("Failed to store PipelineSpec on PipelineRun.Status for pipelinerun %s: %v", pr.Name, err)
 	}
+
+	pr.Status.RunState.SetPipelineTasksToNotStarted(pipelineSpec)
+
+	spew.Dump("PipelineRun State Default")
+	spew.Dump(pr.Status.RunState)
+	spew.Dump("PipelineRun State Default")
 
 	// Propagate labels from Pipeline to PipelineRun.
 	if pr.ObjectMeta.Labels == nil {
@@ -486,7 +507,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1beta1.PipelineRun) err
 		func(name string) (*v1alpha1.Condition, error) {
 			return c.conditionLister.Conditions(pr.Namespace).Get(name)
 		},
-		pipelineSpec.Tasks, providedResources,
+		append(pipelineSpec.Tasks, pipelineSpec.Finally...), providedResources,
 	)
 
 	if err != nil {
@@ -556,12 +577,17 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1beta1.PipelineRun) err
 		}
 	}
 
-	candidateTasks, err := dag.GetSchedulable(d, pipelineState.SuccessfulPipelineTaskNames()...)
+	candidateTasks, err := dag.GetSchedulable(d, pr.Status.RunState.GetSucceededTasks()...)
 	if err != nil {
 		c.Logger.Errorf("Error getting potential next tasks for valid pipelinerun %s: %v", pr.Name, err)
 	}
 
-	nextRprts := pipelineState.GetNextTasks(candidateTasks)
+	nextRprts := pipelineState.GetNextTasks(candidateTasks, pr.Status.RunState)
+	spew.Dump("Get Next Tasks")
+	for _, n := range nextRprts {
+		spew.Dump(n.PipelineTask.Name)
+	}
+	spew.Dump("Get Next Tasks")
 	resolvedResultRefs, err := resources.ResolveResultRefs(pipelineState, nextRprts)
 	if err != nil {
 		c.Logger.Infof("Failed to resolve all task params for %q with error %v", pr.Name, err)
@@ -602,6 +628,11 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1beta1.PipelineRun) err
 			}
 		}
 	}
+	pipelineState.UpdatePipelineTaskState(pr, d)
+	spew.Dump("Update Pipeline State")
+	spew.Dump(pr.Status.RunState)
+	spew.Dump("Update Pipeline State")
+
 	before := pr.Status.GetCondition(apis.ConditionSucceeded)
 	after := resources.GetPipelineConditionStatus(pr, pipelineState, c.Logger, d)
 	pr.Status.SetCondition(after)

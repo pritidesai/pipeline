@@ -43,6 +43,7 @@ type PipelineSpec struct {
 	// Results are values that this pipeline can output once run
 	// +optional
 	Results []PipelineResult `json:"results,omitempty"`
+	Finally []PipelineTask   `json:"finally,omitempty"`
 }
 
 // PipelineResult used to describe the results of a pipeline
