@@ -107,21 +107,28 @@ spec:
   serviceAccountName: 'default'
 ---
 
-apiVersion: tekton.dev/v1beta1
-kind: PipelineRun
-metadata:
-  name: demo-pipeline-to-build-an-image-without-image-resource
-spec:
-  pipelineRef:
-    name: demo-pipeline-to-build-an-image
-  serviceAccountName: 'default'
-  resources:
-    - name: source-repo
-      resourceSpec:
-        type: git
-        params:
-          - name: revision
-            value: master
-          - name: url
-            value: https://github.com/tektoncd/pipeline
----
+#apiVersion: tekton.dev/v1beta1
+#kind: PipelineRun
+#metadata:
+#  name: demo-pipeline-to-build-an-image-without-image-resource
+#spec:
+#  pipelineRef:
+#    name: demo-pipeline-to-build-an-image
+#  serviceAccountName: 'default'
+#  resources:
+#    - name: source-repo
+#      resourceSpec:
+#        type: git
+#        params:
+#          - name: revision
+#            value: master
+#          - name: url
+#            value: https://github.com/tektoncd/pipeline
+#---
+
+
+@afrittoli the pipelineTask associated to a condition (could be more than one condition as well) is not added to the PipelineRunStatus as its not executed/created until condition successfully finishes.
+
+here, for example, for a pipelineTask with two conditions, `conditionTaskRuns` contains two containers, one for each condition, but `taskRunByPipelineTask` does not hold any for that pipelineTask and it ends up generating a new taskRunName and gets added into pipeline run status with `pr.Status.TaskRuns[taskRunName]`
+
+PipelineRunTaskRunStatus holds map of

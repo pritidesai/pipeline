@@ -25,6 +25,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
+
 	"github.com/hashicorp/go-multierror"
 	"github.com/tektoncd/pipeline/pkg/apis/config"
 	apisconfig "github.com/tektoncd/pipeline/pkg/apis/config"
@@ -207,6 +209,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		}
 
 		// Make sure that the PipelineRun status is in sync with the actual TaskRuns
+		spew.Dump("I am going to update pipeline run status from informer, calling updatePipelineRunStatusFromInformer")
 		err = c.updatePipelineRunStatusFromInformer(pr)
 		if err != nil {
 			// This should not fail. Return the error so we can re-try later.
@@ -570,8 +573,15 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1beta1.PipelineRun) err
 	if err != nil {
 		c.Logger.Errorf("Error getting potential next tasks for valid pipelinerun %s: %v", pr.Name, err)
 	}
+	spew.Dump("++++ Successful tasks ++++ ")
+	spew.Dump(candidateTasks)
 
 	nextRprts := pipelineState.GetNextTasks(candidateTasks)
+	spew.Dump("Get Next Tasks")
+	for _, r := range nextRprts {
+		spew.Dump(r.PipelineTask.Name)
+		spew.Dump(r.ResolvedConditionChecks)
+	}
 	resolvedResultRefs, err := resources.ResolveResultRefs(pipelineState, nextRprts)
 	if err != nil {
 		c.Logger.Infof("Failed to resolve all task params for %q with error %v", pr.Name, err)
@@ -619,6 +629,9 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1beta1.PipelineRun) err
 
 	pr.Status.TaskRuns = getTaskRunsStatus(pr, pipelineState)
 	c.Logger.Infof("PipelineRun %s status is being set to %s", pr.Name, pr.Status.GetCondition(apis.ConditionSucceeded))
+	spew.Dump("PipelineRun Status has how many taskRuns")
+	spew.Dump(len(pr.Status.TaskRuns))
+	spew.Dump(pr.Status.TaskRuns)
 	return nil
 }
 
@@ -687,7 +700,11 @@ func getTaskRunsStatus(pr *v1beta1.PipelineRun, state []*resources.ResolvedPipel
 				})
 			}
 		}
-		status[rprt.TaskRunName] = prtrs
+		if rprt.PipelineTask.Name == "pre-work" {
+			spew.Dump("Pipeline Task is pre-work so skipping adding it into TaskRunStatus")
+		} else {
+			status[rprt.TaskRunName] = prtrs
+		}
 	}
 	return status
 }
@@ -946,9 +963,25 @@ func storePipelineSpec(ctx context.Context, pr *v1beta1.PipelineRun, ps *v1beta1
 	return nil
 }
 
+//demo-pipeline-to-build-an-image-without-resources-build-a-flsf7
+//ConditionRegisterName: (string) (len=29) "check-git-pipeline-resource-0",
+// ConditionRef: (string) (len=27) "check-git-pipeline-resource",
+
+//demo-pipeline-to-build-an-image-without-resources-build-a-27h4d
+// conditionRegisterName: check-image-pipeline-resource-1
+// conditionRef: check-image-pipeline-resource
+
+//demo-pipeline-to-build-an-image-without-resources-build-a-flsf7
+
 func (c *Reconciler) updatePipelineRunStatusFromInformer(pr *v1beta1.PipelineRun) error {
 	pipelineRunLabels := getTaskrunLabels(pr, "")
+	spew.Dump("**** Start: pipelineRunLabels *****")
+	spew.Dump(pipelineRunLabels)
+	spew.Dump("**** End: pipelineRunLabels *****")
 	taskRuns, err := c.taskRunLister.TaskRuns(pr.Namespace).List(labels.SelectorFromSet(pipelineRunLabels))
+	spew.Dump("*** Start: taskRuns ***")
+	spew.Dump(taskRuns)
+	spew.Dump("*** End: taskRuns ****")
 	if err != nil {
 		c.Logger.Errorf("Could not list TaskRuns %#v", err)
 		return err
@@ -959,8 +992,14 @@ func (c *Reconciler) updatePipelineRunStatusFromInformer(pr *v1beta1.PipelineRun
 	taskRunByPipelineTask := make(map[string]string)
 	// First loop over all the TaskRuns associated to Tasks
 	for _, taskrun := range taskRuns {
+		spew.Dump("iterating over taskRuns, this iteration taskrun: ")
+		spew.Dump(taskrun.Name)
 		lbls := taskrun.GetLabels()
+		spew.Dump("labels")
+		spew.Dump(lbls)
 		pipelineTaskName := lbls[pipeline.GroupName+pipeline.PipelineTaskLabelKey]
+		spew.Dump("pipelineTaskName")
+		spew.Dump(pipelineTaskName)
 		if _, ok := lbls[pipeline.GroupName+pipeline.ConditionCheckKey]; ok {
 			// Save condition for looping over them after this
 			if _, ok := conditionTaskRuns[pipelineTaskName]; !ok {
@@ -972,9 +1011,14 @@ func (c *Reconciler) updatePipelineRunStatusFromInformer(pr *v1beta1.PipelineRun
 		}
 		// Map pipeline task to taskrun name
 		taskRunByPipelineTask[pipelineTaskName] = taskrun.Name
+		spew.Dump("*** taskRunByPipelineTask")
+		spew.Dump(taskRunByPipelineTask)
+		spew.Dump("*** taskRunByPipelineTask")
 		if _, ok := pr.Status.TaskRuns[taskrun.Name]; !ok {
 			// This taskrun was missing from the status.
 			// Add it without conditions, which are handled in the next loop
+			spew.Dump("++++++ Adding without conditions ++++")
+			spew.Dump(taskrun.Name)
 			pr.Status.TaskRuns[taskrun.Name] = &v1alpha1.PipelineRunTaskRunStatus{
 				PipelineTaskName: pipelineTaskName,
 				Status:           &taskrun.Status,
@@ -982,8 +1026,11 @@ func (c *Reconciler) updatePipelineRunStatusFromInformer(pr *v1beta1.PipelineRun
 			}
 		}
 	}
+	spew.Dump("iterating over ConditionTaskRuns ")
 	// Then loop by pipelinetask name over all the TaskRuns associated to Conditions
 	for pipelineTaskName, actualConditionTaskRuns := range conditionTaskRuns {
+		spew.Dump("+++ conditionTaskRun ++++ ")
+		spew.Dump(pipelineTaskName)
 		taskRunName, ok := taskRunByPipelineTask[pipelineTaskName]
 		if !ok {
 			// The pipelineTask associated to the conditions was not found in the pipelinerun
@@ -991,11 +1038,15 @@ func (c *Reconciler) updatePipelineRunStatusFromInformer(pr *v1beta1.PipelineRun
 			// status. In this case we need to generate a new TaskRun name, that will be used
 			// to run the TaskRun if the conditions are passed.
 			taskRunName = resources.GetTaskRunName(pr.Status.TaskRuns, pipelineTaskName, pr.Name)
+			spew.Dump("--------- create a new taskRun name ----------")
+			spew.Dump(taskRunName)
 			pr.Status.TaskRuns[taskRunName] = &v1alpha1.PipelineRunTaskRunStatus{
 				PipelineTaskName: pipelineTaskName,
 				Status:           nil,
 				ConditionChecks:  nil,
 			}
+			spew.Dump("-------- length of the taskRuns -----")
+			spew.Dump(len(pr.Status.TaskRuns))
 		}
 		// Build the map of condition checks for the taskrun
 		// If there were no other condition, initialise the map
@@ -1003,16 +1054,26 @@ func (c *Reconciler) updatePipelineRunStatusFromInformer(pr *v1beta1.PipelineRun
 		if conditionChecks == nil {
 			conditionChecks = make(map[string]*v1alpha1.PipelineRunConditionCheckStatus)
 		}
+		spew.Dump("^^^^^^^^^^ actualConditionTaskRuns ^^^^^^^^^^^^^^^")
+		spew.Dump(actualConditionTaskRuns)
 		for i, foundTaskRun := range actualConditionTaskRuns {
+			spew.Dump("iterating over actualConditionTaskRuns")
+			spew.Dump(foundTaskRun)
 			lbls := foundTaskRun.GetLabels()
+			spew.Dump("labels")
+			spew.Dump(lbls)
 			if _, ok := conditionChecks[foundTaskRun.Name]; !ok {
 				// The condition check was not found, so we need to add it
 				// We only add the condition name, the status can now be gathered by the
 				// normal reconcile process
+				spew.Dump("condition check was not found")
 				if conditionName, ok := lbls[pipeline.GroupName+pipeline.ConditionNameKey]; ok {
+					spew.Dump("condition check was not found, adding condition name")
 					conditionChecks[foundTaskRun.Name] = &v1alpha1.PipelineRunConditionCheckStatus{
 						ConditionName: fmt.Sprintf("%s-%s", conditionName, strconv.Itoa(i)),
 					}
+					spew.Dump("conditionChecks created")
+					spew.Dump(conditionChecks[foundTaskRun.Name])
 				} else {
 					// The condition name label is missing, so we cannot recover this
 					c.Logger.Warnf("found an orphaned condition taskrun %#v with missing %s label",
