@@ -24,6 +24,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
+
 	"github.com/hashicorp/go-multierror"
 	"github.com/tektoncd/pipeline/pkg/apis/config"
 	apisconfig "github.com/tektoncd/pipeline/pkg/apis/config"
@@ -486,9 +488,13 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1beta1.PipelineRun) err
 		func(name string) (*v1alpha1.Condition, error) {
 			return c.conditionLister.Conditions(pr.Namespace).Get(name)
 		},
-		pipelineSpec.Tasks, providedResources,
+		append(pipelineSpec.Tasks, pipelineSpec.Finally...), providedResources,
 	)
 
+	spew.Dump("Resolve PipelineRun has following tasks:")
+	spew.Dump("**** START *****")
+	spew.Dump(pipelineState)
+	spew.Dump("**** END *****")
 	if err != nil {
 		// This Run has failed, so we need to mark it as failed and stop reconciling it
 		switch err := err.(type) {
@@ -580,6 +586,11 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1beta1.PipelineRun) err
 	if as, err = artifacts.InitializeArtifactStorage(c.Images, pr, pipelineSpec, c.KubeClientSet, c.Logger); err != nil {
 		c.Logger.Infof("PipelineRun failed to initialize artifact storage %s", pr.Name)
 		return err
+	}
+
+	spew.Dump("Next Tasks to execute:")
+	for _, n := range nextRprts {
+		spew.Dump(n.PipelineTask.Name)
 	}
 
 	for _, rprt := range nextRprts {

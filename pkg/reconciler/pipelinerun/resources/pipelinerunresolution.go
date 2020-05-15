@@ -506,10 +506,12 @@ func isSkipped(rprt *ResolvedPipelineRunTask, stateMap map[string]*ResolvedPipel
 	// Recursively look at parent tasks to see if they have been skipped,
 	// if any of the parents have been skipped, skip as well
 	node := d.Nodes[rprt.PipelineTask.Name]
-	for _, p := range node.Prev {
-		skip := isSkipped(stateMap[p.Task.HashKey()], stateMap, d)
-		if skip {
-			return true
+	if node != nil {
+		for _, p := range node.Prev {
+			skip := isSkipped(stateMap[p.Task.HashKey()], stateMap, d)
+			if skip {
+				return true
+			}
 		}
 	}
 	return false
