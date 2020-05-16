@@ -148,6 +148,35 @@ func (t ResolvedPipelineRunTask) IsCancelled() bool {
 	return c.IsFalse() && c.Reason == v1beta1.TaskRunSpecStatusCancelled
 }
 
+// IsSkipped returns true if a Task in a TaskRun will not be run either because
+// its Condition Checks failed or because one of the parent tasks's conditions failed
+// Note that this means IsSkipped returns false if a conditionCheck is in progress
+func (t ResolvedPipelineRunTask) IsSkipped(state map[string]*ResolvedPipelineRunTask, d *dag.Graph) bool {
+	// task is not skipped if its associated TaskRun already exists
+	if t.TaskRun != nil {
+		return false
+	}
+
+	// Check if conditionChecks have failed, if so task is skipped
+	if len(t.ResolvedConditionChecks) > 0 {
+		// if conditionChecks are done but were not successful, the task was skipped
+		if t.ResolvedConditionChecks.IsDone() && !t.ResolvedConditionChecks.IsSuccess() {
+			return true
+		}
+	}
+
+	// Recursively look at parent tasks to see if they have been skipped,
+	// if any of the parents have been skipped, skip this task as well
+	node := d.Nodes[t.PipelineTask.Name]
+	for _, p := range node.Prev {
+		skip := state[p.Task.HashKey()].IsSkipped(state, d)
+		if skip {
+			return true
+		}
+	}
+	return false
+}
+
 // ToMap returns a map that maps pipeline task name to the resolved pipeline run task
 func (state PipelineRunState) ToMap() map[string]*ResolvedPipelineRunTask {
 	m := make(map[string]*ResolvedPipelineRunTask)
@@ -455,7 +484,7 @@ func GetPipelineConditionStatus(pr *v1beta1.PipelineRun, state PipelineRunState,
 		if rprt.IsSuccessful() {
 			successOrSkipTasks = append(successOrSkipTasks, rprt.PipelineTask.Name)
 		}
-		if isSkipped(rprt, state.ToMap(), dag) {
+		if rprt.IsSkipped(state.ToMap(), dag) {
 			skipTasks++
 			successOrSkipTasks = append(successOrSkipTasks, rprt.PipelineTask.Name)
 		}
@@ -484,35 +513,6 @@ func GetPipelineConditionStatus(pr *v1beta1.PipelineRun, state PipelineRunState,
 		Reason:  ReasonRunning,
 		Message: fmt.Sprintf("Tasks Completed: %d, Incomplete: %d, Skipped: %d", len(successOrSkipTasks)-skipTasks, len(allTasks)-len(successOrSkipTasks), skipTasks),
 	}
-}
-
-// isSkipped returns true if a Task in a TaskRun will not be run either because
-//  its Condition Checks failed or because one of the parent tasks's conditions failed
-// Note that this means isSkipped returns false if a conditionCheck is in progress
-func isSkipped(rprt *ResolvedPipelineRunTask, stateMap map[string]*ResolvedPipelineRunTask, d *dag.Graph) bool {
-	// Taskrun not skipped if it already exists
-	if rprt.TaskRun != nil {
-		return false
-	}
-
-	// Check if conditionChecks have failed, if so task is skipped
-	if len(rprt.ResolvedConditionChecks) > 0 {
-		// isSkipped is only true iof
-		if rprt.ResolvedConditionChecks.IsDone() && !rprt.ResolvedConditionChecks.IsSuccess() {
-			return true
-		}
-	}
-
-	// Recursively look at parent tasks to see if they have been skipped,
-	// if any of the parents have been skipped, skip as well
-	node := d.Nodes[rprt.PipelineTask.Name]
-	for _, p := range node.Prev {
-		skip := isSkipped(stateMap[p.Task.HashKey()], stateMap, d)
-		if skip {
-			return true
-		}
-	}
-	return false
 }
 
 func resolveConditionChecks(pt *v1beta1.PipelineTask, taskRunStatus map[string]*v1beta1.PipelineRunTaskRunStatus, taskRunName string, getTaskRun resources.GetTaskRun, getCondition GetCondition, providedResources map[string]*resourcev1alpha1.PipelineResource) ([]*ResolvedConditionCheck, error) {
