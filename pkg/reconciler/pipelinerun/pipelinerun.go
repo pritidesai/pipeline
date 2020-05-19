@@ -24,6 +24,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
+
 	"github.com/hashicorp/go-multierror"
 	"github.com/tektoncd/pipeline/pkg/apis/config"
 	apisconfig "github.com/tektoncd/pipeline/pkg/apis/config"
@@ -394,6 +396,19 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1beta1.PipelineRun) err
 		return nil
 	}
 
+	dfinally, err := dag.Build(v1beta1.PipelineTaskList(pipelineSpec.Finally))
+	if err != nil {
+		// This Run has failed, so we need to mark it as failed and stop reconciling it
+		pr.Status.SetCondition(&apis.Condition{
+			Type:   apis.ConditionSucceeded,
+			Status: corev1.ConditionFalse,
+			Reason: ReasonInvalidGraph,
+			Message: fmt.Sprintf("PipelineRun %s's Pipeline DAG is invalid: %s",
+				fmt.Sprintf("%s/%s", pr.Namespace, pr.Name), err),
+		})
+		return nil
+	}
+
 	if err := pipelineSpec.Validate(ctx); err != nil {
 		// This Run has failed, so we need to mark it as failed and stop reconciling it
 		pr.Status.SetCondition(&apis.Condition{
@@ -486,7 +501,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1beta1.PipelineRun) err
 		func(name string) (*v1alpha1.Condition, error) {
 			return c.conditionLister.Conditions(pr.Namespace).Get(name)
 		},
-		pipelineSpec.Tasks, providedResources,
+		append(pipelineSpec.Tasks, pipelineSpec.Finally...), providedResources,
 	)
 
 	if err != nil {
@@ -562,6 +577,19 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1beta1.PipelineRun) err
 	}
 
 	nextRprts := pipelineState.GetNextTasks(candidateTasks)
+
+	spew.Dump("next tasks are")
+	for _, t := range nextRprts {
+		spew.Dump(t.PipelineTask.Name)
+	}
+	spew.Dump("Getting final tasks")
+	finalTasks := pipelineState.GetFinalTasks(d, dfinally)
+	spew.Dump("got so many final tasks")
+	for _, t := range finalTasks {
+		spew.Dump(t.PipelineTask.Name)
+	}
+	nextRprts = append(nextRprts, finalTasks...)
+
 	resolvedResultRefs, err := resources.ResolveResultRefs(pipelineState, nextRprts)
 	if err != nil {
 		c.Logger.Infof("Failed to resolve all task params for %q with error %v", pr.Name, err)

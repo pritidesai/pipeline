@@ -22,6 +22,8 @@ import (
 	"reflect"
 	"strconv"
 
+	"github.com/davecgh/go-spew/spew"
+
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -157,6 +159,8 @@ func (state PipelineRunState) ToMap() map[string]*ResolvedPipelineRunTask {
 	return m
 }
 
+// IsDone returns true when all pipeline tasks have respective taskRun created and
+// that taskRun has either succeeded or failed after all possible retry attempts
 func (state PipelineRunState) IsDone() (isDone bool) {
 	isDone = true
 	for _, t := range state {
@@ -187,11 +191,17 @@ func (state PipelineRunState) GetNextTasks(candidateTasks map[string]struct{}) [
 	tasks := []*ResolvedPipelineRunTask{}
 	for _, t := range state {
 		if _, ok := candidateTasks[t.PipelineTask.Name]; ok && t.TaskRun == nil {
+			spew.Dump("appending task")
+			spew.Dump(t.PipelineTask.Name)
 			tasks = append(tasks, t)
 		}
 		if _, ok := candidateTasks[t.PipelineTask.Name]; ok && t.TaskRun != nil {
 			status := t.TaskRun.Status.GetCondition(apis.ConditionSucceeded)
 			if status != nil && status.IsFalse() {
+				spew.Dump("is task cancelled")
+				spew.Dump(t.TaskRun.IsCancelled())
+				spew.Dump("is task run reason")
+				spew.Dump(status.Reason)
 				if !(t.TaskRun.IsCancelled() || status.Reason == v1beta1.TaskRunSpecStatusCancelled || status.Reason == ReasonConditionCheckFailed) {
 					if len(t.TaskRun.Status.RetriesStatus) < t.PipelineTask.Retries {
 						tasks = append(tasks, t)
@@ -216,6 +226,65 @@ func (state PipelineRunState) SuccessfulPipelineTaskNames() []string {
 		}
 	}
 	return done
+}
+
+func (state PipelineRunState) isDAGTasksDone(d *dag.Graph) (isDone bool) {
+	isDone = true
+	for _, t := range state {
+		if _, ok := d.Nodes[t.PipelineTask.Name]; ok {
+			if t.TaskRun == nil {
+				// this task might have skipped if taskRun is nil
+				// continue and ignore if this task was skipped
+				// skipped task is considered part of done
+				if isSkipped(t, state.ToMap(), d) {
+					continue
+				}
+				return false
+			}
+			isDone = isDone && t.IsDone()
+			if !isDone {
+				return
+			}
+		}
+	}
+	return
+}
+
+func (state PipelineRunState) isDAGTaskFailed(d *dag.Graph) bool {
+	for _, t := range state {
+		if _, ok := d.Nodes[t.PipelineTask.Name]; ok {
+			if t.IsFailure() {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (state PipelineRunState) GetFinalTasks(d *dag.Graph, dfinally *dag.Graph) []*ResolvedPipelineRunTask {
+	spew.Dump("dfinally")
+	spew.Dump(dfinally)
+	tasks := []*ResolvedPipelineRunTask{}
+	// check either pipeline has finished executing all DAG pipelineTasks
+	// or any one of the DAG pipelineTask has failed
+	spew.Dump("inside getfinaltasks")
+	spew.Dump("DAG failed")
+	spew.Dump(state.isDAGTaskFailed(d))
+	spew.Dump("DAG finished")
+	spew.Dump(state.isDAGTasksDone(d))
+	if state.isDAGTaskFailed(d) || state.isDAGTasksDone(d) {
+		spew.Dump("in the if check after checking if DAG has finished or failed")
+		// return list of tasks with all final tasks
+		for _, t := range state {
+			spew.Dump("Checking if its dfinally node")
+			spew.Dump(dfinally.Nodes[t.PipelineTask.Name])
+			if _, ok := dfinally.Nodes[t.PipelineTask.Name]; ok && t.TaskRun == nil {
+				spew.Dump("yes it is and taskrun is nill as well, so append to tasks")
+				tasks = append(tasks, t)
+			}
+		}
+	}
+	return tasks
 }
 
 // GetTaskRun is a function that will retrieve the TaskRun name.
@@ -505,11 +574,14 @@ func isSkipped(rprt *ResolvedPipelineRunTask, stateMap map[string]*ResolvedPipel
 
 	// Recursively look at parent tasks to see if they have been skipped,
 	// if any of the parents have been skipped, skip as well
-	node := d.Nodes[rprt.PipelineTask.Name]
-	for _, p := range node.Prev {
-		skip := isSkipped(stateMap[p.Task.HashKey()], stateMap, d)
-		if skip {
-			return true
+	// we could be iterating over final tasks here which are not part of DAG graph
+	// check before accessing DAG node, if it exists
+	if node, ok := d.Nodes[rprt.PipelineTask.Name]; ok {
+		for _, p := range node.Prev {
+			skip := isSkipped(stateMap[p.Task.HashKey()], stateMap, d)
+			if skip {
+				return true
+			}
 		}
 	}
 	return false
