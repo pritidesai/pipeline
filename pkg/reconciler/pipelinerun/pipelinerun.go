@@ -567,7 +567,8 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1beta1.PipelineRun) err
 		}
 	}
 
-	candidateTasks, err := dag.GetSchedulable(d, pipelineState.SuccessfulPipelineTaskNames()...)
+	successOrSkippedTasks := append(pipelineState.SuccessfulPipelineTaskNames(), pipelineState.SkippedPipelineTaskNames(d)...)
+	candidateTasks, err := dag.GetSchedulable(d, successOrSkippedTasks...)
 	if err != nil {
 		c.Logger.Errorf("Error getting potential next tasks for valid pipelinerun %s: %v", pr.Name, err)
 	}

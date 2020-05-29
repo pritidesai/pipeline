@@ -218,6 +218,20 @@ func (state PipelineRunState) SuccessfulPipelineTaskNames() []string {
 	return done
 }
 
+// SkippedPipelineTaskNames returns a list of the names of all of the PipelineTasks in state
+// which have been skipped
+func (state PipelineRunState) SkippedPipelineTaskNames(d *dag.Graph) []string {
+	skipped := []string{}
+	for _, t := range state {
+		if t.TaskRun == nil {
+			if isSkipped(t, state.ToMap(), d) {
+				skipped = append(skipped, t.PipelineTask.Name)
+			}
+		}
+	}
+	return skipped
+}
+
 // GetTaskRun is a function that will retrieve the TaskRun name.
 type GetTaskRun func(name string) (*v1beta1.TaskRun, error)
 

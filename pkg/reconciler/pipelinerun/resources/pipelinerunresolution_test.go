@@ -974,6 +974,48 @@ func TestSuccessfulPipelineTaskNames(t *testing.T) {
 	}
 }
 
+func TestPipelineRunState_SkippedPipelineTaskNames(t *testing.T) {
+	tcs := []struct {
+		name          string
+		state         PipelineRunState
+		expectedNames []string
+	}{{
+		name:          "the task must not be skipped as the condition execution was successful for that task",
+		state:         conditionCheckSuccessNoTaskStartedState,
+		expectedNames: []string{},
+	}, {
+		name:          "the task must not be skipped as the condition execution has not started yet",
+		state:         conditionCheckStartedState,
+		expectedNames: []string{},
+	}, {
+		name:          "the task must be skipped as the condition execution resulted in failure",
+		state:         conditionCheckFailedWithNoOtherTasksState,
+		expectedNames: []string{pts[5].Name},
+	}, {
+		name: "the task must be skipped as the condition execution resulted in failure but the other task" +
+			"must not be skipped as it has finished execution successfully",
+		state:         conditionCheckFailedWithOthersPassedState,
+		expectedNames: []string{pts[5].Name},
+	}, {
+		name: "the task must be skipped as the condition execution resulted in failure but the other task" +
+			"must not be skipped as it has finished execution but failed",
+		state:         conditionCheckFailedWithOthersFailedState,
+		expectedNames: []string{pts[5].Name},
+	}}
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			dag, err := DagFromState(tc.state)
+			if err != nil {
+				t.Fatalf("Unexpected error while buildig DAG for state %v: %v", tc.state, err)
+			}
+			names := tc.state.SkippedPipelineTaskNames(dag)
+			if d := cmp.Diff(names, tc.expectedNames); d != "" {
+				t.Errorf("Expected to get completed names %v but got something different %s", tc.expectedNames, diff.PrintWantGot(d))
+			}
+		})
+	}
+}
+
 func TestGetPipelineConditionStatus(t *testing.T) {
 
 	var taskRetriedState = PipelineRunState{{
