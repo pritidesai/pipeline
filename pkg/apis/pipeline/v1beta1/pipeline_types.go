@@ -17,8 +17,13 @@ limitations under the License.
 package v1beta1
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/tektoncd/pipeline/pkg/reconciler/pipeline/dag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/validation"
+	"knative.dev/pkg/apis"
 )
 
 // +genclient
@@ -173,6 +178,47 @@ func (pt PipelineTask) Deps() []string {
 		}
 	}
 	return deps
+}
+
+func (pt PipelineTask) Validate(index int, prefix string) *apis.FieldError {
+	if errs := validation.IsDNS1123Label(pt.Name); len(errs) > 0 {
+		return &apis.FieldError{
+			Message: fmt.Sprintf("invalid value %q", pt.Name),
+			Paths:   []string{fmt.Sprintf(prefix+"[%d].name", index)},
+			Details: "Pipeline Task name must be a valid DNS Label." +
+				"For more info refer to https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+		}
+	}
+	// can't have both taskRef and taskSpec at the same time
+	if (pt.TaskRef != nil && pt.TaskRef.Name != "") && pt.TaskSpec != nil {
+		return apis.ErrMultipleOneOf(fmt.Sprintf(prefix+"[%d].taskRef", index), fmt.Sprintf(prefix+"[%d].taskSpec", index))
+	}
+	// Check that one of TaskRef and TaskSpec is present
+	if (pt.TaskRef == nil || (pt.TaskRef != nil && pt.TaskRef.Name == "")) && pt.TaskSpec == nil {
+		return apis.ErrMissingOneOf(fmt.Sprintf(prefix+"[%d].taskRef", index), fmt.Sprintf(prefix+"[%d].taskSpec", index))
+	}
+	// Validate TaskSpec if it's present
+	if pt.TaskSpec != nil {
+		if err := pt.TaskSpec.Validate(); err != nil {
+			return err
+		}
+	}
+	if pt.TaskRef != nil && pt.TaskRef.Name != "" {
+		// Task names are appended to the container name, which must exist and
+		// must be a valid k8s name
+		if errSlice := validation.IsQualifiedName(pt.Name); len(errSlice) != 0 {
+			return apis.ErrInvalidValue(strings.Join(errSlice, ","), fmt.Sprintf(prefix+"[%d].name", index))
+		}
+		// TaskRef name must be a valid k8s name
+		if errSlice := validation.IsQualifiedName(pt.TaskRef.Name); len(errSlice) != 0 {
+			return apis.ErrInvalidValue(strings.Join(errSlice, ","), fmt.Sprintf(prefix+"[%d].taskRef.name", index))
+		}
+	}
+	return nil
+}
+
+func (pt PipelineTask) ValidateDAG(index int) *apis.FieldError {
+	return pt.Validate(index, "spec.tasks")
 }
 
 type PipelineTaskList []PipelineTask

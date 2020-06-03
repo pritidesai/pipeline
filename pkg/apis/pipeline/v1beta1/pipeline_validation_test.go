@@ -260,7 +260,7 @@ func TestValidatePipelineTasks_Success(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validatePipelineTasks(context.Background(), tt.tasks)
+			err := validatePipelineTasks(tt.tasks)
 			if err != nil {
 				t.Errorf("Pipeline.validatePipelineTasks() returned error: %v", err)
 			}
@@ -315,7 +315,7 @@ func TestValidatePipelineTasks_Failure(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validatePipelineTasks(context.Background(), tt.tasks)
+			err := validatePipelineTasks(tt.tasks)
 			if err == nil {
 				t.Error("Pipeline.validatePipelineTasks() did not return error, wanted error")
 			}

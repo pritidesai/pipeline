@@ -24,7 +24,7 @@ import (
 	"knative.dev/pkg/apis"
 )
 
-func (tr *TaskResources) Validate(ctx context.Context) *apis.FieldError {
+func (tr *TaskResources) Validate() *apis.FieldError {
 	if tr == nil {
 		return nil
 	}

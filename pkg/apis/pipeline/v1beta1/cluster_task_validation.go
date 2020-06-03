@@ -29,5 +29,5 @@ func (t *ClusterTask) Validate(ctx context.Context) *apis.FieldError {
 	if err := validate.ObjectMetadata(t.GetObjectMeta()); err != nil {
 		return err.ViaField("metadata")
 	}
-	return t.Spec.Validate(ctx)
+	return t.Spec.Validate()
 }

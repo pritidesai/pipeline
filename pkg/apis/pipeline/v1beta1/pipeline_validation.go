@@ -19,14 +19,12 @@ package v1beta1
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/tektoncd/pipeline/pkg/apis/validate"
 	"github.com/tektoncd/pipeline/pkg/list"
 	"github.com/tektoncd/pipeline/pkg/reconciler/pipeline/dag"
 	"github.com/tektoncd/pipeline/pkg/substitution"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/util/validation"
 	"knative.dev/pkg/apis"
 )
 
@@ -146,7 +144,7 @@ func (ps *PipelineSpec) Validate(ctx context.Context) *apis.FieldError {
 	}
 
 	// PipelineTask must have a valid unique label and at least one of taskRef or taskSpec should be specified
-	if err := validatePipelineTasks(ctx, ps.Tasks); err != nil {
+	if err := validatePipelineTasks(ps.Tasks); err != nil {
 		return err
 	}
 
@@ -190,53 +188,15 @@ func (ps *PipelineSpec) Validate(ctx context.Context) *apis.FieldError {
 
 // validatePipelineTasks ensures that pipeline tasks has unique label, pipeline tasks has specified one of
 // taskRef or taskSpec, and in case of a pipeline task with taskRef, it has a reference to a valid task (task name)
-func validatePipelineTasks(ctx context.Context, tasks []PipelineTask) *apis.FieldError {
+func validatePipelineTasks(tasks []PipelineTask) *apis.FieldError {
 	// Names cannot be duplicated
 	taskNames := map[string]struct{}{}
-	var err *apis.FieldError
 	for i, t := range tasks {
-		if err = validatePipelineTaskName(ctx, "spec.tasks", i, t, taskNames); err != nil {
+		if err := t.ValidateDAG(i); err != nil {
 			return err
-		}
-	}
-	return nil
-}
-
-func validatePipelineTaskName(ctx context.Context, prefix string, i int, t PipelineTask, taskNames map[string]struct{}) *apis.FieldError {
-	if errs := validation.IsDNS1123Label(t.Name); len(errs) > 0 {
-		return &apis.FieldError{
-			Message: fmt.Sprintf("invalid value %q", t.Name),
-			Paths:   []string{fmt.Sprintf(prefix+"[%d].name", i)},
-			Details: "Pipeline Task name must be a valid DNS Label." +
-				"For more info refer to https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
-		}
-	}
-	// can't have both taskRef and taskSpec at the same time
-	if (t.TaskRef != nil && t.TaskRef.Name != "") && t.TaskSpec != nil {
-		return apis.ErrMultipleOneOf(fmt.Sprintf(prefix+"[%d].taskRef", i), fmt.Sprintf(prefix+"[%d].taskSpec", i))
-	}
-	// Check that one of TaskRef and TaskSpec is present
-	if (t.TaskRef == nil || (t.TaskRef != nil && t.TaskRef.Name == "")) && t.TaskSpec == nil {
-		return apis.ErrMissingOneOf(fmt.Sprintf(prefix+"[%d].taskRef", i), fmt.Sprintf(prefix+"[%d].taskSpec", i))
-	}
-	// Validate TaskSpec if it's present
-	if t.TaskSpec != nil {
-		if err := t.TaskSpec.Validate(ctx); err != nil {
-			return err
-		}
-	}
-	if t.TaskRef != nil && t.TaskRef.Name != "" {
-		// Task names are appended to the container name, which must exist and
-		// must be a valid k8s name
-		if errSlice := validation.IsQualifiedName(t.Name); len(errSlice) != 0 {
-			return apis.ErrInvalidValue(strings.Join(errSlice, ","), fmt.Sprintf(prefix+"[%d].name", i))
-		}
-		// TaskRef name must be a valid k8s name
-		if errSlice := validation.IsQualifiedName(t.TaskRef.Name); len(errSlice) != 0 {
-			return apis.ErrInvalidValue(strings.Join(errSlice, ","), fmt.Sprintf(prefix+"[%d].taskRef.name", i))
 		}
 		if _, ok := taskNames[t.Name]; ok {
-			return apis.ErrMultipleOneOf(fmt.Sprintf(prefix+"[%d].name", i))
+			return apis.ErrMultipleOneOf(fmt.Sprintf("spec.tasks"+"[%d].name", i))
 		}
 		taskNames[t.Name] = struct{}{}
 	}

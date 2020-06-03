@@ -77,7 +77,7 @@ func (ts *TaskSpec) Validate(ctx context.Context) *apis.FieldError {
 	}
 
 	// Validate Resources declaration
-	if err := ts.Resources.Validate(ctx); err != nil {
+	if err := ts.Resources.Validate(); err != nil {
 		return err
 	}
 	// Validate that the parameters type are correct

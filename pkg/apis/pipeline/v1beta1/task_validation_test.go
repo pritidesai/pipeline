@@ -278,7 +278,7 @@ func TestTaskSpecValidate(t *testing.T) {
 			}
 			ctx := context.Background()
 			ts.SetDefaults(ctx)
-			if err := ts.Validate(ctx); err != nil {
+			if err := ts.Validate(); err != nil {
 				t.Errorf("TaskSpec.Validate() = %v", err)
 			}
 		})
@@ -866,7 +866,7 @@ func TestTaskSpecValidateError(t *testing.T) {
 			}
 			ctx := context.Background()
 			ts.SetDefaults(ctx)
-			err := ts.Validate(context.Background())
+			err := ts.Validate()
 			if err == nil {
 				t.Fatalf("Expected an error, got nothing for %v", ts)
 			}

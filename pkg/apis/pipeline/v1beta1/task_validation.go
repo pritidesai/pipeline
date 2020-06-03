@@ -35,10 +35,10 @@ func (t *Task) Validate(ctx context.Context) *apis.FieldError {
 	if err := validate.ObjectMetadata(t.GetObjectMeta()); err != nil {
 		return err.ViaField("metadata")
 	}
-	return t.Spec.Validate(ctx)
+	return t.Spec.Validate()
 }
 
-func (ts *TaskSpec) Validate(ctx context.Context) *apis.FieldError {
+func (ts *TaskSpec) Validate() *apis.FieldError {
 
 	if len(ts.Steps) == 0 {
 		return apis.ErrMissingField("steps")
@@ -62,7 +62,7 @@ func (ts *TaskSpec) Validate(ctx context.Context) *apis.FieldError {
 	}
 
 	// Validate Resources declaration
-	if err := ts.Resources.Validate(ctx); err != nil {
+	if err := ts.Resources.Validate(); err != nil {
 		return err
 	}
 
