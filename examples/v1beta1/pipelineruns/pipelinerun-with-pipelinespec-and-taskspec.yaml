@@ -6,6 +6,9 @@ spec:
   pipelineSpec:
     tasks:
       - name: echo-good-morning
+        metadata:
+          labels:
+            app: "example"
         taskSpec:
           steps:
             - name: echo

@@ -137,13 +137,14 @@ func TestPipeline(t *testing.T) {
 				Timeout:  &metav1.Duration{Duration: 5 * time.Second},
 			}, {
 				Name: "foo",
-				TaskSpec: &v1beta1.TaskSpec{
-					Steps: []v1beta1.Step{{Container: corev1.Container{
-						Name:  "step",
-						Image: "myimage",
-					}}},
-				},
-			}},
+				TaskSpec: &v1beta1.EmbeddedTask{
+					TaskSpec: &v1beta1.TaskSpec{
+						Steps: []v1beta1.Step{{Container: corev1.Container{
+							Name:  "step",
+							Image: "myimage",
+						}}},
+					},
+				}}},
 			Workspaces: []v1beta1.PipelineWorkspaceDeclaration{{
 				Name: "workspace1",
 			}},
@@ -382,6 +383,53 @@ func TestPipelineRunWithPipelineSpec(t *testing.T) {
 				Tasks: []v1beta1.PipelineTask{{
 					Name:    "a-task",
 					TaskRef: &v1beta1.TaskRef{Name: "some-task"},
+				}},
+			},
+			ServiceAccountName: "sa",
+			Timeout:            &metav1.Duration{Duration: 1 * time.Hour},
+		},
+	}
+
+	if diff := cmp.Diff(expectedPipelineRun, pipelineRun); diff != "" {
+		t.Fatalf("PipelineRun diff -want, +got: %s", diff)
+	}
+}
+
+func TestPipelineRunWithTaskSpec_TaskMetadata(t *testing.T) {
+	pipelineRun := tb.PipelineRun("pear", tb.PipelineRunNamespace("foo"),
+		tb.PipelineRunSpec("", tb.PipelineRunPipelineSpec(
+			tb.PipelineTask("a-task", "some-task",
+				tb.PipelineTaskMetadata(metav1.ObjectMeta{
+					Name:        "a-task-name",
+					Labels:      map[string]string{"label": "labelvalue"},
+					Annotations: map[string]string{"annotation": "annotationvalue"}},
+				))),
+			tb.PipelineRunServiceAccountName("sa"),
+		))
+
+	expectedPipelineRun := &v1beta1.PipelineRun{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "pear",
+			Namespace: "foo",
+		},
+		Spec: v1beta1.PipelineRunSpec{
+			PipelineRef: nil,
+			PipelineSpec: &v1beta1.PipelineSpec{
+				Tasks: []v1beta1.PipelineTask{{
+					Name: "a-task",
+					TaskSpec: &v1beta1.EmbeddedTask{
+						Metadata: metav1.ObjectMeta{
+							Name:        "a-task-name",
+							Labels:      map[string]string{"label": "labelvalue"},
+							Annotations: map[string]string{"annotation": "annotationvalue"},
+						},
+						TaskSpec: &v1beta1.TaskSpec{
+							Steps: []v1beta1.Step{{Container: corev1.Container{
+								Name:  "step",
+								Image: "myimage",
+							}}},
+						},
+					},
 				}},
 			},
 			ServiceAccountName: "sa",

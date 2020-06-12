@@ -179,7 +179,14 @@ func PipelineRunResult(name, value string) PipelineRunStatusOp {
 // PipelineTaskSpec sets the TaskSpec on a PipelineTask.
 func PipelineTaskSpec(spec *v1beta1.TaskSpec) PipelineTaskOp {
 	return func(pt *v1beta1.PipelineTask) {
-		pt.TaskSpec = spec
+		pt.TaskSpec = &v1beta1.EmbeddedTask{metav1.ObjectMeta{}, spec}
+	}
+}
+
+// PipelineTaskMetadata sets the Metadata on a PipelineTask.
+func PipelineTaskMetadata(metadata metav1.ObjectMeta) PipelineTaskOp {
+	return func(pt *v1beta1.PipelineTask) {
+		pt.TaskSpec.Metadata = metadata
 	}
 }
 

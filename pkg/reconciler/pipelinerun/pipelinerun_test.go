@@ -36,7 +36,7 @@ import (
 	taskrunresources "github.com/tektoncd/pipeline/pkg/reconciler/taskrun/resources"
 	ttesting "github.com/tektoncd/pipeline/pkg/reconciler/testing"
 	"github.com/tektoncd/pipeline/pkg/system"
-	test "github.com/tektoncd/pipeline/test"
+	"github.com/tektoncd/pipeline/test"
 	"github.com/tektoncd/pipeline/test/diff"
 	"github.com/tektoncd/pipeline/test/names"
 	"go.uber.org/zap"
@@ -3061,5 +3061,119 @@ func TestUpdatePipelineRunStatusFromTaskRuns(t *testing.T) {
 				t.Errorf("expected the PipelineRun status to match %#v. Diff %s", tc.expectedPrStatus, diff.PrintWantGot(d))
 			}
 		})
+	}
+}
+
+// this test validates pipeline task metadata is embedded into task run
+func TestReconcile_PipelineTaskMetadata(t *testing.T) {
+	names.TestingSeed()
+
+	prs := []*v1beta1.PipelineRun{
+		tb.PipelineRun("test-pipeline-run-success",
+			tb.PipelineRunNamespace("foo"),
+			tb.PipelineRunSpec("test-pipeline"),
+		),
+	}
+	ps := []*v1beta1.Pipeline{
+		tb.Pipeline("test-pipeline",
+			tb.PipelineNamespace("foo"),
+			tb.PipelineSpec(
+				tb.PipelineTask("task-without-metadata", "",
+					tb.PipelineTaskSpec(&v1beta1.TaskSpec{
+						Steps: []v1beta1.Step{{Container: corev1.Container{
+							Name:  "mystep",
+							Image: "myimage"}}},
+					}),
+				),
+				tb.PipelineTask("task-with-metadata", "",
+					tb.PipelineTaskSpec(&v1beta1.TaskSpec{
+						Steps: []v1beta1.Step{{Container: corev1.Container{
+							Name:  "mystep",
+							Image: "myimage"}}},
+					}),
+					tb.PipelineTaskMetadata(metav1.ObjectMeta{
+						Name:        "foo",
+						Labels:      map[string]string{"label1": "labelvalue1", "label2": "labelvalue2"},
+						Annotations: map[string]string{"annotation1": "value1", "annotation2": "value2"}}),
+				),
+			),
+		),
+	}
+
+	d := test.Data{
+		PipelineRuns:      prs,
+		Pipelines:         ps,
+		Tasks:             nil,
+		ClusterTasks:      nil,
+		PipelineResources: nil,
+	}
+
+	testAssets, cancel := getPipelineRunController(t, d)
+	defer cancel()
+	c := testAssets.Controller
+	clients := testAssets.Clients
+
+	if err := c.Reconciler.Reconcile(context.Background(), "foo/test-pipeline-run-success"); err != nil {
+		t.Fatalf("Error reconciling: %s", err)
+	}
+
+	if len(clients.Pipeline.Actions()) == 0 {
+		t.Fatalf("Expected client to have been used to create a TaskRun but it wasn't")
+	}
+
+	// Check that the PipelineRun was reconciled correctly
+	reconciledRun, err := clients.Pipeline.TektonV1beta1().PipelineRuns("foo").Get("test-pipeline-run-success", metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Somehow had error getting reconciled run out of fake client: %s", err)
+	}
+
+	actualTaskRun := make(map[string]*v1beta1.TaskRun)
+	for _, a := range clients.Pipeline.Actions() {
+		if a.GetResource().Resource == "taskruns" {
+			t := a.(ktesting.CreateAction).GetObject().(*v1beta1.TaskRun)
+			actualTaskRun[t.Name] = t
+		}
+	}
+
+	// Check that the expected TaskRun was created
+	if len(actualTaskRun) != 2 {
+		t.Errorf("Expected two TaskRuns to be created, but found %d TaskRuns.", len(actualTaskRun))
+	}
+
+	expectedTaskRun := make(map[string]*v1beta1.TaskRun)
+	expectedTaskRun["test-pipeline-run-success-task-with-metadata-mz4c7"] = tb.TaskRun(
+		"test-pipeline-run-success-task-with-metadata-mz4c7",
+		tb.TaskRunNamespace("foo"),
+		tb.TaskRunOwnerReference("PipelineRun", "test-pipeline-run-success",
+			tb.OwnerReferenceAPIVersion("tekton.dev/v1beta1"),
+			tb.Controller, tb.BlockOwnerDeletion),
+		tb.TaskRunLabel("tekton.dev/pipeline", "test-pipeline"),
+		tb.TaskRunLabel("tekton.dev/pipelineRun", "test-pipeline-run-success"),
+		tb.TaskRunLabel(pipeline.GroupName+pipeline.PipelineTaskLabelKey, "task-with-metadata"),
+		tb.TaskRunLabel("label1", "labelvalue1"),
+		tb.TaskRunLabel("label2", "labelvalue2"),
+		tb.TaskRunAnnotation("annotation1", "value1"),
+		tb.TaskRunAnnotation("annotation2", "value2"),
+		tb.TaskRunSpec(tb.TaskRunTaskSpec(tb.Step("myimage", tb.StepName("mystep")))),
+	)
+
+	expectedTaskRun["test-pipeline-run-success-task-without-metadata-9l9zj"] = tb.TaskRun(
+		"test-pipeline-run-success-task-without-metadata-9l9zj",
+		tb.TaskRunNamespace("foo"),
+		tb.TaskRunOwnerReference("PipelineRun", "test-pipeline-run-success",
+			tb.OwnerReferenceAPIVersion("tekton.dev/v1beta1"),
+			tb.Controller, tb.BlockOwnerDeletion),
+		tb.TaskRunLabel("tekton.dev/pipeline", "test-pipeline"),
+		tb.TaskRunLabel("tekton.dev/pipelineRun", "test-pipeline-run-success"),
+		tb.TaskRunLabel(pipeline.GroupName+pipeline.PipelineTaskLabelKey, "task-without-metadata"),
+		tb.TaskRunSpec(tb.TaskRunTaskSpec(tb.Step("myimage", tb.StepName("mystep")))),
+	)
+
+	if d := cmp.Diff(actualTaskRun, expectedTaskRun); d != "" {
+		t.Fatalf("Expected TaskRuns to match, but got a mismatch: %s", d)
+	}
+
+	if len(reconciledRun.Status.TaskRuns) != 2 {
+		t.Errorf("Expected PipelineRun status to include both TaskRun status items that can run immediately: %v", reconciledRun.Status.TaskRuns)
 	}
 }

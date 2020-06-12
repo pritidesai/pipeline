@@ -154,10 +154,11 @@ func TestPipelineSpec_Validate_Failure(t *testing.T) {
 			}, {
 				Name:    "invalid-pipeline-task",
 				TaskRef: &TaskRef{Name: "foo-task"},
-				TaskSpec: &TaskSpec{
+				TaskSpec: &EmbeddedTask{TaskSpec: &TaskSpec{
 					Steps: []Step{{
 						Container: corev1.Container{Name: "foo", Image: "bar"},
 					}},
+				},
 				},
 			}},
 		},
@@ -224,6 +225,36 @@ func TestPipelineSpec_Validate_Failure(t *testing.T) {
 				Name: "foo", TaskRef: &TaskRef{Name: "foo-task"}, RunAfter: []string{"bar"},
 			}, {
 				Name: "bar", TaskRef: &TaskRef{Name: "bar-task"}, RunAfter: []string{"foo"},
+			}},
+		},
+	}, {
+		name: "invalid pipeline spec - invalid metadata in pipeline tasks",
+		ps: &PipelineSpec{
+			Tasks: []PipelineTask{{
+				Name: "foo", TaskSpec: &EmbeddedTask{
+					Metadata: metav1.ObjectMeta{
+						Name:        "finalTaskWith.",
+						Labels:      map[string]string{"label": "value"},
+						Annotations: map[string]string{"annotation": "value"},
+					},
+					TaskSpec: &TaskSpec{
+						Steps: nil,
+					},
+				},
+			}},
+		},
+	}, {
+		name: "invalid pipeline spec - invalid metadata in final tasks",
+		ps: &PipelineSpec{
+			Tasks: []PipelineTask{{
+				Name: "foo", TaskRef: &TaskRef{Name: "pipeline-task"},
+			}},
+			Finally: []PipelineTask{{
+				Me: metav1.ObjectMeta{
+					Name:        "finalTaskWith.",
+					Labels:      map[string]string{"label": "value"},
+					Annotations: map[string]string{"annotation": "value"}},
+				Name: "bar", TaskRef: &TaskRef{Name: "final-task"},
 			}},
 		},
 	}}
@@ -1042,11 +1073,11 @@ func TestValidatePipelineWithFinalTasks_Success(t *testing.T) {
 					TaskRef: &TaskRef{Name: "final-task"},
 				}, {
 					Name: "final-task-2",
-					TaskSpec: &TaskSpec{
+					TaskSpec: &EmbeddedTask{TaskSpec: &TaskSpec{
 						Steps: []Step{{
 							Container: corev1.Container{Name: "foo", Image: "bar"},
 						}},
-					},
+					}},
 				}},
 			},
 		},
@@ -1387,6 +1418,43 @@ func TestValidateFinalTasks_Failure(t *testing.T) {
 			err := validateFinalTasks(tt.finalTasks)
 			if err == nil {
 				t.Errorf("Pipeline.ValidateFinalTasks() did not return error for invalid pipeline: %s", tt.name)
+			}
+		})
+	}
+}
+
+func TestPipelineTaskList_ValidatePipelineTasksMetadata_Failure(t *testing.T) {
+	tests := []struct {
+		name          string
+		pipelineTasks []PipelineTask
+	}{{
+		name: "invalid metadata - pipeline task has pipeline name with special character in metadata",
+		pipelineTasks: []PipelineTask{{
+			Name: "pipelinetask1",
+		}, {
+			Name:       "pipelinetask2",
+			ObjectMeta: metav1.ObjectMeta{Name: "pipelinetask2"},
+		}, {
+			Name:       "pipelinetask2",
+			ObjectMeta: metav1.ObjectMeta{Name: "special.CharacterPipelineTask"},
+		}},
+	}, {
+		name: "invalid metadata - pipeline task has too long pipeline name in metadata",
+		pipelineTasks: []PipelineTask{{
+			Name: "pipelinetask1",
+		}, {
+			Name:       "pipelinetask2",
+			ObjectMeta: metav1.ObjectMeta{Name: "pipelineTaskNameTooLongWhichIsNotValidPipelineTaskNameShouldBeLessThan63Characters"},
+		}, {
+			Name:       "pipelinetask3",
+			ObjectMeta: metav1.ObjectMeta{Name: "pipelinetask3"},
+		}},
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := PipelineTaskList(tt.pipelineTasks).ValidatePipelineTasksMetadata()
+			if err == nil {
+				t.Errorf("PipelineTaskList.ValidatePipelineTasksMetadata() did not return error for invalid metadata: %s", tt.name)
 			}
 		})
 	}

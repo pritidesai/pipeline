@@ -155,6 +155,14 @@ func (ps *PipelineSpec) Validate(ctx context.Context) *apis.FieldError {
 		return apis.ErrGeneric("expected at least one, got none", "spec.description", "spec.params", "spec.resources", "spec.tasks", "spec.workspaces")
 	}
 
+	if err := PipelineTaskList(ps.Tasks).ValidatePipelineTasksMetadata(); err != nil {
+		return err
+	}
+
+	if err := PipelineTaskList(ps.Finally).ValidatePipelineTasksMetadata(); err != nil {
+		return err
+	}
+
 	// PipelineTask must have a valid unique label and at least one of taskRef or taskSpec should be specified
 	if err := validatePipelineTasks(ctx, ps.Tasks, ps.Finally); err != nil {
 		return err

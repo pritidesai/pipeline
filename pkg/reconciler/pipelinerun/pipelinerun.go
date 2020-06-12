@@ -608,14 +608,26 @@ func (c *Reconciler) createTaskRun(ctx context.Context, rprt *resources.Resolved
 		return c.PipelineClientSet.TektonV1beta1().TaskRuns(pr.Namespace).UpdateStatus(tr)
 	}
 
+	// Propagate labels from PipelineRun and PipelineTask to TaskRun.
+	labels := getTaskrunLabels(pr, rprt.PipelineTask.Name)
+	for key, value := range rprt.PipelineTask.PipelineTaskMetadata().Labels {
+		labels[key] = value
+	}
+
+	// Propagate annotations from PipelineRun and PipelineTask to TaskRun.
+	annotations := getTaskrunAnnotations(pr)
+	for key, value := range rprt.PipelineTask.PipelineTaskMetadata().Annotations {
+		annotations[key] = value
+	}
+
 	serviceAccountName, podTemplate := pr.GetTaskRunSpecs(rprt.PipelineTask.Name)
 	tr = &v1beta1.TaskRun{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            rprt.TaskRunName,
 			Namespace:       pr.Namespace,
 			OwnerReferences: []metav1.OwnerReference{pr.GetOwnerReference()},
-			Labels:          getTaskrunLabels(pr, rprt.PipelineTask.Name),
-			Annotations:     getTaskrunAnnotations(pr),
+			Labels:          labels,
+			Annotations:     annotations,
 		},
 		Spec: v1beta1.TaskRunSpec{
 			Params:             rprt.PipelineTask.Params,

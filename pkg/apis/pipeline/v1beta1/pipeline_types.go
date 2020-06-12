@@ -17,8 +17,10 @@ limitations under the License.
 package v1beta1
 
 import (
+	"github.com/tektoncd/pipeline/pkg/apis/validate"
 	"github.com/tektoncd/pipeline/pkg/reconciler/pipeline/dag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/apis"
 )
 
 // +genclient
@@ -90,6 +92,15 @@ type PipelineResult struct {
 	Value string `json:"value"`
 }
 
+type EmbeddedTask struct {
+	// +optional
+	Metadata metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	// TaskSpec is a specification of a task
+	// +optional
+	*TaskSpec `json:",inline,omitempty"`
+}
+
 // PipelineTask defines a task in a Pipeline, passing inputs from both
 // Params and from the output of previous tasks.
 type PipelineTask struct {
@@ -104,7 +115,7 @@ type PipelineTask struct {
 
 	// TaskSpec is a specification of a task
 	// +optional
-	TaskSpec *TaskSpec `json:"taskSpec,omitempty"`
+	TaskSpec *EmbeddedTask `json:"inline,omitempty"`
 
 	// Conditions is a list of conditions that need to be true for the task to run
 	// +optional
@@ -137,6 +148,17 @@ type PipelineTask struct {
 	// Refer Go's ParseDuration documentation for expected format: https://golang.org/pkg/time/#ParseDuration
 	// +optional
 	Timeout *metav1.Duration `json:"timeout,omitempty"`
+}
+
+func (pt *PipelineTask) PipelineTaskMetadata() metav1.ObjectMeta {
+	return pt.TaskSpec.Metadata
+}
+
+func (pt *PipelineTask) ValidatePipelineTaskMetadata() *apis.FieldError {
+	if err := validate.ObjectMetadata(pt.TaskSpec.Metadata.GetObjectMeta()); err != nil {
+		return err.ViaField("[tasks|finally].metadata")
+	}
+	return nil
 }
 
 func (pt PipelineTask) HashKey() string {
@@ -187,6 +209,15 @@ func (l PipelineTaskList) Items() []dag.Task {
 		tasks = append(tasks, dag.Task(t))
 	}
 	return tasks
+}
+
+func (l PipelineTaskList) ValidatePipelineTasksMetadata() *apis.FieldError {
+	for _, t := range l {
+		if err := t.ValidatePipelineTaskMetadata(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // PipelineTaskParam is used to provide arbitrary string parameters to a Task.
