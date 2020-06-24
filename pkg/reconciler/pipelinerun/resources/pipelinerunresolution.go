@@ -40,6 +40,7 @@ const (
 	// ReasonConditionCheckFailed indicates that the reason for the failure status is that the
 	// condition check associated to the pipeline task evaluated to false
 	ReasonConditionCheckFailed = "ConditionCheckFailed"
+	ReasonSkipped              = "Skipped"
 )
 
 // TaskNotFoundError indicates that the resolution failed because a referenced Task couldn't be retrieved
@@ -139,6 +140,37 @@ func (t ResolvedPipelineRunTask) IsStarted() bool {
 	}
 
 	return true
+}
+
+func (t ResolvedPipelineRunTask) IsSkipped(root string, stateMap map[string]*ResolvedPipelineRunTask, d *dag.Graph) bool {
+	// Taskrun not skipped if it already exists
+	if t.TaskRun != nil {
+		return false
+	}
+
+	// skip the task if one of the parent task has failed
+	if t.PipelineTask.Name != root && t.IsFailure() {
+		return true
+	}
+
+	// skip the task if one of the parent task has conditionChecks failed
+	if t.PipelineTask.Name != root && len(t.ResolvedConditionChecks) > 0 {
+		// isSkipped is only true iof
+		if t.ResolvedConditionChecks.IsDone() && !t.ResolvedConditionChecks.IsSuccess() {
+			return true
+		}
+	}
+
+	// Recursively look at parent tasks to see if they have been skipped,
+	// if any of the parents have been skipped, skip as well
+	node := d.Nodes[t.PipelineTask.Name]
+	for _, p := range node.Prev {
+		skip := stateMap[p.Task.HashKey()].IsSkipped(root, stateMap, d)
+		if skip {
+			return true
+		}
+	}
+	return false
 }
 
 // ToMap returns a map that maps pipeline task name to the resolved pipeline run task

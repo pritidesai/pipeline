@@ -454,7 +454,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1beta1.PipelineRun) err
 	after = pr.Status.GetCondition(apis.ConditionSucceeded)
 	events.Emit(recorder, before, after, pr)
 
-	pr.Status.TaskRuns = getTaskRunsStatus(pr, pipelineState)
+	pr.Status.TaskRuns = getTaskRunsStatus(pr, pipelineState, d)
 	logger.Infof("PipelineRun %s status is being set to %s", pr.Name, after)
 	return nil
 }
@@ -525,7 +525,7 @@ func getPipelineRunResults(pipelineSpec *v1beta1.PipelineSpec, resolvedResultRef
 	return results
 }
 
-func getTaskRunsStatus(pr *v1beta1.PipelineRun, state []*resources.ResolvedPipelineRunTask) map[string]*v1beta1.PipelineRunTaskRunStatus {
+func getTaskRunsStatus(pr *v1beta1.PipelineRun, state []*resources.ResolvedPipelineRunTask, d *dag.Graph) map[string]*v1beta1.PipelineRunTaskRunStatus {
 	status := make(map[string]*v1beta1.PipelineRunTaskRunStatus)
 	for _, rprt := range state {
 		if rprt.TaskRun == nil && rprt.ResolvedConditionChecks == nil {
@@ -566,6 +566,19 @@ func getTaskRunsStatus(pr *v1beta1.PipelineRun, state []*resources.ResolvedPipel
 					Status:  corev1.ConditionFalse,
 					Reason:  resources.ReasonConditionCheckFailed,
 					Message: fmt.Sprintf("ConditionChecks failed for Task %s in PipelineRun %s", rprt.TaskRunName, pr.Name),
+				})
+			}
+			// declare the task as skipped if one of the parents is skipped or failed
+			if rprt.IsSkipped(rprt.PipelineTask.Name, resources.PipelineRunState(state).ToMap(), d) {
+				if prtrs.Status == nil {
+					prtrs.Status = &v1beta1.TaskRunStatus{}
+				}
+				prtrs.Status.SetCondition(&apis.Condition{
+					Type:   apis.ConditionSucceeded,
+					Status: corev1.ConditionFalse,
+					Reason: resources.ReasonSkipped,
+					Message: fmt.Sprintf("Task skipped %s in PipelineRun %s as one of the parents was skipped due"+
+						" to condition failure or had failed", rprt.TaskRunName, pr.Name),
 				})
 			}
 		}
