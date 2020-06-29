@@ -90,6 +90,11 @@ type PipelineResult struct {
 	Value string `json:"value"`
 }
 
+type EmbeddedTask struct {
+	Metadata  metav1.ObjectMeta `json:"metadata,omitempty"`
+	*TaskSpec `json:",inline,omitempty"`
+}
+
 // PipelineTask defines a task in a Pipeline, passing inputs from both
 // Params and from the output of previous tasks.
 type PipelineTask struct {
@@ -104,7 +109,7 @@ type PipelineTask struct {
 
 	// TaskSpec is a specification of a task
 	// +optional
-	TaskSpec *TaskSpec `json:"taskSpec,omitempty"`
+	TaskSpec *EmbeddedTask `json:"taskSpec,inline,omitempty"`
 
 	// Conditions is a list of conditions that need to be true for the task to run
 	// +optional

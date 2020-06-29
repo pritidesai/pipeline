@@ -198,7 +198,7 @@ func PipelineRunResult(name, value string) PipelineRunStatusOp {
 // PipelineTaskSpec sets the TaskSpec on a PipelineTask.
 func PipelineTaskSpec(spec *v1beta1.TaskSpec) PipelineTaskOp {
 	return func(pt *v1beta1.PipelineTask) {
-		pt.TaskSpec = spec
+		pt.TaskSpec.TaskSpec = spec
 	}
 }
 
