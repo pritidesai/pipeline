@@ -3702,6 +3702,61 @@ func TestReconcilePipeline_FinalTasks(t *testing.T) {
 	}
 }
 
+func TestReconcilePipeline_Tasks(t *testing.T) {
+
+	prs := []*v1beta1.PipelineRun{{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "foo", Name: "pipeline-run-dag-tasks"},
+		Spec: v1beta1.PipelineRunSpec{
+			PipelineRef: &v1beta1.PipelineRef{
+				Name: "pipeline-dag-tasks",
+			},
+		},
+	}}
+
+	ps := []*v1beta1.Pipeline{{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "foo", Name: "pipeline-dag-tasks"},
+		Spec: v1beta1.PipelineSpec{
+			Tasks: []v1beta1.PipelineTask{
+				{Name: "dag-task-1", TaskRef: &v1beta1.TaskRef{Name: "hello-world"}},
+				{Name: "dag-task-2", TaskRef: &v1beta1.TaskRef{Name: "hello-world"}},
+				{Name: "dag-task-3", TaskRef: &v1beta1.TaskRef{Name: "hello-world"}},
+				{Name: "dag-task-4", TaskRef: &v1beta1.TaskRef{Name: "hello-world"}},
+				{Name: "dag-task-5", TaskRef: &v1beta1.TaskRef{Name: "hello-world"}},
+				{Name: "dag-task-6", TaskRef: &v1beta1.TaskRef{Name: "hello-world"}},
+				{Name: "dag-task-7", TaskRef: &v1beta1.TaskRef{Name: "hello-world"}},
+				{Name: "dag-task-8", TaskRef: &v1beta1.TaskRef{Name: "hello-world"}},
+				{Name: "dag-task-9", TaskRef: &v1beta1.TaskRef{Name: "hello-world"}},
+			},
+		},
+	}}
+
+	ts := []*v1beta1.Task{tb.Task("hello-world", tb.TaskNamespace("foo"))}
+
+	d := test.Data{
+		PipelineRuns: prs,
+		Pipelines:    ps,
+		Tasks:        ts,
+	}
+
+	testAssets, cancel := getPipelineRunController(t, d)
+	defer cancel()
+	c := testAssets.Controller
+	clients := testAssets.Clients
+
+	if err := c.Reconciler.Reconcile(context.Background(), "foo/pipeline-run-dag-tasks"); err != nil {
+		t.Fatalf("Error reconciling: %s", err)
+	}
+
+	// Check that the PipelineRun was reconciled correctly
+	reconciledRun, err := clients.Pipeline.TektonV1beta1().PipelineRuns("foo").Get("pipeline-run-dag-tasks", metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Somehow had error getting completed reconciled run out of fake client: %s", err)
+	}
+
+	t.Log(reconciledRun)
+
+}
+
 func getPipelineRun(pr, p string, status corev1.ConditionStatus, reason string, m string, tr map[string]string) []*v1beta1.PipelineRun {
 	var op []tb.PipelineRunStatusOp
 	for k, v := range tr {

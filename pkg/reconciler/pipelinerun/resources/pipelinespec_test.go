@@ -31,12 +31,46 @@ func TestGetPipelineSpec_Ref(t *testing.T) {
 			Name: "orchestrate",
 		},
 		Spec: v1beta1.PipelineSpec{
-			Tasks: []v1beta1.PipelineTask{{
-				Name: "mytask",
-				TaskRef: &v1beta1.TaskRef{
-					Name: "mytask",
-				},
-			}},
+			Tasks: []v1beta1.PipelineTask{
+				{Name: "mytask1", TaskRef: &v1beta1.TaskRef{Name: "mytask"}},
+				{Name: "mytask2", TaskRef: &v1beta1.TaskRef{Name: "mytask"}},
+				{Name: "mytask3", TaskRef: &v1beta1.TaskRef{Name: "mytask"}},
+				{Name: "mytask4", TaskRef: &v1beta1.TaskRef{Name: "mytask"}},
+				{Name: "mytask5", TaskRef: &v1beta1.TaskRef{Name: "mytask"}},
+				{Name: "mytask6", TaskRef: &v1beta1.TaskRef{Name: "mytask"}},
+				{Name: "mytask7", TaskRef: &v1beta1.TaskRef{Name: "mytask"}},
+				{Name: "mytask8", TaskRef: &v1beta1.TaskRef{Name: "mytask"}},
+				{Name: "mytask9", TaskRef: &v1beta1.TaskRef{Name: "mytask"}},
+				{Name: "mytask10", TaskRef: &v1beta1.TaskRef{Name: "mytask"}},
+				{Name: "mytask11", TaskRef: &v1beta1.TaskRef{Name: "mytask"}},
+				{Name: "mytask12", TaskRef: &v1beta1.TaskRef{Name: "mytask"}},
+				{Name: "mytask13", TaskRef: &v1beta1.TaskRef{Name: "mytask"}},
+				{Name: "mytask14", TaskRef: &v1beta1.TaskRef{Name: "mytask"}},
+				{Name: "mytask15", TaskRef: &v1beta1.TaskRef{Name: "mytask"}},
+				{Name: "mytask16", TaskRef: &v1beta1.TaskRef{Name: "mytask"}},
+				{Name: "mytask17", TaskRef: &v1beta1.TaskRef{Name: "mytask"}},
+				//{Name: "mytask18", TaskRef: &v1beta1.TaskRef{Name: "mytask"}},
+			},
+			Finally: []v1beta1.PipelineTask{
+				{Name: "mytask1", TaskRef: &v1beta1.TaskRef{Name: "mytask"}},
+				{Name: "mytask2", TaskRef: &v1beta1.TaskRef{Name: "mytask"}},
+				{Name: "mytask3", TaskRef: &v1beta1.TaskRef{Name: "mytask"}},
+				{Name: "mytask4", TaskRef: &v1beta1.TaskRef{Name: "mytask"}},
+				{Name: "mytask5", TaskRef: &v1beta1.TaskRef{Name: "mytask"}},
+				{Name: "mytask6", TaskRef: &v1beta1.TaskRef{Name: "mytask"}},
+				//{Name: "mytask7", TaskRef: &v1beta1.TaskRef{Name: "mytask"}},
+				//{Name: "mytask8", TaskRef: &v1beta1.TaskRef{Name: "mytask"}},
+				//{Name: "mytask9", TaskRef: &v1beta1.TaskRef{Name: "mytask"}},
+				//{Name: "mytask10", TaskRef: &v1beta1.TaskRef{Name: "mytask"}},
+				//{Name: "mytask11", TaskRef: &v1beta1.TaskRef{Name: "mytask"}},
+				//{Name: "mytask12", TaskRef: &v1beta1.TaskRef{Name: "mytask"}},
+				//{Name: "mytask13", TaskRef: &v1beta1.TaskRef{Name: "mytask"}},
+				//{Name: "mytask14", TaskRef: &v1beta1.TaskRef{Name: "mytask"}},
+				//{Name: "mytask15", TaskRef: &v1beta1.TaskRef{Name: "mytask"}},
+				//{Name: "mytask16", TaskRef: &v1beta1.TaskRef{Name: "mytask"}},
+				//{Name: "mytask17", TaskRef: &v1beta1.TaskRef{Name: "mytask"}},
+				//{Name: "mytask18", TaskRef: &v1beta1.TaskRef{Name: "mytask"}},
+			},
 		},
 	}
 	pr := &v1beta1.PipelineRun{
@@ -60,9 +94,32 @@ func TestGetPipelineSpec_Ref(t *testing.T) {
 		t.Errorf("Expected pipeline name to be `orchestrate` but was %q", pipelineMeta.Name)
 	}
 
-	if len(pipelineSpec.Tasks) != 1 || pipelineSpec.Tasks[0].Name != "mytask" {
-		t.Errorf("Pipeline Spec not resolved as expected, expected referenced Pipeline spec but got: %v", pipelineSpec)
-	}
+	t.Log("pipelineSpec.Tasks Length before append")
+	t.Log(len(pipelineSpec.Tasks))
+	t.Log("pipelineSpec.Tasks Capacity before append")
+	t.Log(cap(pipelineSpec.Tasks))
+	t.Log("pipelineSpec.Tasks Address before append")
+	t.Logf("%p", pipelineSpec.Tasks)
+
+	t.Log("pipelineSpec.Finally Length before append")
+	t.Log(len(pipelineSpec.Finally))
+	t.Log("pipelineSpec.Finally Capacity before append")
+	t.Log(cap(pipelineSpec.Finally))
+	t.Log("pipelineSpec.Finally Address before append")
+	t.Logf("%p", pipelineSpec.Finally)
+
+	tasks1 := append(pipelineSpec.Tasks, pipelineSpec.Finally...)
+
+	t.Log("Tasks1 Length")
+	t.Log(len(tasks1))
+	t.Log("Tasks1 Capacity")
+	t.Log(cap(tasks1))
+	t.Log("Tasks1 Address")
+	t.Logf("%p", tasks1)
+
+	//if len(pipelineSpec.Tasks) != 8 || pipelineSpec.Tasks[0].Name != "mytask1" {
+	//	t.Errorf("Pipeline Spec not resolved as expected, expected referenced Pipeline spec but got: %v", pipelineSpec)
+	//}
 }
 
 func TestGetPipelineSpec_Embedded(t *testing.T) {
