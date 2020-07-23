@@ -89,6 +89,18 @@ func Build(tasks Tasks) (*Graph, error) {
 	return d, nil
 }
 
+// Build returns a valid pipeline Graph. Returns error if the pipeline is invalid
+func BuildFinally(tasks Tasks) (*Graph, error) {
+	d := newGraph()
+	// Add all Tasks mentioned in the `PipelineSpec`
+	for _, pt := range tasks.Items() {
+		if _, err := d.addPipelineTask(pt); err != nil {
+			return nil, fmt.Errorf("final task %s is already present in Graph, can't add it again: %w", pt.HashKey(), err)
+		}
+	}
+	return d, nil
+}
+
 // GetSchedulable returns a map of PipelineTask that can be scheduled (keyed
 // by the name of the PipelineTask) given a list of successfully finished doneTasks.
 // It returns tasks which have all dependecies marked as done, and thus can be scheduled. If the

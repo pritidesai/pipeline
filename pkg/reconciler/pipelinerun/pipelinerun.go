@@ -306,7 +306,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1beta1.PipelineRun) err
 	// if a task in PipelineRunState is final task or not
 	// the finally section is optional and might not exist
 	// dfinally holds an empty Graph in the absence of finally clause
-	dfinally, err := dag.Build(v1beta1.PipelineTaskList(pipelineSpec.Finally))
+	dfinally, err := dag.BuildFinally(v1beta1.PipelineTaskList(pipelineSpec.Finally))
 	if err != nil {
 		// This Run has failed, so we need to mark it as failed and stop reconciling it
 		pr.Status.MarkFailed(ReasonInvalidGraph,
@@ -509,9 +509,6 @@ func (c *Reconciler) runNextSchedulableTask(ctx context.Context, pr *v1beta1.Pip
 		nextRprts = pipelineState.GetNextTasks(candidateTasks)
 	}
 
-	// GetFinalTasks only returns tasks when a DAG is complete
-	nextRprts = append(nextRprts, pipelineState.GetFinalTasks(d, dfinally)...)
-
 	resolvedResultRefs, err := resources.ResolveResultRefs(pipelineState, nextRprts)
 	if err != nil {
 		logger.Infof("Failed to resolve all task params for %q with error %v", pr.Name, err)
@@ -519,6 +516,13 @@ func (c *Reconciler) runNextSchedulableTask(ctx context.Context, pr *v1beta1.Pip
 		return controller.NewPermanentError(err)
 	}
 	resources.ApplyTaskResults(nextRprts, resolvedResultRefs)
+
+	// GetFinalTasks only returns tasks when a DAG is complete
+	finallyRprts := pipelineState.GetFinalTasks(d, dfinally)
+	finallyResolvedResultRefs, _ := resources.ResolveResultRefs(pipelineState, finallyRprts)
+	resources.ApplyTaskResults(nextRprts, finallyResolvedResultRefs)
+
+	nextRprts = append(nextRprts, finallyRprts...)
 
 	for _, rprt := range nextRprts {
 		if rprt == nil {

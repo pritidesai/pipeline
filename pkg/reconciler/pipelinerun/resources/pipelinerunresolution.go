@@ -300,6 +300,7 @@ func (state PipelineRunState) GetFinalTasks(d *dag.Graph, dfinally *dag.Graph) [
 		}
 		tasks = state.GetNextTasks(finalCandidates)
 	}
+
 	return tasks
 }
 

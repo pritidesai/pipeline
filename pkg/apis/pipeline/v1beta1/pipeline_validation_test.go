@@ -1352,15 +1352,6 @@ func TestValidateFinalTasks_Failure(t *testing.T) {
 				}},
 			},
 		}},
-	}, {
-		name: "invalid pipeline with final tasks having reference to task results",
-		finalTasks: []PipelineTask{{
-			Name:    "final-task",
-			TaskRef: &TaskRef{Name: "final-task"},
-			Params: []Param{{
-				Name: "param1", Value: ArrayOrString{Type: ParamTypeString, StringVal: "$(tasks.a-task.results.output)"},
-			}},
-		}},
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
