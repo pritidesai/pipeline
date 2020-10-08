@@ -19,6 +19,8 @@ package v1beta1
 import (
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
+
 	"github.com/tektoncd/pipeline/pkg/apis/config"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline"
 	corev1 "k8s.io/api/core/v1"
@@ -306,6 +308,25 @@ func (pr *PipelineRunStatus) MarkResourceNotConvertible(err *CannotConvertError)
 		Reason:   err.Field,
 		Message:  err.Message,
 	})
+}
+
+func (pr *PipelineRunStatus) GetTaskRunStatus(t PipelineTask) TaskRunReason {
+	for _, s := range pr.TaskRuns {
+		// check if finally tasks started
+		if s.PipelineTaskName == "task4" {
+			spew.Dump("finally task task4 getCondition:")
+			spew.Dump(s.Status.GetCondition(apis.ConditionSucceeded))
+		}
+		if t.Name == s.PipelineTaskName {
+			for _, sk := range pr.SkippedTasks {
+				if t.Name == sk.Name {
+					return "Skipped"
+				}
+			}
+			return s.Status.GetTaskRunStatus(t)
+		}
+	}
+	return ""
 }
 
 // PipelineRunStatusFields holds the fields of PipelineRunStatus' status.

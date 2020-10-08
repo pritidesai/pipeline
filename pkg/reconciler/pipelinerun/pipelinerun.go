@@ -25,6 +25,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
+
 	"github.com/hashicorp/go-multierror"
 	"github.com/tektoncd/pipeline/pkg/apis/config"
 	apisconfig "github.com/tektoncd/pipeline/pkg/apis/config"
@@ -386,7 +388,15 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1beta1.PipelineRun) err
 
 	// Apply parameter substitution from the PipelineRun
 	pipelineSpec = resources.ApplyParameters(pipelineSpec, pr)
+	spew.Dump("spec.Params before ApplyContexts")
+	spew.Dump("********************")
+	spew.Dump(pipelineSpec)
+	spew.Dump("********************")
 	pipelineSpec = resources.ApplyContexts(pipelineSpec, pipelineMeta.Name, pr)
+	spew.Dump("spec.Params after ApplyContexts")
+	spew.Dump("********************")
+	spew.Dump(pipelineSpec)
+	spew.Dump("********************")
 	pipelineSpec = resources.ApplyWorkspaces(pipelineSpec, pr)
 
 	// pipelineRunState holds a list of pipeline tasks after resolving conditions and pipeline resources
@@ -520,8 +530,19 @@ func (c *Reconciler) runNextSchedulableTask(ctx context.Context, pr *v1beta1.Pip
 
 	resources.ApplyTaskResults(nextRprts, resolvedResultRefs)
 
+	replacements := make(map[string]string)
+	for _, t := range pipelineRunFacts.State {
+		replacements["context.pipelineRun.Tasks."+t.PipelineTask.Name] = string(t.GetTaskRunStatus(*t.PipelineTask, pipelineRunFacts))
+		//replacements["context.pipelineRun.Tasks."+t.PipelineTask.Name] = string(pr.Status.GetTaskRunStatus(*t.PipelineTask))
+	}
+
+	spew.Dump("this is the list of replacements created from scheduler")
+	spew.Dump(replacements)
+
 	// GetFinalTasks only returns tasks when a DAG is complete
 	nextRprts = append(nextRprts, pipelineRunFacts.GetFinalTasks()...)
+
+	resources.ApplyTaskRunContext(nextRprts, replacements)
 
 	for _, rprt := range nextRprts {
 		if rprt == nil || rprt.Skip(pipelineRunFacts) {

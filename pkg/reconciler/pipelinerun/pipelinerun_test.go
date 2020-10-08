@@ -24,6 +24,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	tbv1alpha1 "github.com/tektoncd/pipeline/internal/builder/v1alpha1"
@@ -3702,6 +3704,7 @@ func TestReconcilePipeline_FinalTasks(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			spew.Dump(tt.trs)
 			d := test.Data{
 				PipelineRuns: tt.prs,
 				Pipelines:    tt.ps,
@@ -3752,6 +3755,147 @@ func TestReconcilePipeline_FinalTasks(t *testing.T) {
 
 		})
 	}
+}
+
+func TestReconciler_ReconcileKind1(t *testing.T) {
+	ts := []*v1beta1.Task{{
+		ObjectMeta: metav1.ObjectMeta{Name: "task", Namespace: "foo"},
+		Spec: v1beta1.TaskSpec{
+			Steps: []v1beta1.Step{{
+				Container: corev1.Container{Name: "print-hi", Image: "alpine"},
+			}},
+		}},
+	}
+
+	ps := []*v1beta1.Pipeline{{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "pipeline-exec-status",
+			Namespace: "foo",
+		},
+		Spec: v1beta1.PipelineSpec{
+			Tasks: v1beta1.PipelineTaskList{
+				{Name: "task1", TaskRef: &v1beta1.TaskRef{Name: "task"}},
+				{Name: "task2", TaskRef: &v1beta1.TaskRef{Name: "task"}},
+			},
+			Finally: v1beta1.PipelineTaskList{{
+				Name: "finaltask1",
+				Params: []v1beta1.Param{
+					{
+						Name:  "pipelineRun-pipelineTask-task1",
+						Value: v1beta1.ArrayOrString{Type: "string", StringVal: "$(context.pipelineRun.Tasks.task1)"},
+					},
+					{
+						Name:  "pipelineRun-pipelineTask-task2",
+						Value: v1beta1.ArrayOrString{Type: "string", StringVal: "$(context.pipelineRun.Tasks.task2)"},
+					},
+				},
+				TaskSpec: &v1beta1.EmbeddedTask{TaskSpec: v1beta1.TaskSpec{
+					Params: []v1beta1.ParamSpec{
+						{Name: "pipelineRun-pipelineTask-task1", Type: "string"},
+						{Name: "pipelineRun-pipelineTask-task2", Type: "string"},
+					},
+					Steps: []v1beta1.Step{{
+						Container: corev1.Container{Name: "print-hi", Image: "alpine"},
+					}},
+				},
+				}},
+			},
+		}}}
+
+	prs := []*v1beta1.PipelineRun{{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "pr-exec-status",
+			Namespace: "foo",
+		},
+		Spec: v1beta1.PipelineRunSpec{
+			PipelineRef: &v1beta1.PipelineRef{Name: "pipeline-exec-status"},
+		},
+		Status: v1beta1.PipelineRunStatus{
+			duckv1beta1.Status{Conditions: duckv1beta1.Conditions{{
+				Type:    apis.ConditionSucceeded,
+				Status:  "Unknown",
+				Reason:  "Running",
+				Message: "Tasks Completed: 2 (Failed: 1, Cancelled 0), Incomplete: 1, Skipped: 0",
+			}}},
+			v1beta1.PipelineRunStatusFields{
+				StartTime: &metav1.Time{Time: time.Now()},
+				TaskRuns: map[string]*v1beta1.PipelineRunTaskRunStatus{
+					"tr-task1": {PipelineTaskName: "task1", Status: &v1beta1.TaskRunStatus{
+						Status: duckv1beta1.Status{Conditions: duckv1beta1.Conditions{{
+							Type:   apis.ConditionSucceeded,
+							Status: corev1.ConditionTrue,
+							Reason: v1beta1.TaskRunReasonSuccessful.String(),
+						}}},
+					}},
+					"tr-task2": {PipelineTaskName: "task2", Status: &v1beta1.TaskRunStatus{
+						Status: duckv1beta1.Status{Conditions: duckv1beta1.Conditions{{
+							Type:   apis.ConditionSucceeded,
+							Status: corev1.ConditionFalse,
+							Reason: v1beta1.TaskRunReasonFailed.String(),
+						}}},
+					}},
+					"tr-final-task1": {PipelineTaskName: "finaltask1", Status: &v1beta1.TaskRunStatus{}},
+					//"tr-task1": {PipelineTaskName: "task1", Status: &v1beta1.TaskRunStatus{}},
+					//"tr-task2": {PipelineTaskName: "task2", Status: &v1beta1.TaskRunStatus{}},
+				},
+				PipelineSpec: &ps[0].Spec,
+			},
+		}}}
+
+	trs := []*v1beta1.TaskRun{
+		{
+			ObjectMeta: metav1.ObjectMeta{Name: "tr-task1", Namespace: "foo",
+				Labels: map[string]string{
+					"tekton.dev/pipeline":     "pipeline-exec-status",
+					"tekton.dev/pipelineRun":  "pr-exec-status",
+					"tekton.dev/pipelineTask": "task1",
+				},
+				OwnerReferences: []metav1.OwnerReference{{Kind: "pipelineRun", Name: "pr-exec-status"}},
+			},
+			Spec: v1beta1.TaskRunSpec{TaskRef: &v1beta1.TaskRef{Name: "task"}},
+			Status: v1beta1.TaskRunStatus{Status: duckv1beta1.Status{Conditions: duckv1beta1.Conditions{{
+				Type:   apis.ConditionSucceeded,
+				Status: corev1.ConditionTrue,
+				Reason: v1beta1.TaskRunReasonSuccessful.String(),
+			}}}},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{Name: "tr-task2", Namespace: "foo",
+				Labels: map[string]string{
+					"tekton.dev/pipeline":     "pipeline-exec-status",
+					"tekton.dev/pipelineRun":  "pr-exec-status",
+					"tekton.dev/pipelineTask": "task2",
+				},
+				OwnerReferences: []metav1.OwnerReference{{Kind: "pipelineRun", Name: "pr-exec-status"}},
+			},
+			Spec: v1beta1.TaskRunSpec{TaskRef: &v1beta1.TaskRef{Name: "task"}},
+			Status: v1beta1.TaskRunStatus{Status: duckv1beta1.Status{Conditions: duckv1beta1.Conditions{{
+				Type:   apis.ConditionSucceeded,
+				Status: corev1.ConditionFalse,
+				Reason: v1beta1.TaskRunReasonFailed.String(),
+			}}}},
+		},
+	}
+
+	d := test.Data{
+		PipelineRuns: prs,
+		Pipelines:    ps,
+		Tasks:        ts,
+		TaskRuns:     trs,
+	}
+	prt := NewPipelineRunTest(d, t)
+	defer prt.Cancel()
+
+	reconciledRun, clients := prt.reconcileRun("foo", "pr-exec-status", []string{}, false)
+	spew.Dump(reconciledRun)
+
+	actions := clients.Pipeline.Actions()
+	if len(actions) < 2 {
+		t.Fatalf("Expected client to have at least two action implementation but it has %d", len(actions))
+	}
+	actual := actions[1].(ktesting.CreateAction).GetObject()
+	spew.Dump("******* actual ******")
+	spew.Dump(actual)
 }
 
 func getPipelineRun(pr, p string, status corev1.ConditionStatus, reason string, m string, tr map[string]string) []*v1beta1.PipelineRun {

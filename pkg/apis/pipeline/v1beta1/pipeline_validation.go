@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/davecgh/go-spew/spew"
+
 	"github.com/tektoncd/pipeline/pkg/apis/validate"
 	"github.com/tektoncd/pipeline/pkg/list"
 	"github.com/tektoncd/pipeline/pkg/reconciler/pipeline/dag"
@@ -217,7 +219,15 @@ func validatePipelineContextVariables(tasks []PipelineTask) *apis.FieldError {
 		"name",
 		"namespace",
 		"uid",
+		"pipelineTasks",
 	)
+
+	pipelineRunTasksContextNames := sets.String{}
+	for _, t := range tasks {
+		pipelineRunTasksContextNames.Insert(t.Name)
+	}
+	spew.Dump(pipelineRunTasksContextNames)
+
 	pipelineContextNames := sets.NewString().Insert(
 		"name",
 	)
@@ -228,7 +238,9 @@ func validatePipelineContextVariables(tasks []PipelineTask) *apis.FieldError {
 			paramValues = append(paramValues, param.Value.ArrayVal...)
 		}
 	}
+	spew.Dump(paramValues)
 	errs := validatePipelineContextVariablesInParamValues(paramValues, "context\\.pipelineRun", pipelineRunContextNames)
+	errs = validatePipelineContextVariablesInParamValues(paramValues, "context\\.pipelineRun\\.Tasks", pipelineRunTasksContextNames)
 	return errs.Also(validatePipelineContextVariablesInParamValues(paramValues, "context\\.pipeline", pipelineContextNames))
 }
 

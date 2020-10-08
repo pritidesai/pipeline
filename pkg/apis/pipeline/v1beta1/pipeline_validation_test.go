@@ -1929,6 +1929,15 @@ func TestContextValid(t *testing.T) {
 				Name: "a-param", Value: ArrayOrString{ArrayVal: []string{"$(context.pipeline.name)", "and", "$(context.pipelineRun.name)"}},
 			}},
 		}},
+	}, {
+		name: "valid string context variable for pipelineTask status",
+		tasks: []PipelineTask{{
+			Name:    "bar",
+			TaskRef: &TaskRef{Name: "bar-task"},
+			Params: []Param{{
+				Name: "bar-status", Value: ArrayOrString{StringVal: "$(context.pipelineRun.Tasks.bar)"},
+			}},
+		}},
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

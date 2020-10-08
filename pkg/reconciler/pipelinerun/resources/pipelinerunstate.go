@@ -52,6 +52,24 @@ type pipelineRunStatusCount struct {
 	Incomplete int
 }
 
+func (s ResolvedPipelineRunTask) GetTaskRunStatus(t v1beta1.PipelineTask, facts *PipelineRunFacts) v1beta1.TaskRunReason {
+	if t.Name == s.PipelineTask.Name {
+		if s.Skip(facts) {
+			return "Skipped"
+		}
+		if s.IsSuccessful() {
+			return v1beta1.TaskRunReasonSuccessful
+		}
+		if s.IsCancelled() {
+			return v1beta1.TaskRunReasonCancelled
+		}
+		if s.IsFailure() {
+			return v1beta1.TaskRunReasonFailed
+		}
+	}
+	return ""
+}
+
 // ToMap returns a map that maps pipeline task name to the resolved pipeline run task
 func (state PipelineRunState) ToMap() map[string]*ResolvedPipelineRunTask {
 	m := make(map[string]*ResolvedPipelineRunTask)

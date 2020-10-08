@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
+
 	apisconfig "github.com/tektoncd/pipeline/pkg/apis/config"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline"
 	corev1 "k8s.io/api/core/v1"
@@ -157,6 +159,29 @@ func (trs *TaskRunStatus) MarkResourceFailed(reason TaskRunReason, err error) {
 		Reason:  reason.String(),
 		Message: err.Error(),
 	})
+}
+
+func (trs *TaskRunStatus) GetTaskRunStatus(t PipelineTask) TaskRunReason {
+	if c := trs.Status.GetCondition(apis.ConditionSucceeded); c != nil {
+		if c.IsTrue() {
+			return TaskRunReasonSuccessful
+		}
+		if c.IsFalse() {
+			if c.Reason == TaskRunReasonCancelled.String() {
+				return TaskRunReasonCancelled
+			}
+			retriesDone := len(trs.RetriesStatus)
+			retries := t.Retries
+			spew.Dump("Retries Done: len(trs.RetriesStatus)")
+			spew.Dump(retriesDone)
+			spew.Dump("Retries: t.Retries")
+			spew.Dump(retries)
+			if retriesDone >= retries {
+				return TaskRunReasonFailed
+			}
+		}
+	}
+	return ""
 }
 
 // TaskRunStatusFields holds the fields of TaskRun's status.  This is defined

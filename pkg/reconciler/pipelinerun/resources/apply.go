@@ -18,6 +18,9 @@ package resources
 
 import (
 	"fmt"
+	"strings"
+
+	"github.com/davecgh/go-spew/spew"
 
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 )
@@ -56,12 +59,23 @@ func ApplyParameters(p *v1beta1.PipelineSpec, pr *v1beta1.PipelineRun) *v1beta1.
 // ApplyContexts applies the substitution from $(context.(pipelineRun|pipeline).*) with the specified values.
 // Currently supports only name substitution. Uses "" as a default if name is not specified.
 func ApplyContexts(spec *v1beta1.PipelineSpec, pipelineName string, pr *v1beta1.PipelineRun) *v1beta1.PipelineSpec {
-	replacements := map[string]string{
-		"context.pipelineRun.name":      pr.Name,
-		"context.pipeline.name":         pipelineName,
-		"context.pipelineRun.namespace": pr.Namespace,
-		"context.pipelineRun.uid":       string(pr.ObjectMeta.UID),
+	var pTasks []string
+	for _, t := range spec.Tasks {
+		pTasks = append(pTasks, t.Name)
 	}
+
+	replacements := map[string]string{
+		"context.pipelineRun.name":          pr.Name,
+		"context.pipeline.name":             pipelineName,
+		"context.pipelineRun.namespace":     pr.Namespace,
+		"context.pipelineRun.uid":           string(pr.ObjectMeta.UID),
+		"context.pipelineRun.pipelineTasks": strings.Join(pTasks, ","),
+	}
+	//for _, t := range spec.Tasks {
+	//	replacements["context.pipelineRun.Tasks."+t.Name] = string(pr.Status.GetTaskRunStatus(t))
+	//}
+	spew.Dump("I have constructed replacements so far:")
+	spew.Dump(replacements)
 	return ApplyReplacements(spec, replacements, map[string][]string{})
 }
 
@@ -79,6 +93,16 @@ func ApplyTaskResults(targets PipelineRunState, resolvedResultRefs ResolvedResul
 			pipelineTask := resolvedPipelineRunTask.PipelineTask.DeepCopy()
 			pipelineTask.Params = replaceParamValues(pipelineTask.Params, stringReplacements, nil)
 			pipelineTask.WhenExpressions = pipelineTask.WhenExpressions.ReplaceWhenExpressionsVariables(stringReplacements)
+			resolvedPipelineRunTask.PipelineTask = pipelineTask
+		}
+	}
+}
+
+func ApplyTaskRunContext(targets PipelineRunState, replacements map[string]string) {
+	for _, resolvedPipelineRunTask := range targets {
+		if resolvedPipelineRunTask.PipelineTask != nil {
+			pipelineTask := resolvedPipelineRunTask.PipelineTask.DeepCopy()
+			pipelineTask.Params = replaceParamValues(pipelineTask.Params, replacements, nil)
 			resolvedPipelineRunTask.PipelineTask = pipelineTask
 		}
 	}

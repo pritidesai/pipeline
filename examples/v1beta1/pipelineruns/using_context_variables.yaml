@@ -14,11 +14,14 @@ spec:
         value: "$(context.pipeline.name)"
       - name: pipelineRun-name
         value: "$(context.pipelineRun.name)"
+      - name: pipelineRun-pipelineTasks
+        value: "$(context.pipelineRun.pipelineTasks)"
       taskSpec:
         params:
         - name: pipeline-uid
         - name: pipeline-name
         - name: pipelineRun-name
+        - name: pipelineRun-pipelineTasks
         steps:
         - image: ubuntu
           name: print-uid
@@ -32,3 +35,4 @@ spec:
             echo "TaskRun name: $(context.taskRun.name)"
             echo "Pipeline name from params: $(params.pipeline-name)"
             echo "PipelineRun name from params: $(params.pipelineRun-name)"
+            echo "Pipeline Task names: $(params.pipelineRun-pipelineTasks)"
