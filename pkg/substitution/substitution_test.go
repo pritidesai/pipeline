@@ -107,7 +107,7 @@ func TestValidateVariables(t *testing.T) {
 		},
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
-			got := substitution.ValidateVariable("somefield", tc.args.input, tc.args.prefix, tc.args.locationName, tc.args.path, tc.args.vars)
+			got := substitution.ValidateVariableProhibited("somefield", tc.args.input, tc.args.prefix, tc.args.locationName, tc.args.path, tc.args.vars)
 
 			if d := cmp.Diff(got, tc.expectedError, cmp.AllowUnexported(apis.FieldError{})); d != "" {
 				t.Errorf("ValidateVariable() error did not match expected error %s", diff.PrintWantGot(d))
