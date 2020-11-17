@@ -302,7 +302,9 @@ func TestBuild_JoinMultipleRoots(t *testing.T) {
 }
 
 func TestBuild_FanInFanOut(t *testing.T) {
-	a := v1beta1.PipelineTask{Name: "a"}
+	//a := v1beta1.PipelineTask{Name: "a"}
+	a := v1beta1.PipelineTask{Name: "a", RunAfter: []string{"g"}}
+
 	dDependsOnA := v1beta1.PipelineTask{
 		Name: "d",
 		Resources: &v1beta1.PipelineTaskResources{
@@ -339,6 +341,7 @@ func TestBuild_FanInFanOut(t *testing.T) {
 	nodeF := &dag.Node{Task: fDependsOnDAndE}
 	nodeG := &dag.Node{Task: gRunsAfterF}
 
+	nodeA.Prev = []*dag.Node{nodeG}
 	nodeA.Next = []*dag.Node{nodeD, nodeE}
 	nodeD.Prev = []*dag.Node{nodeA}
 	nodeD.Next = []*dag.Node{nodeF}
@@ -669,3 +672,93 @@ func TestBuild_ConditionsParamsFromTaskResults(t *testing.T) {
 	}
 	assertSameDAG(t, expectedDAG, g)
 }
+
+//     t1
+// t2 t3 t4 t5 t6 t7 t8 t9 t10
+//						   t11 t12 t14 t15 t16 t17 t18 t19 t20
+//
+/*func TestBuild_LargePipeline_TaskParamsFromTaskResults(t *testing.T) {
+	t1 := v1beta1.PipelineTask{Name: "t1"}
+
+	t2DependsOnt1 := v1beta1.PipelineTask{
+		Name: "t2",
+		Params: []v1beta1.Param{{
+			Name:  "paramX",
+			Value: *v1beta1.NewArrayOrString("$(tasks.t1.results.resultA)"),
+		}},
+	}
+	t3DependsOnt1 := v1beta1.PipelineTask{
+		Name: "t3",
+		Params: []v1beta1.Param{{
+			Name:  "paramX",
+			Value: *v1beta1.NewArrayOrString("$(tasks.t1.results.resultA)"),
+		}},
+	}
+	t4DependsOnt1 := v1beta1.PipelineTask{
+		Name: "t4",
+		Params: []v1beta1.Param{{
+			Name:  "paramX",
+			Value: *v1beta1.NewArrayOrString("$(tasks.t1.results.resultA)"),
+		}},
+	}
+	t5DependsOnt1 := v1beta1.PipelineTask{
+		Name: "t5",
+		Params: []v1beta1.Param{{
+			Name:  "paramX",
+			Value: *v1beta1.NewArrayOrString("$(tasks.t1.results.resultA)"),
+		}},
+	}
+	t10DependsOnt5 := v1beta1.PipelineTask{
+		Name: "t10",
+		Params: []v1beta1.Param{{
+			Name:  "paramX",
+			Value: *v1beta1.NewArrayOrString("$(tasks.t5.results.resultA)"),
+		}},
+	}
+
+	//   a  b   c  d   e
+	//   |   \ /    \ /
+	//   x    y      z
+	nodet1 := &dag.Node{Task: t1}
+	nodet2 := &dag.Node{Task: t2DependsOnt1}
+	nodet3 := &dag.Node{Task: t3DependsOnt1}
+	nodet4 := &dag.Node{Task: t4DependsOnt1}
+	nodet5 := &dag.Node{Task: t5DependsOnt1}
+	nodet10 := &dag.Node{Task: t10DependsOnt5}
+
+	nodet1.Next = []*dag.Node{nodet2}
+	nodet1.Next = []*dag.Node{nodet3}
+	nodet1.Next = []*dag.Node{nodet4}
+	nodet1.Next = []*dag.Node{nodet5}
+	nodet5.Next = []*dag.Node{nodet10}
+	nodet2.Prev = []*dag.Node{nodet1}
+	nodet3.Prev = []*dag.Node{nodet1}
+	nodeE.Next = []*dag.Node{nodeZ}
+	nodeX.Prev = []*dag.Node{nodeA}
+	nodeY.Prev = []*dag.Node{nodeB, nodeC}
+	nodeZ.Prev = []*dag.Node{nodeD, nodeE}
+
+	expectedDAG := &dag.Graph{
+		Nodes: map[string]*dag.Node{
+			"a": nodeA,
+			"b": nodeB,
+			"c": nodeC,
+			"d": nodeD,
+			"e": nodeE,
+			"x": nodeX,
+			"y": nodeY,
+			"z": nodeZ,
+		},
+	}
+	p := &v1beta1.Pipeline{
+		ObjectMeta: metav1.ObjectMeta{Name: "pipeline"},
+		Spec: v1beta1.PipelineSpec{
+			Tasks: []v1beta1.PipelineTask{a, b, c, d, e, xDependsOnA, yDependsOnBRunsAfterC, zDependsOnDAndE},
+		},
+	}
+	g, err := dag.Build(v1beta1.PipelineTaskList(p.Spec.Tasks))
+	if err != nil {
+		t.Fatalf("didn't expect error creating valid Pipeline %v but got %v", p, err)
+	}
+	assertSameDAG(t, expectedDAG, g)
+}*/

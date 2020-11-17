@@ -6,6 +6,7 @@ require (
 	cloud.google.com/go/storage v1.11.0 // indirect
 	github.com/GoogleCloudPlatform/cloud-builders/gcs-fetcher v0.0.0-20191203181535-308b93ad1f39
 	github.com/cloudevents/sdk-go/v2 v2.1.0
+	github.com/davecgh/go-spew v1.1.1
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-openapi/spec v0.19.6
 	github.com/google/go-cmp v0.5.2

@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/davecgh/go-spew/spew"
+
 	"github.com/tektoncd/pipeline/pkg/list"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
@@ -76,11 +78,19 @@ func Build(tasks Tasks) (*Graph, error) {
 		if _, err := d.addPipelineTask(pt); err != nil {
 			return nil, fmt.Errorf("task %s is already present in Graph, can't add it again: %w", pt.HashKey(), err)
 		}
-		deps[pt.HashKey()] = pt.Deps()
+		if len(pt.Deps()) != 0 {
+			deps[pt.HashKey()] = pt.Deps()
+		}
 	}
+	spew.Dump("deps")
+	spew.Dump(deps)
 	// Process all from and runAfter constraints to add task dependency
 	for pt, taskDeps := range deps {
+		spew.Printf("******* validating dependencies for pipelineTask %s *******\n", pt)
+		spew.Dump("a list of parents")
+		spew.Dump(taskDeps)
 		for _, previousTask := range taskDeps {
+			spew.Printf("adding a link between pipelineTask %s and parent %s\n", pt, previousTask)
 			if err := addLink(pt, previousTask, d.Nodes); err != nil {
 				return nil, fmt.Errorf("couldn't add link between %s and %s: %w", pt, previousTask, err)
 			}
@@ -128,7 +138,20 @@ func linkPipelineTasks(prev *Node, next *Node) error {
 	// Check if we are adding cycles.
 	visited := map[string]bool{prev.Task.HashKey(): true, next.Task.HashKey(): true}
 	path := []string{next.Task.HashKey(), prev.Task.HashKey()}
+	spew.Dump("calling visit with")
+	spew.Printf("next %s\n", next.Task.HashKey())
+	spew.Printf("prev %s\n", prev.Task.HashKey())
+	spew.Dump("printing visited")
+	spew.Dump(visited)
+	spew.Dump("printing prev.Prev")
+	if len(prev.Prev) == 0 {
+		spew.Dump("prev.Prev is empty")
+	}
+	for _, p := range prev.Prev {
+		spew.Dump(p.Task.HashKey())
+	}
 	if err := visit(next.Task.HashKey(), prev.Prev, path, visited); err != nil {
+		//if err := visit(next.Task.HashKey(), prev.Prev, path, visited); err != nil {
 		return fmt.Errorf("cycle detected: %w", err)
 	}
 	next.Prev = append(next.Prev, prev)
@@ -136,23 +159,51 @@ func linkPipelineTasks(prev *Node, next *Node) error {
 	return nil
 }
 
+//func visit(currentName string, nodes []*Node, path []string, visited map[string]bool) error {
+
 func visit(currentName string, nodes []*Node, path []string, visited map[string]bool) error {
 	var sb strings.Builder
 	for _, n := range nodes {
 		path = append(path, n.Task.HashKey())
 		if _, ok := visited[n.Task.HashKey()]; ok {
+			spew.Printf("visited has the %s task already", n.Task.HashKey())
 			return errors.New(getVisitedPath(path))
+		}
+		spew.Dump("calling visit with")
+		spew.Dump("n.Prev")
+		if len(n.Prev) == 0 {
+			spew.Dump("n.Prev is empty")
+		}
+		for _, p := range n.Prev {
+			spew.Dump(p.Task.HashKey())
 		}
 		sb.WriteString(currentName)
 		sb.WriteByte('.')
 		sb.WriteString(n.Task.HashKey())
+		spew.Printf("currentName %s\n", currentName)
+		spew.Printf("Task hash key %s\n", n.Task.HashKey())
+		spew.Printf("sb %s\n", sb.String())
 		visited[sb.String()] = true
+
+		spew.Dump("path")
+		spew.Dump(getVisitedPath(path))
+		spew.Dump("visited")
+		spew.Dump(visited)
 		if err := visit(n.Task.HashKey(), n.Prev, path, visited); err != nil {
+			//if err := visit(n.Task.HashKey(), n.Prev, path, visited); err != nil {
 			return err
 		}
 	}
 	return nil
 }
+
+//var sb strings.Builder
+//sb.WriteString(currentName)
+//sb.WriteByte('.')
+//sb.WriteString(n.Task.HashKey())
+//spew.Dump("currentName+TaskName")
+//spew.Dump(sb.String())
+//visited[sb.String()] = true
 
 func getVisitedPath(path []string) string {
 	// Reverse the path since we traversed the Graph using prev pointers.
