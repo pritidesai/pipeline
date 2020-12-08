@@ -206,12 +206,13 @@ func (t *ResolvedPipelineRunTask) parentTasksSkip(facts *PipelineRunFacts) bool 
 
 // IsFinallySkipped returns true if a finally task is not executed and skipped due to task result validation failure
 func (t *ResolvedPipelineRunTask) IsFinallySkipped(facts *PipelineRunFacts) bool {
-	if t.IsStarted() {
-		return false
-	}
-	if facts.checkDAGTasksDone() && facts.isFinalTask(t.PipelineTask.Name) {
-		if _, err := ResolveResultRef(facts.State, t); err != nil {
-			return true
+	for _, dep := range t.PipelineTask.Deps() {
+		for _, s := range facts.State {
+			if s.PipelineTask.Name == dep {
+				if facts.checkDAGTasksDone() && (s.skip(facts) || s.IsFailure()) {
+					return true
+				}
+			}
 		}
 	}
 	return false

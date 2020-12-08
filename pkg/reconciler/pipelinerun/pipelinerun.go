@@ -594,13 +594,15 @@ func (c *Reconciler) runNextSchedulableTask(ctx context.Context, pr *v1beta1.Pip
 	// Before creating TaskRun for scheduled final task, check if it's consuming a task result
 	// Resolve and apply task result wherever applicable, report warning in case resolution fails
 	for _, rprt := range finallyRprts {
-		resolvedResultRefs, err := resources.ResolveResultRef(pipelineRunFacts.State, rprt)
-		if err != nil {
-			logger.Infof("Final task %q is not executed as it could not resolve task params for %q: %v", rprt.PipelineTask.Name, pr.Name, err)
-			continue
+		if !rprt.IsFinallySkipped(pipelineRunFacts) {
+			resolvedResultRefs, err := resources.ResolveResultRef(pipelineRunFacts.State, rprt)
+			if err != nil {
+				logger.Infof("Final task %q is not executed as it could not resolve task params for %q: %v", rprt.PipelineTask.Name, pr.Name, err)
+				continue
+			}
+			resources.ApplyTaskResults(resources.PipelineRunState{rprt}, resolvedResultRefs)
+			nextRprts = append(nextRprts, rprt)
 		}
-		resources.ApplyTaskResults(resources.PipelineRunState{rprt}, resolvedResultRefs)
-		nextRprts = append(nextRprts, rprt)
 	}
 
 	for _, rprt := range nextRprts {
