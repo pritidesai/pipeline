@@ -22,6 +22,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
+const (
+	// PipelineTasksAggregateStatus is a param representing aggregate status of all dag pipelineTasks
+	PipelineTasksAggregateStatus = "tasks.status"
+)
+
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +genclient:noStatus

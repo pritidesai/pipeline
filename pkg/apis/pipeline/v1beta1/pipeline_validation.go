@@ -311,8 +311,8 @@ func validateExecutionStatusVariablesInTasks(tasks []PipelineTask) (errs *apis.F
 					for _, p := range ps {
 						// check if it contains context variable accessing execution status - $(tasks.taskname.status)
 						if containsExecutionStatusRef(p) {
-							errs = errs.Also(apis.ErrInvalidValue(fmt.Sprintf("pipeline tasks can not refer to execution status of any other pipeline task"),
-								"value").ViaFieldKey("params", param.Name).ViaFieldIndex("tasks", idx))
+							errs = errs.Also(apis.ErrInvalidValue(fmt.Sprintf("pipeline tasks can not refer to execution status of any other pipeline task"+
+								" or aggregate status of tasks"), "value").ViaFieldKey("params", param.Name).ViaFieldIndex("tasks", idx))
 						}
 					}
 				}
@@ -350,6 +350,10 @@ func validateExecutionStatusVariablesExpressions(expressions []string, ptNames s
 		for _, expression := range expressions {
 			// check if it contains context variable accessing execution status - $(tasks.taskname.status)
 			if containsExecutionStatusRef(expression) {
+				// its a reference to aggregate status of dag tasks - $(tasks.status)
+				if expression == PipelineTasksAggregateStatus {
+					continue
+				}
 				// strip tasks. and .status from tasks.taskname.status to further verify task name
 				pt := strings.TrimSuffix(strings.TrimPrefix(expression, "tasks."), ".status")
 				// report an error if the task name does not exist in the list of dag tasks

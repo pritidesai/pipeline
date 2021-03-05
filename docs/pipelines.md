@@ -869,7 +869,7 @@ what kind of events are triggered based on the `Pipelinerun` status.
 
 ### Using Execution `Status` of `pipelineTask`
 
-Finally Task can utilize execution status of any of the `pipelineTasks` under `tasks` section using param:
+A `finally` Task can utilize execution status of any of the `pipelineTasks` under `tasks` section using param:
 
 ```yaml
     finally:
@@ -899,6 +899,39 @@ This kind of variable can have any one of the values from the following table:
 | None | the `pipelineTask` has been skipped or no execution information available for the `pipelineTask` |
 
 For an end-to-end example, see [`status` in a `PipelineRun`](../examples/v1beta1/pipelineruns/pipelinerun-task-execution-status.yaml).
+
+### Using Aggregate Execution `Status` of All `Tasks`
+
+A `finally` task can utilize aggregate status of all `Tasks` using `param`:
+
+```yaml
+    finally:
+    - name: finaltask
+      params:
+        - name: aggreateTasksStatus
+          value: "$(tasks.status)"
+      taskSpec:
+        params:
+          - name: aggreateTasksStatus
+        steps:
+          - image: ubuntu
+            name: check-task-status
+            script: |
+              if [ $(params.aggreateTasksStatus) == "Failed" ]
+              then
+                echo "Looks like one or more tasks returned failure, continue processing the failure"
+              fi
+```
+
+This kind of variable can have any one of the values from the following table:
+
+| Status | Description |
+| ------- | -----------|
+| `Succeeded` | all `tasks` have succeeded |
+| `Failed` | one ore more `tasks` failed |
+| `Completed` | all `tasks` completed successfully including one or more skipped tasks |
+| `None` | no aggregate execution status available (i.e. none of the above), one or more `tasks` could be pending/running/cancelled/timedout |
+
 
 ### Guard `Finally Task` execution using `WhenExpressions`
 
@@ -985,7 +1018,7 @@ If the `WhenExpressions` in a `Finally Task` use `Results` from a skipped or fai
 #### `WhenExpressions` using `Execution Status` of `PipelineTask` in `Finally Tasks`
 
 `WhenExpressions` in `Finally Tasks` can utilize [`Execution Status` of `PipelineTasks`](#using-execution-status-of-pipelinetask), 
-as as demonstrated using [`golang-build`](https://github.com/tektoncd/catalog/tree/master/task/golang-build/0.1) and
+as demonstrated using [`golang-build`](https://github.com/tektoncd/catalog/tree/master/task/golang-build/0.1) and
 [`send-to-channel-slack`](https://github.com/tektoncd/catalog/tree/master/task/send-to-channel-slack/0.1) Catalog `Tasks`:
 
 ```yaml
@@ -1012,6 +1045,22 @@ spec:
 ```
 
 For an end-to-end example, see [PipelineRun with WhenExpressions](../examples/v1beta1/pipelineruns/pipelinerun-with-when-expressions.yaml).
+
+#### `WhenExpressions` using `Aggregate Execution Status` of `Tasks` in `Finally Tasks`
+
+`WhenExpressions` in `Finally Tasks` can utilize
+[`Aggregate Execution Status` of `Tasks`](#using-aggregate-execution-status-of-all-tasks) as demonstrated:
+
+```yaml
+finally:
+      - name: notify-any-failure # executed only when one or more tasks fail
+        when:
+          - input: $(tasks.status)
+            operator: in
+            values: ["Failed"]
+        taskRef:
+          name: notify-failure
+```
 
 ### Known Limitations
 

@@ -2480,6 +2480,8 @@ func TestPipelineTasksExecutionStatus(t *testing.T) {
 			TaskRef: &TaskRef{Name: "bar-task"},
 			Params: []Param{{
 				Name: "foo-status", Value: ArrayOrString{Type: ParamTypeString, StringVal: "$(tasks.foo.status)"},
+			}, {
+				Name: "tasks-status", Value: ArrayOrString{Type: ParamTypeString, StringVal: "$(tasks.status)"},
 			}},
 		}},
 	}, {
@@ -2525,8 +2527,21 @@ func TestPipelineTasksExecutionStatus(t *testing.T) {
 			}},
 		}},
 		expectedError: apis.FieldError{
-			Message: `invalid value: pipeline tasks can not refer to execution status of any other pipeline task`,
+			Message: `invalid value: pipeline tasks can not refer to execution status of any other pipeline task or aggregate status of tasks`,
 			Paths:   []string{"tasks[0].params[bar-status].value"},
+		},
+	}, {
+		name: "invalid string variable in dag task accessing aggregate status of tasks",
+		tasks: []PipelineTask{{
+			Name:    "foo",
+			TaskRef: &TaskRef{Name: "foo-task"},
+			Params: []Param{{
+				Name: "tasks-status", Value: ArrayOrString{Type: ParamTypeString, StringVal: "$(tasks.status)"},
+			}},
+		}},
+		expectedError: apis.FieldError{
+			Message: `invalid value: pipeline tasks can not refer to execution status of any other pipeline task or aggregate status of tasks`,
+			Paths:   []string{"tasks[0].params[tasks-status].value"},
 		},
 	}, {
 		name: "invalid variable concatenated with extra string in dag task accessing pipelineTask status",
@@ -2538,7 +2553,7 @@ func TestPipelineTasksExecutionStatus(t *testing.T) {
 			}},
 		}},
 		expectedError: apis.FieldError{
-			Message: `invalid value: pipeline tasks can not refer to execution status of any other pipeline task`,
+			Message: `invalid value: pipeline tasks can not refer to execution status of any other pipeline task or aggregate status of tasks`,
 			Paths:   []string{"tasks[0].params[bar-status].value"},
 		},
 	}, {
@@ -2551,8 +2566,21 @@ func TestPipelineTasksExecutionStatus(t *testing.T) {
 			}},
 		}},
 		expectedError: apis.FieldError{
-			Message: `invalid value: pipeline tasks can not refer to execution status of any other pipeline task`,
+			Message: `invalid value: pipeline tasks can not refer to execution status of any other pipeline task or aggregate status of tasks`,
 			Paths:   []string{"tasks[0].params[bar-status].value"},
+		},
+	}, {
+		name: "invalid array variable in dag task accessing aggregate tasks status",
+		tasks: []PipelineTask{{
+			Name:    "foo",
+			TaskRef: &TaskRef{Name: "foo-task"},
+			Params: []Param{{
+				Name: "tasks-status", Value: ArrayOrString{Type: ParamTypeArray, ArrayVal: []string{"$(tasks.status)"}},
+			}},
+		}},
+		expectedError: apis.FieldError{
+			Message: `invalid value: pipeline tasks can not refer to execution status of any other pipeline task or aggregate status of tasks`,
+			Paths:   []string{"tasks[0].params[tasks-status].value"},
 		},
 	}, {
 		name: "invalid string variable in finally accessing missing pipelineTask status",

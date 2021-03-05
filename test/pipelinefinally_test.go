@@ -144,6 +144,12 @@ func TestPipelineLevelFinally_OneDAGTaskFailed_InvalidTaskResult_Failure(t *test
 					Type:      "string",
 					StringVal: "$(tasks.dagtask3.status)",
 				},
+			}, {
+				Name: "dagtasks-aggregate-status",
+				Value: v1beta1.ArrayOrString{
+					Type:      "string",
+					StringVal: "$(tasks.status)",
+				},
 			}},
 		},
 		// final task consuming result from a failed dag task
@@ -314,6 +320,10 @@ func TestPipelineLevelFinally_OneDAGTaskFailed_InvalidTaskResult_Failure(t *test
 				case "dagtask3-status":
 					if p.Value.StringVal != resources.PipelineTaskStateNone {
 						t.Errorf("Task param \"%s\" is set to \"%s\", expected it to resolve to \"%s\"", param, p.Value.StringVal, resources.PipelineTaskStateNone)
+					}
+				case "dagtasks-aggregate-status":
+					if p.Value.StringVal != v1beta1.PipelineRunReasonFailed.String() {
+						t.Errorf("Task param \"%s\" is set to \"%s\", expected it to resolve to \"%s\"", param, p.Value.StringVal, v1beta1.PipelineRunReasonFailed.String())
 					}
 				}
 			}
@@ -510,6 +520,8 @@ func getTaskVerifyingStatus(t *testing.T, namespace string) *v1beta1.Task {
 		Name: "dagtask2-status",
 	}, {
 		Name: "dagtask3-status",
+	}, {
+		Name: "dagtasks-aggregate-status",
 	}}
 	return getTaskDef(helpers.ObjectNameForTest(t), namespace, "exit 0", params, []v1beta1.TaskResult{})
 }
