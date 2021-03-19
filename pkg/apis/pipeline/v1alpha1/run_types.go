@@ -41,6 +41,8 @@ type RunSpec struct {
 	// +optional
 	Ref *TaskRef `json:"ref,omitempty"`
 
+	CustomSpec *v1beta1.CustomInlinedSpec `json:"customSpec,omitempty"`
+
 	// +optional
 	Params []v1beta1.Param `json:"params,omitempty"`
 

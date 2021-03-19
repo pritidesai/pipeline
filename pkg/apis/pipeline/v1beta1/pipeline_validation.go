@@ -96,6 +96,7 @@ func validatePipelineTask(ctx context.Context, t PipelineTask, taskNames sets.St
 	hasTaskRef := t.TaskRef != nil
 	hasTaskSpec := t.TaskSpec != nil
 	isCustomTask := cfg.FeatureFlags.EnableCustomTasks && hasTaskRef && t.TaskRef.APIVersion != ""
+	isCustomTask = isCustomTask || t.CustomSpec != nil
 
 	// can't have both taskRef and taskSpec at the same time
 	if hasTaskRef && hasTaskSpec {

@@ -19,6 +19,8 @@ package v1beta1
 import (
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/runtime"
+
 	"github.com/tektoncd/pipeline/pkg/reconciler/pipeline/dag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -111,6 +113,11 @@ type EmbeddedTask struct {
 	TaskSpec `json:",inline,omitempty"`
 }
 
+type CustomInlinedSpec struct {
+	runtime.TypeMeta `json:",inline,omitempty"`
+	Spec             runtime.RawExtension `json:"spec,omitempty"`
+}
+
 // PipelineTask defines a task in a Pipeline, passing inputs from both
 // Params and from the output of previous tasks.
 type PipelineTask struct {
@@ -126,6 +133,8 @@ type PipelineTask struct {
 	// TaskSpec is a specification of a task
 	// +optional
 	TaskSpec *EmbeddedTask `json:"taskSpec,omitempty"`
+
+	CustomSpec *CustomInlinedSpec `json:"customSpec,omitempty"`
 
 	// Conditions is a list of conditions that need to be true for the task to run
 	// Conditions are deprecated, use WhenExpressions instead

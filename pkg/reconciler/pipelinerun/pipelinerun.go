@@ -18,11 +18,14 @@ package pipelinerun
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"reflect"
 	"strconv"
 	"time"
+
+	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/tektoncd/pipeline/pkg/apis/config"
@@ -763,6 +766,25 @@ func (c *Reconciler) createRun(ctx context.Context, rprt *resources.ResolvedPipe
 			ServiceAccountName: taskRunSpec.TaskServiceAccountName,
 			PodTemplate:        taskRunSpec.TaskPodTemplate,
 		},
+	}
+
+	if rprt.PipelineTask.CustomSpec != nil {
+		r.Spec.CustomSpec = &v1beta1.CustomInlinedSpec{
+			TypeMeta: runtime.TypeMeta{
+				APIVersion: rprt.PipelineTask.CustomSpec.APIVersion,
+				Kind:       rprt.PipelineTask.CustomSpec.Kind,
+			},
+		}
+		if len(rprt.PipelineTask.CustomSpec.Spec.Raw) != 0 {
+
+		}
+		j, err := json.Marshal(rprt.PipelineTask.CustomSpec.Spec)
+		if err != nil {
+			return nil, err
+		}
+		r.Spec.CustomSpec.Spec = runtime.RawExtension{
+			Raw: j,
+		}
 	}
 
 	var pipelinePVCWorkspaceName string
