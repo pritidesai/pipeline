@@ -311,7 +311,7 @@ func (facts *PipelineRunFacts) GetPipelineConditionStatus(pr *v1beta1.PipelineRu
 
 	// report the count in PipelineRun Status
 	// get the count of successful tasks, failed tasks, cancelled tasks, skipped task, and incomplete tasks
-	s := facts.getPipelineTasksCount()
+	s := facts.getPipelineTasksCount(pr)
 	// completed task is a collection of successful, failed, cancelled tasks (skipped tasks are reported separately)
 	cmTasks := s.Succeeded + s.Failed + s.Cancelled
 
@@ -453,7 +453,7 @@ func (facts *PipelineRunFacts) checkFinalTasksDone() bool {
 }
 
 // getPipelineTasksCount returns the count of successful tasks, failed tasks, cancelled tasks, skipped task, and incomplete tasks
-func (facts *PipelineRunFacts) getPipelineTasksCount() pipelineRunStatusCount {
+func (facts *PipelineRunFacts) getPipelineTasksCount(pr *v1beta1.PipelineRun) pipelineRunStatusCount {
 	s := pipelineRunStatusCount{
 		Skipped:    0,
 		Succeeded:  0,
@@ -477,6 +477,8 @@ func (facts *PipelineRunFacts) getPipelineTasksCount() pipelineRunStatusCount {
 			s.Skipped++
 		// checking if any finally tasks were referring to invalid/missing task results
 		case t.IsFinallySkipped(facts):
+			s.Skipped++
+		case pr.IsTerminated():
 			s.Skipped++
 		// increment incomplete counter since the task is pending and not executed yet
 		default:

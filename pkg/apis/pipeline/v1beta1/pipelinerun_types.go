@@ -88,6 +88,11 @@ func (pr *PipelineRun) IsCancelled() bool {
 	return pr.Spec.Status == PipelineRunSpecStatusCancelled
 }
 
+// IsTerminated returns true if the PipelineRun's spec status is set to Terminated state
+func (pr *PipelineRun) IsTerminated() bool {
+	return pr.Spec.Status == PipelineRunSpecStatusTerminated
+}
+
 func (pr *PipelineRun) GetTimeout(ctx context.Context) time.Duration {
 	// Use the platform default is no timeout is set
 	if pr.Spec.Timeout == nil {
@@ -196,6 +201,10 @@ const (
 	// PipelineRunSpecStatusCancelled indicates that the user wants to cancel the task,
 	// if not already cancelled or terminated
 	PipelineRunSpecStatusCancelled = "PipelineRunCancelled"
+
+	// PipelineRunSpecStatusTerminated indicates that the user wants to terminate the tasks and trigger finally,
+	// if not already terminated
+	PipelineRunSpecStatusTerminated = "PipelineRunTerminated"
 
 	// PipelineRunSpecStatusPending indicates that the user wants to postpone starting a PipelineRun
 	// until some condition is met

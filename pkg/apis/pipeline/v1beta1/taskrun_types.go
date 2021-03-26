@@ -75,6 +75,9 @@ const (
 	// TaskRunSpecStatusCancelled indicates that the user wants to cancel the task,
 	// if not already cancelled or terminated
 	TaskRunSpecStatusCancelled = "TaskRunCancelled"
+	// TaskRunSpecStatusTerminated indicates that the user wants to terminate the task,
+	// if not already cancelled or terminated
+	TaskRunSpecStatusTerminated = "TaskRunTerminated"
 )
 
 // TaskRunInputs holds the input values that this task was invoked with.
@@ -117,6 +120,8 @@ const (
 	TaskRunReasonFailed TaskRunReason = "Failed"
 	// TaskRunReasonCancelled is the reason set when the Taskrun is cancelled by the user
 	TaskRunReasonCancelled TaskRunReason = "TaskRunCancelled"
+	// TaskRunReasonTerminated is the reason set when the Taskrun is terminated by the user
+	TaskRunReasonTerminated TaskRunReason = "TaskRunTerminated"
 	// TaskRunReasonTimedOut is the reason set when the Taskrun has timed out
 	TaskRunReasonTimedOut TaskRunReason = "TaskRunTimeout"
 )
@@ -393,6 +398,10 @@ func (tr *TaskRun) IsSuccessful() bool {
 // IsCancelled returns true if the TaskRun's spec status is set to Cancelled state
 func (tr *TaskRun) IsCancelled() bool {
 	return tr.Spec.Status == TaskRunSpecStatusCancelled
+}
+
+func (tr *TaskRun) IsTerminated() bool {
+	return tr.Spec.Status == TaskRunSpecStatusTerminated
 }
 
 // HasTimedOut returns true if the TaskRun runtime is beyond the allowed timeout

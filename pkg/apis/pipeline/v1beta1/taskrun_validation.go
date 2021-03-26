@@ -77,8 +77,8 @@ func (ts *TaskRunSpec) Validate(ctx context.Context) (errs *apis.FieldError) {
 	errs = errs.Also(ts.Resources.Validate(ctx).ViaField("resources"))
 
 	if ts.Status != "" {
-		if ts.Status != TaskRunSpecStatusCancelled {
-			errs = errs.Also(apis.ErrInvalidValue(fmt.Sprintf("%s should be %s", ts.Status, TaskRunSpecStatusCancelled), "status"))
+		if ts.Status != TaskRunSpecStatusCancelled && ts.Status != TaskRunSpecStatusTerminated {
+			errs = errs.Also(apis.ErrInvalidValue(fmt.Sprintf("%s should be %s or %s", ts.Status, TaskRunSpecStatusCancelled, TaskRunReasonTerminated), "status"))
 		}
 	}
 	if ts.Timeout != nil {

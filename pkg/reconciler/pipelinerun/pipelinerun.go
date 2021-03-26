@@ -96,8 +96,13 @@ const (
 	ReasonInvalidGraph = "PipelineInvalidGraph"
 	// ReasonCancelled indicates that a PipelineRun was cancelled.
 	ReasonCancelled = "PipelineRunCancelled"
+	// ReasonTerminated indicates that a PipelineRun was terminated.
+	ReasonTerminated = "PipelineRunTerminated"
 	// ReasonPending indicates that a PipelineRun is pending.
-	ReasonPending = "PipelineRunPending"
+	// ReasonCouldntTerminate indicates that a PipelineRun was terminated but attempting to update
+	// all of the running TaskRuns as terminated failed.
+	ReasonCouldntTerminate = "PipelineRunCouldntTerminate"
+	ReasonPending          = "PipelineRunPending"
 	// ReasonCouldntCancel indicates that a PipelineRun was cancelled but attempting to update
 	// all of the running TaskRuns as cancelled failed.
 	ReasonCouldntCancel = "PipelineRunCouldntCancel"
@@ -209,6 +214,15 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pr *v1beta1.PipelineRun)
 		// If the pipelinerun is cancelled, cancel tasks and update status
 		err := cancelPipelineRun(ctx, logger, pr, c.PipelineClientSet)
 		return c.finishReconcileUpdateEmitEvents(ctx, pr, before, err)
+	}
+
+	if pr.IsTerminated() {
+		// If the pipelinerun is termianted, terminate all tasks and update status
+		err := terminatePipelineRun(ctx, logger, pr, c.PipelineClientSet)
+		if err != nil {
+			logger.Errorf("Failed to terminate tasks for PipelineRun %s: %v", pr.Name, err)
+			return c.finishReconcileUpdateEmitEvents(ctx, pr, before, err)
+		}
 	}
 
 	if err := c.tracker.TrackReference(tracker.Reference{
@@ -590,22 +604,27 @@ func (c *Reconciler) runNextSchedulableTask(ctx context.Context, pr *v1beta1.Pip
 
 	logger := logging.FromContext(ctx)
 	recorder := controller.GetEventRecorder(ctx)
+	var nextRprts resources.PipelineRunState
+	var err error
 
-	// nextRprts holds a list of pipeline tasks which should be executed next
-	nextRprts, err := pipelineRunFacts.DAGExecutionQueue()
-	if err != nil {
-		logger.Errorf("Error getting potential next tasks for valid pipelinerun %s: %v", pr.Name, err)
-		return controller.NewPermanentError(err)
+	if !pr.IsTerminated() {
+		// nextRprts holds a list of pipeline tasks which should be executed next
+		nextRprts, err = pipelineRunFacts.DAGExecutionQueue()
+		if err != nil {
+			logger.Errorf("Error getting potential next tasks for valid pipelinerun %s: %v", pr.Name, err)
+			return controller.NewPermanentError(err)
+		}
+
+		resolvedResultRefs, err := resources.ResolveResultRefs(pipelineRunFacts.State, nextRprts)
+		if err != nil {
+			logger.Infof("Failed to resolve task result reference for %q with error %v", pr.Name, err)
+			pr.Status.MarkFailed(ReasonInvalidTaskResultReference, err.Error())
+			return controller.NewPermanentError(err)
+		}
+
+		resources.ApplyTaskResults(nextRprts, resolvedResultRefs)
 	}
 
-	resolvedResultRefs, err := resources.ResolveResultRefs(pipelineRunFacts.State, nextRprts)
-	if err != nil {
-		logger.Infof("Failed to resolve task result reference for %q with error %v", pr.Name, err)
-		pr.Status.MarkFailed(ReasonInvalidTaskResultReference, err.Error())
-		return controller.NewPermanentError(err)
-	}
-
-	resources.ApplyTaskResults(nextRprts, resolvedResultRefs)
 	// After we apply Task Results, we may be able to evaluate more
 	// when expressions, so reset the skipped cache
 	pipelineRunFacts.ResetSkippedCache()

@@ -158,6 +158,13 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, tr *v1beta1.TaskRun) pkg
 		return c.finishReconcileUpdateEmitEvents(ctx, tr, before, err)
 	}
 
+	// If the TaskRun is terminated, kill resources and update status
+	if tr.IsTerminated() {
+		message := fmt.Sprintf("TaskRun %q was terminated", tr.Name)
+		err := c.failTaskRun(ctx, tr, v1beta1.TaskRunReasonTerminated, message)
+		return c.finishReconcileUpdateEmitEvents(ctx, tr, before, err)
+	}
+
 	// Check if the TaskRun has timed out; if it is, this will set its status
 	// accordingly.
 	if tr.HasTimedOut(ctx) {

@@ -71,6 +71,9 @@ const (
 	// RunSpecStatusCancelled indicates that the user wants to cancel the run,
 	// if not already cancelled or terminated
 	RunSpecStatusCancelled RunSpecStatus = "RunCancelled"
+	// RunSpecStatusTerminated indicates that the user wants to terminate the run,
+	// if not already cancelled or terminated
+	RunSpecStatusTerminated RunSpecStatus = "RunTerminated"
 )
 
 // TODO(jasonhall): Move this to a Params type so other code can use it?
