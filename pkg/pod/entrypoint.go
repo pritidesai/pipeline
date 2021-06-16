@@ -131,8 +131,13 @@ func orderContainers(entrypointImage string, commonExtraEntrypointArgs []string,
 		}
 		argsForEntrypoint = append(argsForEntrypoint, commonExtraEntrypointArgs...)
 		if taskSpec != nil {
-			if taskSpec.Steps != nil && len(taskSpec.Steps) >= i+1 && taskSpec.Steps[i].Timeout != nil {
-				argsForEntrypoint = append(argsForEntrypoint, "-timeout", taskSpec.Steps[i].Timeout.Duration.String())
+			if taskSpec.Steps != nil && len(taskSpec.Steps) >= i+1 {
+				if taskSpec.Steps[i].Timeout != nil {
+					argsForEntrypoint = append(argsForEntrypoint, "-timeout", taskSpec.Steps[i].Timeout.Duration.String())
+				}
+				if taskSpec.Steps[i].ExitCode != nil {
+					argsForEntrypoint = append(argsForEntrypoint, "-exit_code", fmt.Sprintf("%d", *taskSpec.Steps[i].ExitCode))
+				}
 			}
 			argsForEntrypoint = append(argsForEntrypoint, resultArgument(steps, taskSpec.Results)...)
 		}

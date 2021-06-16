@@ -18,10 +18,13 @@ package entrypoint
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline"
@@ -66,6 +69,9 @@ type Entrypointer struct {
 	Results []string
 	// Timeout is an optional user-specified duration within which the Step must complete
 	Timeout *time.Duration
+
+	// exit code
+	ExitCode int
 }
 
 // Waiter encapsulates waiting for files to exist.
@@ -146,7 +152,17 @@ func (e Entrypointer) Go() error {
 	}
 
 	// Write the post file *no matter what*
-	e.WritePostFile(e.PostFile, err)
+	var ee *exec.ExitError
+	if e.ExitCode == 0 && errors.As(err, &ee) {
+		output = append(output, v1beta1.PipelineResourceResult{
+			Key:        "ExitCode",
+			Value:      strconv.Itoa(ee.ExitCode()),
+			ResultType: v1beta1.InternalTektonResultType,
+		})
+		e.WritePostFile(e.PostFile, nil)
+	} else {
+		e.WritePostFile(e.PostFile, err)
+	}
 
 	// strings.Split(..) with an empty string returns an array that contains one element, an empty string.
 	// This creates an error when trying to open the result folder as a file.

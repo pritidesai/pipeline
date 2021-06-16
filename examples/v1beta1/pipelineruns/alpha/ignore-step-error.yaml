@@ -1,0 +1,57 @@
+kind: PipelineRun
+apiVersion: tekton.dev/v1beta1
+metadata:
+  generateName: pipelinerun-with-failing-step-
+spec:
+  serviceAccountName: 'default'
+  pipelineSpec:
+    tasks:
+      - name: task1
+        taskSpec:
+          steps:
+            # not really doing anything here, just a hurdle to test the "ignore step error"
+            - image: alpine
+              exitCode: 0
+              name: exit-with-1
+              script: |
+                exit 1
+            # initialize a task result which will be validated by the next task
+            - image: alpine
+              name: write-a-result
+              exitCode: 0
+              script: |
+                echo -n 123 | tee $(results.task1.path)
+                exit 11
+          results:
+            - name: task1
+              description: result of a task1
+      - name: task2
+        runAfter: [ "task1" ]
+        params:
+          - name: task1
+            value: $(tasks.task1.results.task1)
+        taskSpec:
+          params:
+            - name: task1
+          steps:
+            # again, not really doing anything here, just a hurdle to test the "ignore step error"
+            - image: alpine
+              exitCode: 0
+              name: exit-with-255
+              script: |
+                exit 255
+            # verify that the task result was produced by the first task, fail if the result does not match
+            - image: alpine
+              name: verify-a-task-result
+              script: |
+                if [ $(params.task1) == 123 ]; then
+                    echo "$FILE exists."
+                    echo "Yay! the task result matches which was created in the previous task after a step error was ignored"
+                else
+                    echo "the task result does not match."
+                    exit 1
+                fi
+#            - image: alpine
+#              name: exit-with-20
+#              script: |
+#                exit 20
