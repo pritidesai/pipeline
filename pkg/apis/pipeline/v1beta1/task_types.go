@@ -141,6 +141,11 @@ type Step struct {
 	// not have access to it.
 	// +optional
 	Workspaces []WorkspaceUsage `json:"workspaces,omitempty"`
+
+	// desired exit code of the container
+	// exitCode takes only an integer in the range 0 - 255
+	// when set, the entrypoint replaces the exit code of the wrapped command with the value specified here
+	ExitCode *int `json:"exitCode,omitempty"`
 }
 
 // Sidecar has nearly the same data structure as Step, consisting of a Container and an optional Script, but does not have the ability to timeout.

@@ -41,6 +41,7 @@ var (
 	terminationPath = flag.String("termination_path", "/tekton/termination", "If specified, file to write upon termination")
 	results         = flag.String("results", "", "If specified, list of file names that might contain task results")
 	timeout         = flag.Duration("timeout", time.Duration(0), "If specified, sets timeout for step")
+	exitCode        = flag.Int("exit_code", -1, "if specified, sets the exit code for the step")
 )
 
 const defaultWaitPollingInterval = time.Second
@@ -86,6 +87,7 @@ func main() {
 		PostWriter:      &realPostWriter{},
 		Results:         strings.Split(*results, ","),
 		Timeout:         timeout,
+		ExitCode:        *exitCode,
 	}
 
 	// Copy any creds injected by the controller into the $HOME directory of the current
@@ -110,9 +112,21 @@ func main() {
 			// in both cases has an ExitStatus() method with the
 			// same signature.
 			if status, ok := t.Sys().(syscall.WaitStatus); ok {
-				os.Exit(status.ExitStatus())
+				// log the original exit code in the container logs
+				// if exit code is specified by the user i.e. != -1
+				log.Printf("Entrypoint exit code: %d", e.ExitCode)
+				if e.ExitCode != -1 {
+					log.Printf("original exit code executing command (ExitError): %v", status.ExitStatus())
+				}
+				// exit only if the exit code specified by the user is not equal to 0
+				if e.ExitCode != 0 {
+					os.Exit(status.ExitStatus())
+				}
 			}
-			log.Fatalf("Error executing command (ExitError): %v", err)
+			// log and exit only if the exit code specified by the user is not equal to 0
+			if e.ExitCode != 0 {
+				log.Fatalf("Error executing command (ExitError): %v", err)
+			}
 		default:
 			log.Fatalf("Error executing command: %v", err)
 		}

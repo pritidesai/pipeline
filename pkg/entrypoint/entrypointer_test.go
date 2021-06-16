@@ -225,6 +225,23 @@ func TestEntrypointer(t *testing.T) {
 	}
 }
 
+func TestEntrypointer_Go_ExitCode(t *testing.T) {
+	fw, fr, fpw := &fakeWaiter{}, &fakeRunner{}, &fakePostWriter{}
+	entrypoint := "echo"
+	err := Entrypointer{
+		Entrypoint:      entrypoint,
+		Waiter:          fw,
+		Runner:          fr,
+		PostWriter:      fpw,
+		TerminationPath: "termination",
+		ExitCode:        10,
+	}.Go()
+	if err != nil {
+		t.Fatalf("Entrypointer failed: %v", err)
+	}
+	t.Log(err)
+}
+
 type fakeWaiter struct{ waited []string }
 
 func (f *fakeWaiter) Wait(file string, _ bool) error {
