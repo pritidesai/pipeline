@@ -38,9 +38,19 @@ spec:
         type: git
         optional: true
   steps:
+    - name: fail
+      image: ubuntu
+      exit:
+        onError: continue
+      script: |
+        ls -R /tekton/steps/
+        echo "step name: fail"
+        exit 1
     - name: run-ls
       image: ubuntu
-      script: 'ls -al $(inputs.resources.optional-workspace.path)'
+      script: |
+        echo "step name: run-ls"
+        ls -R /tekton/steps/
 ---
 apiVersion: tekton.dev/v1beta1
 kind: Pipeline

@@ -221,11 +221,11 @@ func validateStep(ctx context.Context, s Step, names sets.String) (errs *apis.Fi
 		}
 	}
 
-	if s.ExitCode != nil {
-		errs = errs.Also(ValidateEnabledAPIFields(ctx, "step exitCode", config.AlphaAPIFields).ViaField("steps"))
-		if *s.ExitCode < 0 || *s.ExitCode > 255 {
+	if s.Exit != nil {
+		errs = errs.Also(ValidateEnabledAPIFields(ctx, "step exit", config.AlphaAPIFields).ViaField("steps"))
+		if s.Exit.OnError != "continue" {
 			errs = errs.Also(&apis.FieldError{
-				Message: fmt.Sprintf("invalid value %d", *s.ExitCode),
+				Message: fmt.Sprintf("invalid value %v", s.Exit.OnError),
 				Paths:   []string{"exitCode"},
 				Details: "Task step exitCode must be between the range of 0 and 255",
 			})

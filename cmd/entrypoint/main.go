@@ -41,7 +41,7 @@ var (
 	terminationPath = flag.String("termination_path", "/tekton/termination", "If specified, file to write upon termination")
 	results         = flag.String("results", "", "If specified, list of file names that might contain task results")
 	timeout         = flag.Duration("timeout", time.Duration(0), "If specified, sets timeout for step")
-	exitCode        = flag.Int("exit_code", -1, "if specified, sets the exit code for the step")
+	continueOnError = flag.Bool("continue_on_error", false, "if specified, sets the exit code for the step")
 	variables       = flag.String("variables", "", "if specified, list of files names that might contain the step data")
 	exitCodeFile    = flag.String("exit_code_file", "", "If specified, file to write exit code of the container")
 )
@@ -89,7 +89,7 @@ func main() {
 		PostWriter:      &realPostWriter{},
 		Results:         strings.Split(*results, ","),
 		Timeout:         timeout,
-		ExitCode:        *exitCode,
+		ContinueOnError: *continueOnError,
 		Variables:       strings.Split(*variables, ","),
 		ExitCodeFile:    *exitCodeFile,
 	}
@@ -118,17 +118,13 @@ func main() {
 			if status, ok := t.Sys().(syscall.WaitStatus); ok {
 				// log the original exit code in the container logs
 				// if exit code is specified by the user i.e. != -1
-				log.Printf("Entrypoint exit code: %d", e.ExitCode)
-				if e.ExitCode != -1 {
-					log.Printf("original exit code executing command (ExitError): %v", status.ExitStatus())
-				}
 				// exit only if the exit code specified by the user is not equal to 0
-				if e.ExitCode != 0 {
+				if !e.ContinueOnError {
 					os.Exit(status.ExitStatus())
 				}
 			}
 			// log and exit only if the exit code specified by the user is not equal to 0
-			if e.ExitCode != 0 {
+			if !e.ContinueOnError {
 				log.Fatalf("Error executing command (ExitError): %v", err)
 			}
 		default:

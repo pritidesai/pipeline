@@ -116,6 +116,13 @@ type TaskResult struct {
 	Description string `json:"description"`
 }
 
+type Exit struct {
+	// can be set to [ afterSuccess | always ]
+	// afterSuccess (default) indicates exit the taskRun if the container exits with non zero exit code
+	// always indicates continue executing the rest of the steps irrespective of the container exit code
+	OnError string `json:"onError,omitempty"`
+}
+
 // Step embeds the Container type, which allows it to include fields not
 // provided by Container.
 type Step struct {
@@ -145,7 +152,7 @@ type Step struct {
 	// desired exit code of the container
 	// exitCode takes only an integer in the range 0 - 255
 	// when set, the entrypoint replaces the exit code of the wrapped command with the value specified here
-	ExitCode *int `json:"exitCode,omitempty"`
+	Exit *Exit `json:"exit,omitempty"`
 }
 
 // Sidecar has nearly the same data structure as Step, consisting of a Container and an optional Script, but does not have the ability to timeout.

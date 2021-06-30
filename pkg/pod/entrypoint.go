@@ -139,8 +139,8 @@ func orderContainers(entrypointImage string, commonExtraEntrypointArgs []string,
 				if taskSpec.Steps[i].Timeout != nil {
 					argsForEntrypoint = append(argsForEntrypoint, "-timeout", taskSpec.Steps[i].Timeout.Duration.String())
 				}
-				if taskSpec.Steps[i].ExitCode != nil {
-					argsForEntrypoint = append(argsForEntrypoint, "-exit_code", fmt.Sprintf("%d", *taskSpec.Steps[i].ExitCode))
+				if taskSpec.Steps[i].Exit != nil && taskSpec.Steps[i].Exit.OnError == "continue" {
+					argsForEntrypoint = append(argsForEntrypoint, "-continue_on_error")
 				}
 			}
 			argsForEntrypoint = append(argsForEntrypoint, resultArgument(steps, taskSpec.Results)...)

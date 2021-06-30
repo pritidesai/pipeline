@@ -1135,80 +1135,79 @@ func TestStepAndSidecarWorkspacesErrors(t *testing.T) {
 	}
 }
 
-func TestStepExitCode(t *testing.T) {
-	exitCode := 1
-	outOfRangeExitCode := 10000
-	negativeExitCode := -1
-	tests := []struct {
-		name          string
-		steps         []v1beta1.Step
-		expectedError *apis.FieldError
-	}{{
-		name: "valid step - valid exit code usage - alpha API",
-		steps: []v1beta1.Step{{
-			ExitCode: &exitCode,
-			Container: corev1.Container{
-				Image: "image",
-				Args:  []string{"arg"},
-			},
-		}},
-	}, {
-		name: "invalid step - exit code out of range of 0 and 255 - alpha API",
-		steps: []v1beta1.Step{{
-			ExitCode: &outOfRangeExitCode,
-			Container: corev1.Container{
-				Image: "image",
-				Args:  []string{"arg"},
-			},
-		}},
-		expectedError: &apis.FieldError{
-			Message: fmt.Sprintf("invalid value %d", outOfRangeExitCode),
-			Paths:   []string{"exitCode"},
-			Details: "Task step exitCode must be between the range of 0 and 255",
-		},
-	}, {
-		name: "invalid step - negative exit code - alpha API",
-		steps: []v1beta1.Step{{
-			ExitCode: &negativeExitCode,
-			Container: corev1.Container{
-				Image: "image",
-				Args:  []string{"arg"},
-			},
-		}},
-		expectedError: &apis.FieldError{
-			Message: fmt.Sprintf("invalid value %d", negativeExitCode),
-			Paths:   []string{"exitCode"},
-			Details: "Task step exitCode must be between the range of 0 and 255",
-		},
-	}}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ts := &v1beta1.TaskSpec{
-				Steps: tt.steps,
-			}
-			featureFlags, _ := config.NewFeatureFlagsFromMap(map[string]string{
-				"enable-api-fields": "alpha",
-			})
-			cfg := &config.Config{
-				FeatureFlags: featureFlags,
-			}
-			ctx := config.ToContext(context.Background(), cfg)
-			ts.SetDefaults(ctx)
-			err := ts.Validate(ctx)
-			if tt.expectedError == nil && err != nil {
-				t.Errorf("TaskSpec.Validate() = %v", err)
-			} else if tt.expectedError != nil && err == nil {
-				t.Errorf("TaskSpec.Validate() = %v", err)
-			}
-		})
-	}
-
-}
+//func TestStepExitCode(t *testing.T) {
+//	exitCode := 1
+//	outOfRangeExitCode := 10000
+//	negativeExitCode := -1
+//	tests := []struct {
+//		name          string
+//		steps         []v1beta1.Step
+//		expectedError *apis.FieldError
+//	}{{
+//		name: "valid step - valid exit code usage - alpha API",
+//		steps: []v1beta1.Step{{
+//			ExitCode: &exitCode,
+//			Container: corev1.Container{
+//				Image: "image",
+//				Args:  []string{"arg"},
+//			},
+//		}},
+//	}, {
+//		name: "invalid step - exit code out of range of 0 and 255 - alpha API",
+//		steps: []v1beta1.Step{{
+//			ExitCode: &outOfRangeExitCode,
+//			Container: corev1.Container{
+//				Image: "image",
+//				Args:  []string{"arg"},
+//			},
+//		}},
+//		expectedError: &apis.FieldError{
+//			Message: fmt.Sprintf("invalid value %d", outOfRangeExitCode),
+//			Paths:   []string{"exitCode"},
+//			Details: "Task step exitCode must be between the range of 0 and 255",
+//		},
+//	}, {
+//		name: "invalid step - negative exit code - alpha API",
+//		steps: []v1beta1.Step{{
+//			ExitCode: &negativeExitCode,
+//			Container: corev1.Container{
+//				Image: "image",
+//				Args:  []string{"arg"},
+//			},
+//		}},
+//		expectedError: &apis.FieldError{
+//			Message: fmt.Sprintf("invalid value %d", negativeExitCode),
+//			Paths:   []string{"exitCode"},
+//			Details: "Task step exitCode must be between the range of 0 and 255",
+//		},
+//	}}
+//	for _, tt := range tests {
+//		t.Run(tt.name, func(t *testing.T) {
+//			ts := &v1beta1.TaskSpec{
+//				Steps: tt.steps,
+//			}
+//			featureFlags, _ := config.NewFeatureFlagsFromMap(map[string]string{
+//				"enable-api-fields": "alpha",
+//			})
+//			cfg := &config.Config{
+//				FeatureFlags: featureFlags,
+//			}
+//			ctx := config.ToContext(context.Background(), cfg)
+//			ts.SetDefaults(ctx)
+//			err := ts.Validate(ctx)
+//			if tt.expectedError == nil && err != nil {
+//				t.Errorf("TaskSpec.Validate() = %v", err)
+//			} else if tt.expectedError != nil && err == nil {
+//				t.Errorf("TaskSpec.Validate() = %v", err)
+//			}
+//		})
+//	}
+//}
 
 // TestIncompatibleAPIVersions exercises validation of fields that
 // require a specific feature gate version in order to work.
 func TestIncompatibleAPIVersions(t *testing.T) {
-	exitCode := 0
+	//exitCode := 0
 	tests := []struct {
 		name            string
 		requiredVersion string
@@ -1250,18 +1249,18 @@ func TestIncompatibleAPIVersions(t *testing.T) {
 				}},
 			}},
 		},
-	}, {
-		name:            "step exitCode requires alpha",
-		requiredVersion: "alpha",
-		spec: v1beta1.TaskSpec{
-			Steps: []v1beta1.Step{{
-				ExitCode: &exitCode,
-				Container: corev1.Container{
-					Image: "image",
-					Args:  []string{"arg"},
-				},
-			}},
-		},
+		//}, {
+		//name:            "step exitCode requires alpha",
+		//requiredVersion: "alpha",
+		//spec: v1beta1.TaskSpec{
+		//	Steps: []v1beta1.Step{{
+		//		ExitCode: &exitCode,
+		//		Container: corev1.Container{
+		//			Image: "image",
+		//			Args:  []string{"arg"},
+		//		},
+		//	}},
+		//},
 	}}
 	versions := []string{"alpha", "stable"}
 	for _, tt := range tests {

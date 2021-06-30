@@ -11,7 +11,8 @@ spec:
           steps:
             # not really doing anything here, just a hurdle to test the "ignore step error"
             - image: alpine
-              exitCode: 0
+              exit:
+                onError: continue
               name: exit-with-1
               script: |
                 ls /tekton/
@@ -19,7 +20,8 @@ spec:
             # initialize a task result which will be validated by the next task
             - image: alpine
               name: write-a-result
-              exitCode: 0
+              exit:
+                onError: continue
               script: |
                 echo -n 123 | tee $(results.task1-result.path)
                 env
@@ -42,7 +44,8 @@ spec:
           steps:
             # again, not really doing anything here, just a hurdle to test the "ignore step error"
 #            - image: alpine
-#              exitCode: 0
+#            exit:
+#              onError: continue
 #              name: exit-with-255
 #              script: |
 #                exit 255

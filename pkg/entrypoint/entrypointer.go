@@ -72,7 +72,7 @@ type Entrypointer struct {
 	Timeout *time.Duration
 
 	// exit code
-	ExitCode int
+	ContinueOnError bool
 
 	// Variables is the set of files that might contain the step data
 	Variables []string
@@ -172,7 +172,7 @@ func (e Entrypointer) Go() error {
 
 	// Write the post file *no matter what*
 	var ee *exec.ExitError
-	if e.ExitCode == 0 && errors.As(err, &ee) {
+	if e.ContinueOnError && errors.As(err, &ee) {
 		exitCode := strconv.Itoa(ee.ExitCode())
 		output = append(output, v1beta1.PipelineResourceResult{
 			Key:        "ExitCode",
