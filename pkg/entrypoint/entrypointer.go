@@ -25,6 +25,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline"
@@ -72,6 +73,11 @@ type Entrypointer struct {
 
 	// exit code
 	ExitCode int
+
+	// Variables is the set of files that might contain the step data
+	Variables []string
+
+	ExitCodeFile string
 }
 
 // Waiter encapsulates waiting for files to exist.
@@ -89,6 +95,7 @@ type Runner interface {
 type PostWriter interface {
 	// Write writes to the path when complete.
 	Write(file string)
+	WriteFileContent(file string, content string)
 }
 
 // Go optionally waits for a file, runs the command, and writes a
@@ -119,8 +126,20 @@ func (e Entrypointer) Go() error {
 		}
 	}
 
+	var exitCodes string
+	var err error
+	if len(e.Variables) >= 1 && e.Variables[0] != "" {
+		exitCodes, err = e.readExitCodesFromDisk()
+		if err != nil {
+			logger.Fatalf("Error while handling variables: %s", err)
+		}
+	}
+
+	var args []string
 	if e.Entrypoint != "" {
-		e.Args = append([]string{e.Entrypoint}, e.Args...)
+		args = append(args, []string{e.Entrypoint}...)
+		args = append(args, exitCodes)
+		e.Args = append(args, e.Args...)
 	}
 
 	output = append(output, v1beta1.PipelineResourceResult{
@@ -129,7 +148,6 @@ func (e Entrypointer) Go() error {
 		ResultType: v1beta1.InternalTektonResultType,
 	})
 
-	var err error
 	if e.Timeout != nil && *e.Timeout < time.Duration(0) {
 		err = fmt.Errorf("negative timeout specified")
 	}
@@ -141,6 +159,7 @@ func (e Entrypointer) Go() error {
 			ctx, cancel = context.WithTimeout(ctx, *e.Timeout)
 			defer cancel()
 		}
+
 		err = e.Runner.Run(ctx, e.Args...)
 		if err == context.DeadlineExceeded {
 			output = append(output, v1beta1.PipelineResourceResult{
@@ -154,12 +173,14 @@ func (e Entrypointer) Go() error {
 	// Write the post file *no matter what*
 	var ee *exec.ExitError
 	if e.ExitCode == 0 && errors.As(err, &ee) {
+		exitCode := strconv.Itoa(ee.ExitCode())
 		output = append(output, v1beta1.PipelineResourceResult{
 			Key:        "ExitCode",
-			Value:      strconv.Itoa(ee.ExitCode()),
+			Value:      exitCode,
 			ResultType: v1beta1.InternalTektonResultType,
 		})
 		e.WritePostFile(e.PostFile, nil)
+		e.WriteExitCodeFile(e.ExitCodeFile, exitCode)
 	} else {
 		e.WritePostFile(e.PostFile, err)
 	}
@@ -169,6 +190,12 @@ func (e Entrypointer) Go() error {
 	if len(e.Results) >= 1 && e.Results[0] != "" {
 		if err := e.readResultsFromDisk(); err != nil {
 			logger.Fatalf("Error while handling results: %s", err)
+		}
+	}
+
+	if len(e.Variables) >= 1 && e.Variables[0] != "" {
+		if err := e.readVariablesFromDisk(); err != nil {
+			logger.Fatalf("Error while handling variables: %s", err)
 		}
 	}
 
@@ -203,6 +230,53 @@ func (e Entrypointer) readResultsFromDisk() error {
 	return nil
 }
 
+func (e Entrypointer) readVariablesFromDisk() error {
+	output := []v1beta1.PipelineResourceResult{}
+	for _, variableFile := range e.Variables {
+		if variableFile == "" {
+			continue
+		}
+		fileContents, err := ioutil.ReadFile(filepath.Join(pipeline.StepsPath, variableFile))
+		if os.IsNotExist(err) {
+			continue
+		} else if err != nil {
+			return err
+		}
+		// if the file doesn't exist, ignore it
+		output = append(output, v1beta1.PipelineResourceResult{
+			Key:        "steps." + variableFile + ".exitCode",
+			Value:      string(fileContents),
+			ResultType: v1beta1.TaskRunResultType,
+		})
+	}
+	// push output to termination path
+	if len(output) != 0 {
+		if err := termination.WriteMessage(e.TerminationPath, output); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (e Entrypointer) readExitCodesFromDisk() (string, error) {
+	var exitCodes []string
+	for _, variableFile := range e.Variables {
+		if variableFile == "" {
+			continue
+		}
+		fileContents, err := ioutil.ReadFile(variableFile)
+		if os.IsNotExist(err) {
+			continue
+		} else if err != nil {
+			return "", err
+		}
+		// if the file doesn't exist, ignore it
+		variableFile = strings.ReplaceAll(variableFile, "/tekton/", "")
+		exitCodes = append(exitCodes, strings.ToUpper(strings.ReplaceAll(variableFile, "/", "_")+"="+string(fileContents)))
+	}
+	return strings.Join(exitCodes, ","), nil
+}
+
 // WritePostFile write the postfile
 func (e Entrypointer) WritePostFile(postFile string, err error) {
 	if err != nil && postFile != "" {
@@ -211,4 +285,9 @@ func (e Entrypointer) WritePostFile(postFile string, err error) {
 	if postFile != "" {
 		e.PostWriter.Write(postFile)
 	}
+}
+
+// WriteExitCodeFile write the exitCodeFile
+func (e Entrypointer) WriteExitCodeFile(exitCodeFile string, content string) {
+	e.PostWriter.WriteFileContent(exitCodeFile, content)
 }

@@ -42,6 +42,8 @@ var (
 	results         = flag.String("results", "", "If specified, list of file names that might contain task results")
 	timeout         = flag.Duration("timeout", time.Duration(0), "If specified, sets timeout for step")
 	exitCode        = flag.Int("exit_code", -1, "if specified, sets the exit code for the step")
+	variables       = flag.String("variables", "", "if specified, list of files names that might contain the step data")
+	exitCodeFile    = flag.String("exit_code_file", "", "If specified, file to write exit code of the container")
 )
 
 const defaultWaitPollingInterval = time.Second
@@ -88,6 +90,8 @@ func main() {
 		Results:         strings.Split(*results, ","),
 		Timeout:         timeout,
 		ExitCode:        *exitCode,
+		Variables:       strings.Split(*variables, ","),
+		ExitCodeFile:    *exitCodeFile,
 	}
 
 	// Copy any creds injected by the controller into the $HOME directory of the current

@@ -10,17 +10,23 @@ spec:
         taskSpec:
           steps:
             # not really doing anything here, just a hurdle to test the "ignore step error"
-#            - image: alpine
-#              exitCode: 0
-#              name: exit-with-1
-#              script: |
-#                exit 1
+            - image: alpine
+              exitCode: 0
+              name: exit-with-1
+              script: |
+                ls /tekton/
+                exit 1
             # initialize a task result which will be validated by the next task
             - image: alpine
               name: write-a-result
               exitCode: 0
               script: |
                 echo -n 123 | tee $(results.task1-result.path)
+                env
+                echo $STEP_EXITCODE
+                echo $(STEP_EXITCODE)
+                echo "Step 0 Exit Code:"
+                cat /tekton/steps/0
                 exit 11
           results:
             - name: task1-result
@@ -44,6 +50,7 @@ spec:
             - image: alpine
               name: verify-a-task-result
               script: |
+                ls /tekton/results/
                 if [ $(params.task1-result) == 123 ]; then
                     echo "Yay! the task result matches which was created in the previous task after a step error was ignored"
                 else

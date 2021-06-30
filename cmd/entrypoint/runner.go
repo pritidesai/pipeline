@@ -22,6 +22,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/tektoncd/pipeline/pkg/entrypoint"
@@ -42,7 +43,7 @@ func (rr *realRunner) Run(ctx context.Context, args ...string) error {
 	if len(args) == 0 {
 		return nil
 	}
-	name, args := args[0], args[1:]
+	name, exitCodes, args := args[0], args[1], args[2:]
 
 	// Receive system signals on "rr.signals"
 	if rr.signals == nil {
@@ -61,6 +62,10 @@ func (rr *realRunner) Run(ctx context.Context, args ...string) error {
 
 	if os.Getenv("TEKTON_RESOURCE_NAME") == "" && os.Getenv(pod.TektonHermeticEnvVar) == "1" {
 		dropNetworking(cmd)
+	}
+
+	if exitCodes != "" {
+		cmd.Env = strings.Split(exitCodes, ",")
 	}
 
 	// Start defined command

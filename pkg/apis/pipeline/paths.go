@@ -25,5 +25,6 @@ const (
 	HomeDir = "/tekton/home"
 	// CredsDir is the directory where credentials are placed to meet the legacy credentials
 	// helpers image (aka "creds-init") contract
-	CredsDir = "/tekton/creds"
+	CredsDir  = "/tekton/creds"
+	StepsPath = "/tekton/steps"
 )

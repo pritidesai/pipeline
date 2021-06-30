@@ -25,6 +25,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/tektoncd/pipeline/pkg/apis/pipeline"
+
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	"gomodules.xyz/jsonpatch/v2"
 	corev1 "k8s.io/api/core/v1"
@@ -120,6 +122,7 @@ func orderContainers(entrypointImage string, commonExtraEntrypointArgs []string,
 				// Start next step.
 				"-post_file", filepath.Join(mountPoint, fmt.Sprintf("%d", i)),
 				"-termination_path", terminationPath,
+				"-exit_code_file", filepath.Join(pipeline.StepsPath, fmt.Sprintf("%d", i), "/exitCode"),
 			}
 		default:
 			// All other steps wait for previous file, write next file.
@@ -127,6 +130,7 @@ func orderContainers(entrypointImage string, commonExtraEntrypointArgs []string,
 				"-wait_file", filepath.Join(mountPoint, fmt.Sprintf("%d", i-1)),
 				"-post_file", filepath.Join(mountPoint, fmt.Sprintf("%d", i)),
 				"-termination_path", terminationPath,
+				"-exit_code_file", filepath.Join(pipeline.StepsPath, fmt.Sprintf("%d", i), "/exitCode"),
 			}
 		}
 		argsForEntrypoint = append(argsForEntrypoint, commonExtraEntrypointArgs...)
@@ -141,6 +145,7 @@ func orderContainers(entrypointImage string, commonExtraEntrypointArgs []string,
 			}
 			argsForEntrypoint = append(argsForEntrypoint, resultArgument(steps, taskSpec.Results)...)
 		}
+		argsForEntrypoint = append(argsForEntrypoint, "-variables", collectStepExitCodes(steps))
 
 		cmd, args := s.Command, s.Args
 		if len(cmd) == 0 {
@@ -177,6 +182,14 @@ func collectResultsName(results []v1beta1.TaskResult) string {
 		resultNames = append(resultNames, r.Name)
 	}
 	return strings.Join(resultNames, ",")
+}
+
+func collectStepExitCodes(steps []corev1.Container) string {
+	var exitCodes []string
+	for i, _ := range steps {
+		exitCodes = append(exitCodes, filepath.Join(pipeline.StepsPath, fmt.Sprintf("%d", i), "/exitCode"))
+	}
+	return strings.Join(exitCodes, ",")
 }
 
 var replaceReadyPatchBytes []byte
