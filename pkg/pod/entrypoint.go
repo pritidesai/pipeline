@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"log"
 	"path/filepath"
 	"strings"
@@ -148,12 +149,15 @@ func orderContainers(commonExtraEntrypointArgs []string, steps []corev1.Containe
 				if taskSpec.Steps[i].Timeout != nil {
 					argsForEntrypoint = append(argsForEntrypoint, "-timeout", taskSpec.Steps[i].Timeout.Duration.String())
 				}
+				spew.Printf("OnError is set to %v", taskSpec.Steps[i].OnError)
 				if taskSpec.Steps[i].OnError != "" {
 					argsForEntrypoint = append(argsForEntrypoint, "-on_error", taskSpec.Steps[i].OnError)
 				}
 			}
 			argsForEntrypoint = append(argsForEntrypoint, resultArgument(steps, taskSpec.Results)...)
 		}
+
+		spew.Printf("Args for Entrypoint: %v", argsForEntrypoint)
 
 		cmd, args := s.Command, s.Args
 		if len(cmd) == 0 {
@@ -184,6 +188,8 @@ func orderContainers(commonExtraEntrypointArgs []string, steps []corev1.Containe
 	}
 	// Mount the Downward volume into the first step container.
 	steps[0].VolumeMounts = append(steps[0].VolumeMounts, downwardMount)
+
+	spew.Printf("Args to the container 0: %v", steps[0].Args)
 
 	return steps, nil
 }

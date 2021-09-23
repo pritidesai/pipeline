@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"os"
 	"time"
 
@@ -32,6 +33,7 @@ func (rw *realWaiter) setWaitPollingInterval(pollingInterval time.Duration) *rea
 // If a file of the same name with a ".err" extension exists then this Wait
 // will end with a skipError.
 func (rw *realWaiter) Wait(file string, expectContent bool, breakpointOnFailure bool) error {
+	spew.Printf("Waiting for a file %s while expecting that file having any content %b", file, expectContent)
 	if file == "" {
 		return nil
 	}

@@ -19,6 +19,7 @@ package pod
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"strconv"
 	"strings"
 	"time"
@@ -322,10 +323,12 @@ func updateIncompleteTaskRunStatus(trs *v1beta1.TaskRunStatus, pod *corev1.Pod) 
 
 // DidTaskRunFail check the status of pod to decide if related taskrun is failed
 func DidTaskRunFail(pod *corev1.Pod) bool {
+	spew.Printf("Checking if a taskRun was declared failure, pod phase: %v", pod.Status.Phase)
 	f := pod.Status.Phase == corev1.PodFailed
 	for _, s := range pod.Status.ContainerStatuses {
 		if IsContainerStep(s.Name) {
 			if s.State.Terminated != nil {
+				spew.Sprintf("Checking the terminated exit code, ExitCode: %d", s.State.Terminated.ExitCode)
 				f = f || s.State.Terminated.ExitCode != 0 || isOOMKilled(s)
 			}
 		}

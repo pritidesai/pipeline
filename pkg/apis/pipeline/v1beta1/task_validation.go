@@ -19,6 +19,7 @@ package v1beta1
 import (
 	"context"
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"path/filepath"
 	"strings"
 	"time"
@@ -221,6 +222,7 @@ func validateStep(ctx context.Context, s Step, names sets.String) (errs *apis.Fi
 		}
 	}
 
+	spew.Printf("Task validation has on error set to %v", s.OnError)
 	if s.OnError != "" {
 		errs = errs.Also(ValidateEnabledAPIFields(ctx, "step onError", config.AlphaAPIFields).ViaField("steps"))
 		if s.OnError != "continue" && s.OnError != "stopAndFail" {
