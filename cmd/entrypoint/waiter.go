@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"os"
 	"time"
 
@@ -32,11 +33,21 @@ func (rw *realWaiter) setWaitPollingInterval(pollingInterval time.Duration) *rea
 // If a file of the same name with a ".err" extension exists then this Wait
 // will end with a skipError.
 func (rw *realWaiter) Wait(file string, expectContent bool, breakpointOnFailure bool) error {
+	spew.Dump("Start of Wait")
+	spew.Dump("File")
+	spew.Dump(file)
+	spew.Dump("Expecting Content")
+	spew.Dump(expectContent)
 	if file == "" {
 		return nil
 	}
 	for ; ; time.Sleep(rw.waitPollingInterval) {
-		if info, err := os.Stat(file); err == nil {
+		info, err := os.Stat(file)
+		spew.Dump("error while stating a file")
+		spew.Dump(err)
+		spew.Dump("size of a file")
+		spew.Dump(info.Size())
+		if err == nil {
 			if !expectContent || info.Size() > 0 {
 				return nil
 			}
@@ -50,11 +61,14 @@ func (rw *realWaiter) Wait(file string, expectContent bool, breakpointOnFailure 
 		// executing if breakpointOnFailure is enabled for the taskRun
 		// TLDR: Do not return skipError when breakpointOnFailure is enabled as it breaks execution of the TaskRun
 		if _, err := os.Stat(file + ".err"); err == nil {
+			spew.Dump("error file exists")
+			spew.Dump(file + ".err")
 			if breakpointOnFailure {
 				return nil
 			}
 			return skipError("error file present, bail and skip the step")
 		}
+		spew.Dump("end of the for loop")
 	}
 }
 

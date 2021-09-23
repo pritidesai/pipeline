@@ -101,3 +101,76 @@ spec:
 	}
 
 }
+
+func TestStepErrorIsIgnoredWithWorkspace(t *testing.T) {
+	ctx := context.Background()
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	c, namespace := setup(ctx, t, requireAlphaFeatureFlags)
+	knativetest.CleanupOnInterrupt(func() { tearDown(ctx, t, c, namespace) }, t.Logf)
+	defer tearDown(ctx, t, c, namespace)
+
+	pipelineRun := mustParsePipelineRun(t, `
+metadata:
+  name: run-with-failing-step-and-ws
+spec:
+  workspaces:
+    - name: ws
+      volumeClaimTemplate:
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 16Mi
+  pipelineSpec:
+    tasks:
+      - name: writer
+        taskSpec:
+          steps:
+            - name: write
+              image: alpine
+              onError: continue
+              script: |
+                echo bar > $(workspaces.task-ws.path)/foo
+                exit 1
+          workspaces:
+            - name: task-ws
+        workspaces:
+          - name: task-ws
+            workspace: ws
+      - name: reader
+        runAfter:
+          - writer
+        taskSpec:
+          steps:
+            - name: read
+              image: alpine
+              onError: continue
+              script: |
+                cat $(workspaces.myws.path)/foo | grep bar
+                exit 1
+          workspaces:
+            - name: myws
+        workspaces:
+          - name: myws
+            workspace: ws
+    workspaces:
+      - name: ws`)
+
+	if _, err := c.PipelineRunClient.Create(ctx, pipelineRun, metav1.CreateOptions{}); err != nil {
+		t.Fatalf("Failed to create PipelineRun `%s`: %s", pipelineRun.Name, err)
+	}
+
+	t.Logf("Waiting for PipelineRun in namespace %s to succeed", namespace)
+	if err := WaitForPipelineRunState(ctx, c, pipelineRun.Name, timeout, PipelineRunSucceed(pipelineRun.Name), "PipelineRunSuccess"); err != nil {
+		t.Errorf("Error waiting for PipelineRun to fail: %s", err)
+	}
+
+	taskrunList, err := c.TaskRunClient.List(ctx, metav1.ListOptions{LabelSelector: "tekton.dev/pipelineRun=" + pipelineRun.Name})
+	if err != nil {
+		t.Fatalf("Error listing TaskRuns for PipelineRun %s: %s", pipelineRun.Name, err)
+	}
+
+	t.Logf("The number of tasks %d", len(taskrunList.Items))
+}

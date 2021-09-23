@@ -129,15 +129,19 @@ func (e Entrypointer) Go() error {
 			// An error happened while waiting, so we bail
 			// *but* we write postfile to make next steps bail too.
 			// In case of breakpoint on failure do not write post file.
-			if !e.BreakpointOnFailure {
-				e.WritePostFile(e.PostFile, err)
-			}
 			output = append(output, v1beta1.PipelineResourceResult{
 				Key:        "StartedAt",
 				Value:      time.Now().Format(timeFormat),
 				ResultType: v1beta1.InternalTektonResultType,
 			})
-			return err
+			switch {
+			case e.BreakpointOnFailure:
+			case e.OnError == ContinueOnError:
+				break
+			default:
+				e.WritePostFile(e.PostFile, err)
+				return err
+			}
 		}
 	}
 

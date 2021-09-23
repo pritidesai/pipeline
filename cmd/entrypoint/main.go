@@ -18,6 +18,7 @@ package main
 
 import (
 	"flag"
+	"github.com/davecgh/go-spew/spew"
 	"log"
 	"os"
 	"os/exec"
@@ -123,7 +124,16 @@ func main() {
 		log.Printf("non-fatal error copying credentials: %q", err)
 	}
 
-	if err := e.Go(); err != nil {
+	err := e.Go()
+	spew.Dump("Start of Entrypoint GO Error")
+	spew.Dump("Error")
+	spew.Dump(err)
+	spew.Dump("WaitFiles")
+	spew.Dump(e.WaitFiles)
+	spew.Dump("WaitFileContent")
+	spew.Dump(e.WaitFileContent)
+	spew.Dump("End of Entrypoint GO Error")
+	if err != nil {
 		breakpointExitPostFile := e.PostFile + breakpointExitSuffix
 		switch t := err.(type) {
 		case skipError:

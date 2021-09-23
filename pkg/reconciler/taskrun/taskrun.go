@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"reflect"
 	"strings"
 	"time"
@@ -459,6 +460,8 @@ func (c *Reconciler) reconcile(ctx context.Context, tr *v1beta1.TaskRun, rtr *re
 		}
 
 		pod, err = c.createPod(ctx, tr, rtr)
+		spew.Dump("After creating a Pod, check the pod status")
+		spew.Dump(pod.Status.Phase)
 		if err != nil {
 			newErr := c.handlePodCreationError(ctx, tr, err)
 			logger.Errorf("Failed to create task run pod for taskrun %q: %v", tr.Name, newErr)
@@ -716,6 +719,9 @@ func (c *Reconciler) createPod(ctx context.Context, tr *v1beta1.TaskRun, rtr *re
 	}
 
 	pod, err = c.KubeClientSet.CoreV1().Pods(tr.Namespace).Create(ctx, pod, metav1.CreateOptions{})
+	spew.Dump("Create POD")
+	spew.Dump(err)
+	spew.Dump("End of Create POD")
 	if err == nil && willOverwritePodSetAffinity(tr) {
 		if recorder := controller.GetEventRecorder(ctx); recorder != nil {
 			recorder.Eventf(tr, corev1.EventTypeWarning, "PodAffinityOverwrite", "Pod template affinity is overwritten by affinity assistant for pod %q", pod.Name)

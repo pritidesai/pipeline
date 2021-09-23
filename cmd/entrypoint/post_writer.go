@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/davecgh/go-spew/spew"
 	"log"
 	"os"
 
@@ -24,6 +25,8 @@ func (*realPostWriter) Write(file string, content string) {
 	}
 
 	if content != "" {
+		spew.Dump("writing content to a file")
+		spew.Dump(content)
 		if _, err := f.WriteString(content); err != nil {
 			log.Fatalf("Writing %q: %v", file, err)
 		}

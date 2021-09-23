@@ -4,6 +4,7 @@ go 1.13
 
 require (
 	github.com/cloudevents/sdk-go/v2 v2.5.0
+	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/docker/cli v20.10.8+incompatible // indirect
 	github.com/docker/docker v20.10.8+incompatible // indirect
 	github.com/emicklei/go-restful v2.15.0+incompatible // indirect

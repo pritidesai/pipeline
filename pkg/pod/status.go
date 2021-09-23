@@ -19,6 +19,7 @@ package pod
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"strconv"
 	"strings"
 	"time"
@@ -106,7 +107,13 @@ func MakeTaskRunStatus(logger *zap.SugaredLogger, tr v1beta1.TaskRun, pod *corev
 
 	sortPodContainerStatuses(pod.Status.ContainerStatuses, pod.Spec.Containers)
 
+	spew.Dump("After - Pod Status Phase")
+	spew.Dump(pod.Status.Phase)
+
 	complete := areStepsComplete(pod) || pod.Status.Phase == corev1.PodSucceeded || pod.Status.Phase == corev1.PodFailed
+
+	spew.Dump("MakeTaskRunStatus saying complete is set to")
+	spew.Dump(complete)
 
 	if complete {
 		updateCompletedTaskRunStatus(logger, trs, pod)
@@ -149,6 +156,11 @@ func setTaskRunStatusBasedOnStepStatus(logger *zap.SugaredLogger, stepStatuses [
 			msg := s.State.Terminated.Message
 
 			results, err := termination.ParseMessage(logger, msg)
+			spew.Dump("Start of setTaskRunStatus")
+			spew.Dump(results)
+			spew.Dump("*******")
+			spew.Dump(err)
+			spew.Dump("End of setTaskRunStatus")
 			if err != nil {
 				logger.Errorf("termination message could not be parsed as JSON: %v", err)
 				merr = multierror.Append(merr, err)
@@ -191,6 +203,12 @@ func setTaskRunStatusBasedOnStepStatus(logger *zap.SugaredLogger, stepStatuses [
 		})
 	}
 
+	spew.Dump("the Steps are")
+	spew.Dump(trs.Steps)
+	spew.Dump("End of the Steps")
+	spew.Dump("Ammending error")
+	spew.Dump(merr)
+	spew.Dump("Done ammending error")
 	return merr
 
 }
