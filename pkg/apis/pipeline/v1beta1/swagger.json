@@ -2053,6 +2053,10 @@
         "name"
       ],
       "properties": {
+        "default": {
+          "description": "Default is the value a result gets if a result is not initialized. If default is set, a dependent Task may be executed without a task producing that result.",
+          "type": "string"
+        },
         "description": {
           "description": "Description is a human-readable description of the result",
           "type": "string",

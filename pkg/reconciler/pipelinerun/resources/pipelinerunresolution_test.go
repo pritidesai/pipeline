@@ -148,6 +148,22 @@ var task = &v1beta1.Task{
 	},
 }
 
+var defaultResult = "default"
+var taskWithDefaultResult = &v1beta1.Task{
+	ObjectMeta: metav1.ObjectMeta{
+		Name: "task",
+	},
+	Spec: v1beta1.TaskSpec{
+		Steps: []v1beta1.Step{{Container: corev1.Container{
+			Name: "step1",
+		}}},
+		Results: []v1beta1.TaskResult{{
+			Name:    "defaultResult",
+			Default: &defaultResult,
+		}},
+	},
+}
+
 var trs = []v1beta1.TaskRun{{
 	ObjectMeta: metav1.ObjectMeta{
 		Namespace: "namespace",
@@ -1225,6 +1241,54 @@ func TestIsSkipped(t *testing.T) {
 			"mytask21": true,
 			"mytask22": true,
 			"mytask23": true,
+		},
+	}, {
+		name: "tasks-when-expressions-scoped-to-task-run-multiple-ordering-and-resource-dependent-tasks-with-defaults",
+		state: PipelineRunState{{
+			// skipped because when expressions evaluate to false
+			PipelineTask: &pts[10],
+			TaskRunName:  "pipelinerun-guardedtask",
+			TaskRun:      nil,
+			ResolvedTaskResources: &resources.ResolvedTaskResources{
+				TaskSpec: &taskWithDefaultResult.Spec,
+			},
+		}, {
+			// attempted but skipped because of missing result in params from parent task mytask11 which was skipped
+			PipelineTask: &v1beta1.PipelineTask{
+				Name:    "mytask20",
+				TaskRef: &v1beta1.TaskRef{Name: "task"},
+				Params: []v1beta1.Param{{
+					Name:  "commit",
+					Value: *v1beta1.NewArrayOrString("$(tasks.mytask11.results.defaultResult)"),
+				}},
+			},
+			TaskRunName: "pipelinerun-resource-dependent-task-1",
+			TaskRun:     nil,
+			ResolvedTaskResources: &resources.ResolvedTaskResources{
+				TaskSpec: &task.Spec,
+			},
+		}, {
+			// attempted but skipped because of missing result from parent task mytask11 which was skipped in when expressions
+			PipelineTask: &v1beta1.PipelineTask{
+				Name:    "mytask22",
+				TaskRef: &v1beta1.TaskRef{Name: "task"},
+				WhenExpressions: v1beta1.WhenExpressions{{
+					Input:    "$(tasks.mytask11.results.defaultResult)",
+					Operator: selection.In,
+					Values:   []string{"default"},
+				}},
+			},
+			TaskRunName: "pipelinerun-resource-dependent-task-2",
+			TaskRun:     nil,
+			ResolvedTaskResources: &resources.ResolvedTaskResources{
+				TaskSpec: &task.Spec,
+			},
+		}},
+		scopeWhenExpressionsToTask: true,
+		expected: map[string]bool{
+			"mytask11": true,
+			"mytask20": false,
+			"mytask22": false,
 		},
 	}, {
 		name: "tasks-parent-condition-failed-parent-when-expressions-passed-scoped-to-task",

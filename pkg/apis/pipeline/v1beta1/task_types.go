@@ -114,6 +114,11 @@ type TaskResult struct {
 	// Description is a human-readable description of the result
 	// +optional
 	Description string `json:"description"`
+
+	// Default is the value a result gets if a result is not initialized.
+	// If default is set, a dependent Task may be executed without a task producing that result.
+	// +optional
+	Default *string `json:"default,omitempty"`
 }
 
 // Step embeds the Container type, which allows it to include fields not

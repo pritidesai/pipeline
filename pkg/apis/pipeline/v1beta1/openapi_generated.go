@@ -3455,6 +3455,13 @@ func schema_pkg_apis_pipeline_v1beta1_TaskResult(ref common.ReferenceCallback) c
 							Format:      "",
 						},
 					},
+					"default": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Default is the value a result gets if a result is not initialized. If default is set, a dependent Task may be executed without a task producing that result.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"name"},
 			},
