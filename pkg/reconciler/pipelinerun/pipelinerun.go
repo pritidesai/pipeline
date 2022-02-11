@@ -222,9 +222,19 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pr *v1beta1.PipelineRun)
 		return c.finishReconcileUpdateEmitEvents(ctx, pr, before, err)
 	}
 
+	// prepare fetches all required resources, validates them together with the
+	// taskrun, runs API conversions. In case of error we update, emit events and return.
+	pipelineSpec, pipelineRunFacts, err := c.prepare(ctx, pr, getPipelineFunc)
+	if err != nil {
+		logger.Errorf("TaskRun prepare error: %v", err.Error())
+		// We only return an error if update failed, otherwise we don't want to
+		// reconcile an invalid TaskRun anymore
+		return c.finishReconcileUpdateEmitEvents(ctx, pr, nil, err)
+	}
+
 	// Reconcile this copy of the pipelinerun and then write back any status or label
 	// updates regardless of whether the reconciliation errored out.
-	if err = c.reconcile(ctx, pr, getPipelineFunc); err != nil {
+	if err = c.reconcile(ctx, pr, pipelineSpec, pipelineRunFacts); err != nil {
 		logger.Errorf("Reconcile error: %v", err.Error())
 	}
 
@@ -317,9 +327,8 @@ func (c *Reconciler) resolvePipelineState(
 	return pst, nil
 }
 
-func (c *Reconciler) reconcile(ctx context.Context, pr *v1beta1.PipelineRun, getPipelineFunc resources.GetPipeline) error {
+func (c *Reconciler) prepare(ctx context.Context, pr *v1beta1.PipelineRun, getPipelineFunc resources.GetPipeline) (*v1beta1.PipelineSpec, *resources.PipelineRunFacts, error) {
 	logger := logging.FromContext(ctx)
-	cfg := config.FromContextOrDefaults(ctx)
 	pr.SetDefaults(ctx)
 
 	// When pipeline run is pending, return to avoid creating the task
@@ -330,7 +339,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1beta1.PipelineRun, get
 			Reason:  ReasonPending,
 			Message: fmt.Sprintf("PipelineRun %q is pending", pr.Name),
 		})
-		return nil
+		return nil, nil, nil
 	}
 
 	pipelineMeta, pipelineSpec, err := resources.GetPipelineData(ctx, pr, getPipelineFunc)
@@ -339,7 +348,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1beta1.PipelineRun, get
 		pr.Status.MarkFailed(ReasonCouldntGetPipeline,
 			"Error retrieving pipeline for pipelinerun %s/%s: %s",
 			pr.Namespace, pr.Name, err)
-		return controller.NewPermanentError(err)
+		return nil, nil, controller.NewPermanentError(err)
 	}
 
 	// Store the fetched PipelineSpec on the PipelineRun for auditing
@@ -353,7 +362,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1beta1.PipelineRun, get
 		pr.Status.MarkFailed(ReasonInvalidGraph,
 			"PipelineRun %s/%s's Pipeline DAG is invalid: %s",
 			pr.Namespace, pr.Name, err)
-		return controller.NewPermanentError(err)
+		return nil, nil, controller.NewPermanentError(err)
 	}
 
 	// build DAG with a list of final tasks, this DAG is used later to identify
@@ -366,7 +375,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1beta1.PipelineRun, get
 		pr.Status.MarkFailed(ReasonInvalidGraph,
 			"PipelineRun %s's Pipeline DAG is invalid for finally clause: %s",
 			pr.Namespace, pr.Name, err)
-		return controller.NewPermanentError(err)
+		return nil, nil, controller.NewPermanentError(err)
 	}
 
 	if err := pipelineSpec.Validate(ctx); err != nil {
@@ -374,7 +383,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1beta1.PipelineRun, get
 		pr.Status.MarkFailed(ReasonFailedValidation,
 			"Pipeline %s/%s can't be Run; it has an invalid spec: %s",
 			pipelineMeta.Namespace, pipelineMeta.Name, err)
-		return controller.NewPermanentError(err)
+		return nil, nil, controller.NewPermanentError(err)
 	}
 
 	if err := resources.ValidateResourceBindings(pipelineSpec, pr); err != nil {
@@ -382,7 +391,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1beta1.PipelineRun, get
 		pr.Status.MarkFailed(ReasonInvalidBindings,
 			"PipelineRun %s/%s doesn't bind Pipeline %s/%s's PipelineResources correctly: %s",
 			pr.Namespace, pr.Name, pr.Namespace, pipelineMeta.Name, err)
-		return controller.NewPermanentError(err)
+		return nil, nil, controller.NewPermanentError(err)
 	}
 	providedResources, err := resources.GetResourcesFromBindings(pr, c.resourceLister.PipelineResources(pr.Namespace).Get)
 	if err != nil {
@@ -393,13 +402,13 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1beta1.PipelineRun, get
 			logger.Warnf("References for pipelinerun %s not found: %v", pr.Name, err)
 			pr.Status.MarkRunning(ReasonCouldntGetResource,
 				"Unable to resolve dependencies for %q: %v", pr.Name, err)
-			return err
+			return nil, nil, err
 		}
 		// This Run has failed, so we need to mark it as failed and stop reconciling it
 		pr.Status.MarkFailed(ReasonCouldntGetResource,
 			"PipelineRun %s/%s can't be Run; it tries to bind Resources that don't exist: %s",
 			pipelineMeta.Namespace, pr.Name, err)
-		return controller.NewPermanentError(err)
+		return nil, nil, controller.NewPermanentError(err)
 	}
 	// Ensure that the PipelineRun provides all the parameters required by the Pipeline
 	if err := resources.ValidateRequiredParametersProvided(&pipelineSpec.Params, &pr.Spec.Params); err != nil {
@@ -407,7 +416,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1beta1.PipelineRun, get
 		pr.Status.MarkFailed(ReasonParameterMissing,
 			"PipelineRun %s parameters is missing some parameters required by Pipeline %s's parameters: %s",
 			pr.Namespace, pr.Name, err)
-		return controller.NewPermanentError(err)
+		return nil, nil, controller.NewPermanentError(err)
 	}
 
 	// Ensure that the parameters from the PipelineRun are overriding Pipeline parameters with the same type.
@@ -418,7 +427,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1beta1.PipelineRun, get
 		pr.Status.MarkFailed(ReasonParameterTypeMismatch,
 			"PipelineRun %s/%s parameters have mismatching types with Pipeline %s/%s's parameters: %s",
 			pr.Namespace, pr.Name, pr.Namespace, pipelineMeta.Name, err)
-		return controller.NewPermanentError(err)
+		return nil, nil, controller.NewPermanentError(err)
 	}
 
 	// Ensure that the workspaces expected by the Pipeline are provided by the PipelineRun.
@@ -426,7 +435,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1beta1.PipelineRun, get
 		pr.Status.MarkFailed(ReasonInvalidWorkspaceBinding,
 			"PipelineRun %s/%s doesn't bind Pipeline %s/%s's Workspaces correctly: %s",
 			pr.Namespace, pr.Name, pr.Namespace, pipelineMeta.Name, err)
-		return controller.NewPermanentError(err)
+		return nil, nil, controller.NewPermanentError(err)
 	}
 
 	// Ensure that the ServiceAccountNames defined are correct.
@@ -435,7 +444,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1beta1.PipelineRun, get
 		pr.Status.MarkFailed(ReasonInvalidServiceAccountMapping,
 			"PipelineRun %s/%s doesn't define ServiceAccountNames correctly: %s",
 			pr.Namespace, pr.Name, err)
-		return controller.NewPermanentError(err)
+		return nil, nil, controller.NewPermanentError(err)
 	}
 
 	// Ensure that the TaskRunSpecs defined are correct.
@@ -443,7 +452,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1beta1.PipelineRun, get
 		pr.Status.MarkFailed(ReasonInvalidServiceAccountMapping,
 			"PipelineRun %s/%s doesn't define taskRunSpecs correctly: %s",
 			pr.Namespace, pr.Name, err)
-		return controller.NewPermanentError(err)
+		return nil, nil, controller.NewPermanentError(err)
 	}
 
 	// Apply parameter substitution from the PipelineRun
@@ -461,18 +470,24 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1beta1.PipelineRun, get
 	}
 	pipelineRunState, err := c.resolvePipelineState(ctx, tasks, pipelineMeta, pr, providedResources)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
 	// Build PipelineRunFacts with a list of resolved pipeline tasks,
 	// dag tasks graph and final tasks graph
-	pipelineRunFacts := &resources.PipelineRunFacts{
+	return pipelineSpec, &resources.PipelineRunFacts{
 		State:                      pipelineRunState,
 		SpecStatus:                 pr.Spec.Status,
 		TasksGraph:                 d,
 		FinalTasksGraph:            dfinally,
 		ScopeWhenExpressionsToTask: config.FromContextOrDefaults(ctx).FeatureFlags.ScopeWhenExpressionsToTask,
-	}
+	}, nil
+}
+
+func (c Reconciler) reconcile(ctx context.Context, pr *v1beta1.PipelineRun, pipelineSpec *v1beta1.PipelineSpec, pipelineRunFacts *resources.PipelineRunFacts) error {
+	logger := logging.FromContext(ctx)
+	cfg := config.FromContextOrDefaults(ctx)
+	var err error
 
 	for _, rprt := range pipelineRunFacts.State {
 		if !rprt.IsCustomTask() {
@@ -548,7 +563,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1beta1.PipelineRun, get
 		return err
 	}
 
-	if err := c.processRunTimeouts(ctx, pr, pipelineRunState); err != nil {
+	if err := c.processRunTimeouts(ctx, pr, pipelineRunFacts.State); err != nil {
 		return err
 	}
 
