@@ -571,9 +571,11 @@ func (l PipelineTaskList) Deps() map[string][]string {
 
 // Items returns a slice of all tasks in the PipelineTaskList, converted to dag.Tasks
 func (l PipelineTaskList) Items() []dag.Task {
-	tasks := []dag.Task{}
+	var tasks []dag.Task
 	for _, t := range l {
-		tasks = append(tasks, dag.Task(t))
+		var tt PipelineTask
+		tt.Name = t.Name
+		tasks = append(tasks, dag.Task(tt))
 	}
 	return tasks
 }

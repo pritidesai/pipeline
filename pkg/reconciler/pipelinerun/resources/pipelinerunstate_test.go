@@ -1366,6 +1366,14 @@ func TestPipelineRunState_CompletedOrSkippedDAGTasks(t *testing.T) {
 		state:         largePipelineState,
 		expectedNames: []string{},
 	}, {
+		name:          "large deps with results from multiple tasks, not started",
+		state:         buildPipelineStateWithMultipleTaskResults(t, false),
+		expectedNames: []string{},
+	}, {
+		name:          "large deps with results from multiple tasks including when expressions, not started",
+		state:         buildPipelineStateWithMultipleTaskResults(t, true),
+		expectedNames: []string{},
+	}, {
 		name:          "one-run-started",
 		state:         oneRunStartedState,
 		expectedNames: []string{},
@@ -1380,7 +1388,10 @@ func TestPipelineRunState_CompletedOrSkippedDAGTasks(t *testing.T) {
 	}}
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
+			start := time.Now()
 			d, err := dagFromState(tc.state)
+			end := time.Since(start)
+			t.Logf("%v", end)
 			if err != nil {
 				t.Fatalf("Unexpected error while building DAG for state %v: %v", tc.state, err)
 			}
@@ -1393,7 +1404,10 @@ func TestPipelineRunState_CompletedOrSkippedDAGTasks(t *testing.T) {
 					Clock: testClock,
 				},
 			}
+			start = time.Now()
 			names := facts.completedOrSkippedDAGTasks()
+			end = time.Since(start)
+			t.Logf("%v", end)
 			if d := cmp.Diff(names, tc.expectedNames); d != "" {
 				t.Errorf("Expected to get completed names %v but got something different %s", tc.expectedNames, diff.PrintWantGot(d))
 			}
@@ -1457,6 +1471,72 @@ func buildPipelineStateWithLargeDepencyGraph(t *testing.T) PipelineRunState {
 		},
 		)
 	}
+	return pipelineRunState
+}
+
+func buildPipelineStateWithMultipleTaskResults(t *testing.T, includeWhen bool) PipelineRunState {
+	t.Helper()
+	var task = &v1beta1.Task{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "task",
+		},
+		Spec: v1beta1.TaskSpec{
+			Steps: []v1beta1.Step{{
+				Name: "step1",
+			}},
+		},
+	}
+	var pipelineRunState PipelineRunState
+	pipelineRunState = []*ResolvedPipelineTask{{
+		PipelineTask: &v1beta1.PipelineTask{
+			Name:    "t1",
+			TaskRef: &v1beta1.TaskRef{Name: "task"},
+		},
+		TaskRun: nil,
+		ResolvedTaskResources: &resources.ResolvedTaskResources{
+			TaskSpec: &task.Spec,
+		},
+	}}
+	for i := 2; i < 40; i++ {
+		params := []v1beta1.Param{}
+		whenExpressions := v1beta1.WhenExpressions{}
+		var alpha byte
+		for j := 1; j < i; j++ {
+			for alpha = 'a'; alpha <= 'd'; alpha++ {
+				params = append(params, v1beta1.Param{
+					Name: fmt.Sprintf("%c", alpha),
+					Value: v1beta1.ParamValue{
+						Type:      v1beta1.ParamTypeString,
+						StringVal: fmt.Sprintf("$(tasks.t%d.results.%c)", j, alpha),
+					},
+				})
+			}
+			if includeWhen {
+				for alpha = 'a'; alpha <= 'j'; alpha++ {
+					whenExpressions = append(whenExpressions, v1beta1.WhenExpression{
+						Input:    fmt.Sprintf("$(tasks.t%d.results.%c)", j, alpha),
+						Operator: selection.In,
+						Values:   []string{"true"},
+					})
+				}
+			}
+		}
+		pipelineRunState = append(pipelineRunState, &ResolvedPipelineTask{
+			PipelineTask: &v1beta1.PipelineTask{
+				Name:            fmt.Sprintf("t%d", i),
+				Params:          params,
+				TaskRef:         &v1beta1.TaskRef{Name: "task"},
+				WhenExpressions: whenExpressions,
+			},
+			TaskRun: nil,
+			ResolvedTaskResources: &resources.ResolvedTaskResources{
+				TaskSpec: &task.Spec,
+			},
+		},
+		)
+	}
+	//p, _ := json.Marshal(pipelineRunState)
+	//t.Log(string(p))
 	return pipelineRunState
 }
 

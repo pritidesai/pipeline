@@ -19,7 +19,9 @@ package dag
 import (
 	"errors"
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"strings"
+	"time"
 
 	"github.com/tektoncd/pipeline/pkg/list"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -70,6 +72,7 @@ func (g *Graph) addPipelineTask(t Task) (*Node, error) {
 
 // Build returns a valid pipeline Graph. Returns error if the pipeline is invalid
 func Build(tasks Tasks, deps map[string][]string) (*Graph, error) {
+	start := time.Now()
 	d := newGraph()
 
 	// Add all Tasks mentioned in the `PipelineSpec`
@@ -79,14 +82,32 @@ func Build(tasks Tasks, deps map[string][]string) (*Graph, error) {
 		}
 	}
 
+	start = time.Now()
 	// Process all from and runAfter constraints to add task dependency
+	spew.Dump("List of deps is")
+	spew.Dump(deps)
+
+	spew.Dump("d.Nodes")
+	spew.Dump(d.Nodes)
+
 	for pt, taskDeps := range deps {
 		for _, previousTask := range taskDeps {
+			//start := time.Now()
+			spew.Dump("adding link with")
+			spew.Dump(pt)
+			spew.Dump(previousTask)
 			if err := addLink(pt, previousTask, d.Nodes); err != nil {
 				return nil, fmt.Errorf("couldn't add link between %s and %s: %w", pt, previousTask, err)
 			}
+			//end := time.Since(start)
+			//spew.Dump("dag.addLink took")
+			//spew.Dump(end)
 		}
 	}
+
+	end := time.Since(start)
+	spew.Dump("dag.Build for deps took")
+	spew.Dump(end)
 	return d, nil
 }
 
@@ -122,6 +143,8 @@ func GetCandidateTasks(g *Graph, doneTasks ...string) (sets.String, error) {
 
 func linkPipelineTasks(prev *Node, next *Node) error {
 	// Check for self cycle
+	spew.Dump("HASH KEY")
+	spew.Dump(prev.Task.HashKey())
 	if prev.Task.HashKey() == next.Task.HashKey() {
 		return fmt.Errorf("cycle detected; task %q depends on itself", next.Task.HashKey())
 	}

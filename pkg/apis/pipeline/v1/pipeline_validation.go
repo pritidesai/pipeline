@@ -378,6 +378,10 @@ func validateWhenExpressions(tasks []PipelineTask, finalTasks []PipelineTask) (e
 // validateGraph ensures the Pipeline's dependency Graph (DAG) make sense: that there is no dependency
 // cycle or that they rely on values from Tasks that ran previously.
 func validateGraph(tasks []PipelineTask) *apis.FieldError {
+	var t []string
+	for _, p := range tasks {
+		t = append(t, p.Name)
+	}
 	if _, err := dag.Build(PipelineTaskList(tasks), PipelineTaskList(tasks).Deps()); err != nil {
 		return apis.ErrInvalidValue(err.Error(), "tasks")
 	}
