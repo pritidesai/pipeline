@@ -18,6 +18,7 @@ package dag_test
 
 import (
 	"fmt"
+	"k8s.io/apimachinery/pkg/selection"
 	"strings"
 	"testing"
 
@@ -768,4 +769,57 @@ func TestFindCyclesInDependencies(t *testing.T) {
 		})
 	}
 
+}
+
+func TestBuildGraphWithComplexTasks_Success(t *testing.T) {
+	tasks := buildPipelineTasksWithMultipleTaskResults(t, true)
+	_, err := dag.Build(tasks, tasks.Deps())
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func buildPipelineTasksWithMultipleTaskResults(t *testing.T, includeWhen bool) v1beta1.PipelineTaskList {
+	t.Helper()
+	var pipelineTasks v1beta1.PipelineTaskList
+	pipelineTasks = append(pipelineTasks, v1beta1.PipelineTask{
+		Name:    "t1",
+		TaskRef: &v1beta1.TaskRef{Name: "task"},
+	})
+	for i := 2; i < 1000; i++ {
+		var params []v1beta1.Param
+		whenExpressions := v1beta1.WhenExpressions{}
+		var alpha byte
+		// the task has a reference to multiple task results (a through j) from each parent task - causing a redundant references
+		// the task dependents on all predecessors in a graph through params and/or whenExpressions
+		for j := 1; j < i; j++ {
+			for alpha = 'a'; alpha <= 'j'; alpha++ {
+				// include param with task results
+				params = append(params, v1beta1.Param{
+					Name: fmt.Sprintf("%c", alpha),
+					Value: v1beta1.ParamValue{
+						Type:      v1beta1.ParamTypeString,
+						StringVal: fmt.Sprintf("$(tasks.t%d.results.%c)", j, alpha),
+					},
+				})
+			}
+			if includeWhen {
+				for alpha = 'a'; alpha <= 'j'; alpha++ {
+					// include when expressions with task results
+					whenExpressions = append(whenExpressions, v1beta1.WhenExpression{
+						Input:    fmt.Sprintf("$(tasks.t%d.results.%c)", j, alpha),
+						Operator: selection.In,
+						Values:   []string{"true"},
+					})
+				}
+			}
+		}
+		pipelineTasks = append(pipelineTasks, v1beta1.PipelineTask{
+			Name:            fmt.Sprintf("t%d", i),
+			Params:          params,
+			TaskRef:         &v1beta1.TaskRef{Name: "task"},
+			WhenExpressions: whenExpressions,
+		})
+	}
+	return pipelineTasks
 }
