@@ -30,7 +30,7 @@ require (
 	k8s.io/api v0.25.3
 	k8s.io/apimachinery v0.25.4
 	k8s.io/client-go v0.25.3
-	k8s.io/code-generator v0.25.2
+	k8s.io/code-generator v0.25.5
 	k8s.io/klog v1.0.0
 	k8s.io/kube-openapi v0.0.0-20221012153701-172d655c2280
 	knative.dev/pkg v0.0.0-20221011175852-714b7630a836
@@ -164,11 +164,11 @@ require (
 	go.uber.org/multierr v1.8.0 // indirect
 	golang.org/x/crypto v0.2.0
 	golang.org/x/mod v0.6.0 // indirect
-	golang.org/x/net v0.2.0 // indirect
+	golang.org/x/net v0.3.1-0.20221206200815-1e63c2f08a10 // indirect
 	golang.org/x/sync v0.1.0 // indirect
-	golang.org/x/sys v0.2.0 // indirect
-	golang.org/x/term v0.2.0 // indirect
-	golang.org/x/text v0.4.0 // indirect
+	golang.org/x/sys v0.3.0 // indirect
+	golang.org/x/term v0.3.0 // indirect
+	golang.org/x/text v0.5.0 // indirect
 	golang.org/x/time v0.1.0 // indirect
 	golang.org/x/tools v0.1.12 // indirect
 	google.golang.org/api v0.100.0 // indirect
