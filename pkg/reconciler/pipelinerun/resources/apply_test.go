@@ -1727,9 +1727,7 @@ func TestApplyParameters(t *testing.T) {
 
 func TestApplyParameters_ArrayIndexing(t *testing.T) {
 	ctx := context.Background()
-	cfg := config.FromContextOrDefaults(ctx)
-	cfg.FeatureFlags.EnableAPIFields = config.AlphaAPIFields
-	ctx = config.ToContext(ctx, cfg)
+	ctx = config.ToContext(ctx, config.FromContextOrDefaults(ctx))
 	for _, tt := range []struct {
 		name     string
 		original v1beta1.PipelineSpec

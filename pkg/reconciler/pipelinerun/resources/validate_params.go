@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/tektoncd/pipeline/pkg/apis/config"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	"github.com/tektoncd/pipeline/pkg/list"
 	"github.com/tektoncd/pipeline/pkg/reconciler/taskrun"
@@ -89,15 +88,9 @@ func ValidateObjectParamRequiredKeys(pipelineParameters []v1beta1.ParamSpec, pip
 	return nil
 }
 
-// ValidateParamArrayIndex validate if the array indexing param reference  target is existent
+// ValidateParamArrayIndex validate if the array indexing param reference target is existent
 func ValidateParamArrayIndex(ctx context.Context, p *v1beta1.PipelineSpec, pr *v1beta1.PipelineRun) error {
-	cfg := config.FromContextOrDefaults(ctx)
-	if cfg.FeatureFlags.EnableAPIFields != config.AlphaAPIFields {
-		return nil
-	}
-
 	arrayParams := extractParamIndexes(p.Params, pr.Spec.Params)
-
 	outofBoundParams := sets.String{}
 
 	// collect all the references

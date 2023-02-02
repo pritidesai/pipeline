@@ -56,7 +56,6 @@ func ApplyParameters(ctx context.Context, spec *v1beta1.TaskSpec, tr *v1beta1.Ta
 	// that need to be further processed.
 	stringReplacements := map[string]string{}
 	arrayReplacements := map[string][]string{}
-	cfg := config.FromContextOrDefaults(ctx)
 
 	// Set all the default stringReplacements
 	for _, p := range defaults {
@@ -64,11 +63,9 @@ func ApplyParameters(ctx context.Context, spec *v1beta1.TaskSpec, tr *v1beta1.Ta
 			switch p.Default.Type {
 			case v1beta1.ParamTypeArray:
 				for _, pattern := range paramPatterns {
-					// array indexing for param is alpha feature
-					if cfg.FeatureFlags.EnableAPIFields == config.AlphaAPIFields {
-						for i := 0; i < len(p.Default.ArrayVal); i++ {
-							stringReplacements[fmt.Sprintf(pattern+"[%d]", p.Name, i)] = p.Default.ArrayVal[i]
-						}
+					// index into an array for param
+					for i := 0; i < len(p.Default.ArrayVal); i++ {
+						stringReplacements[fmt.Sprintf(pattern+"[%d]", p.Name, i)] = p.Default.ArrayVal[i]
 					}
 					arrayReplacements[fmt.Sprintf(pattern, p.Name)] = p.Default.ArrayVal
 				}
@@ -100,17 +97,14 @@ func paramsFromTaskRun(ctx context.Context, tr *v1beta1.TaskRun) (map[string]str
 	// that need to be further processed.
 	stringReplacements := map[string]string{}
 	arrayReplacements := map[string][]string{}
-	cfg := config.FromContextOrDefaults(ctx)
 
 	for _, p := range tr.Spec.Params {
 		switch p.Value.Type {
 		case v1beta1.ParamTypeArray:
 			for _, pattern := range paramPatterns {
-				// array indexing for param is alpha feature
-				if cfg.FeatureFlags.EnableAPIFields == config.AlphaAPIFields {
-					for i := 0; i < len(p.Value.ArrayVal); i++ {
-						stringReplacements[fmt.Sprintf(pattern+"[%d]", p.Name, i)] = p.Value.ArrayVal[i]
-					}
+				// index into an array for param
+				for i := 0; i < len(p.Value.ArrayVal); i++ {
+					stringReplacements[fmt.Sprintf(pattern+"[%d]", p.Name, i)] = p.Value.ArrayVal[i]
 				}
 				arrayReplacements[fmt.Sprintf(pattern, p.Name)] = p.Value.ArrayVal
 			}
