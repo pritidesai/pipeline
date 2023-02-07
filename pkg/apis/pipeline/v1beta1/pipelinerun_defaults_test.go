@@ -313,6 +313,34 @@ func TestPipelineRunDefaulting(t *testing.T) {
 			})
 			return s.ToContext(ctx)
 		},
+	}, {
+		name: "subPath references pipelineRun context variables - name and uid",
+		in: &v1beta1.PipelineRun{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "pr-with-dynamic-subpath",
+				UID:  "1234",
+			},
+			Spec: v1beta1.PipelineRunSpec{
+				Workspaces: []v1beta1.WorkspaceBinding{{
+					Name:    "pr-with-context-variables",
+					SubPath: "my-custom-path-for-$(context.pipelineRun.name)-$(context.pipelineRun.uid)",
+				}},
+			},
+		},
+		want: &v1beta1.PipelineRun{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "pr-with-dynamic-subpath",
+				UID:  "1234",
+			},
+			Spec: v1beta1.PipelineRunSpec{
+				ServiceAccountName: "default",
+				Timeout:            &metav1.Duration{Duration: 1 * time.Hour},
+				Workspaces: []v1beta1.WorkspaceBinding{{
+					Name:    "pr-with-context-variables",
+					SubPath: "my-custom-path-for-pr-with-dynamic-subpath-1234",
+				}},
+			},
+		},
 	}}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -322,8 +350,8 @@ func TestPipelineRunDefaulting(t *testing.T) {
 				ctx = tc.wc(ctx)
 			}
 			got.SetDefaults(ctx)
-			if !cmp.Equal(got, tc.want, ignoreUnexportedResources) {
-				d := cmp.Diff(got, tc.want, ignoreUnexportedResources)
+			if !cmp.Equal(tc.want, got, ignoreUnexportedResources) {
+				d := cmp.Diff(tc.want, got, ignoreUnexportedResources)
 				t.Errorf("SetDefaults %s", diff.PrintWantGot(d))
 			}
 		})

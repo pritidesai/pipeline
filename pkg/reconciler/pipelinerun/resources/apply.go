@@ -19,13 +19,13 @@ package resources
 import (
 	"context"
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"strconv"
 	"strings"
 
 	"github.com/tektoncd/pipeline/pkg/apis/config"
-	"github.com/tektoncd/pipeline/pkg/reconciler/taskrun/resources"
-
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	"github.com/tektoncd/pipeline/pkg/reconciler/taskrun/resources"
 	"github.com/tektoncd/pipeline/pkg/substitution"
 )
 
@@ -139,9 +139,9 @@ func paramsFromPipelineRun(ctx context.Context, pr *v1beta1.PipelineRun) (map[st
 	return stringReplacements, arrayReplacements, objectReplacements
 }
 
-func getContextReplacements(pipelineName string, pr *v1beta1.PipelineRun) map[string]string {
+func GetContextReplacements(pipelineName string, pr *v1beta1.PipelineRun) map[string]string {
 	return map[string]string{
-		"context.pipelineRun.name":      pr.Name,
+		"context.pipelineRun.name":      pr.ObjectMeta.Name,
 		"context.pipeline.name":         pipelineName,
 		"context.pipelineRun.namespace": pr.Namespace,
 		"context.pipelineRun.uid":       string(pr.ObjectMeta.UID),
@@ -151,7 +151,7 @@ func getContextReplacements(pipelineName string, pr *v1beta1.PipelineRun) map[st
 // ApplyContexts applies the substitution from $(context.(pipelineRun|pipeline).*) with the specified values.
 // Currently supports only name substitution. Uses "" as a default if name is not specified.
 func ApplyContexts(spec *v1beta1.PipelineSpec, pipelineName string, pr *v1beta1.PipelineRun) *v1beta1.PipelineSpec {
-	return ApplyReplacements(spec, getContextReplacements(pipelineName, pr), map[string][]string{}, map[string]map[string]string{})
+	return ApplyReplacements(spec, GetContextReplacements(pipelineName, pr), map[string][]string{}, map[string]map[string]string{})
 }
 
 // ApplyPipelineTaskContexts applies the substitution from $(context.pipelineTask.*) with the specified values.
@@ -216,6 +216,12 @@ func ApplyWorkspaces(p *v1beta1.PipelineSpec, pr *v1beta1.PipelineRun) *v1beta1.
 	for _, boundWorkspace := range pr.Spec.Workspaces {
 		key := fmt.Sprintf("workspaces.%s.bound", boundWorkspace.Name)
 		replacements[key] = "true"
+	}
+
+	r := GetContextReplacements(pr.Name, pr)
+	spew.Dump(replacements)
+	for j := range pr.Spec.Workspaces {
+		pr.Spec.Workspaces[j].SubPath = substitution.ApplyReplacements(pr.Spec.Workspaces[j].SubPath, r)
 	}
 	return ApplyReplacements(p, replacements, map[string][]string{}, map[string]map[string]string{})
 }

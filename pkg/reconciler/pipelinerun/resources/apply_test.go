@@ -2987,7 +2987,8 @@ func TestApplyWorkspaces(t *testing.T) {
 			Name: "foo",
 		}},
 		bindings: []v1beta1.WorkspaceBinding{{
-			Name: "foo",
+			Name:    "foo",
+			SubPath: "this-is-my-subpath",
 		}},
 		variableUsage:       "$(workspaces.foo.bound)",
 		expectedReplacement: "true",
@@ -3000,6 +3001,17 @@ func TestApplyWorkspaces(t *testing.T) {
 		bindings:            []v1beta1.WorkspaceBinding{},
 		variableUsage:       "$(workspaces.foo.bound)",
 		expectedReplacement: "false",
+	}, {
+		description: "workspace declared and bound with subPath",
+		declarations: []v1beta1.PipelineWorkspaceDeclaration{{
+			Name: "foo",
+		}},
+		bindings: []v1beta1.WorkspaceBinding{{
+			Name:    "foo",
+			SubPath: "this-is-my-subpath",
+		}},
+		variableUsage:       "$(workspaces.foo.bound)",
+		expectedReplacement: "true",
 	}} {
 		t.Run(tc.description, func(t *testing.T) {
 			p1 := v1beta1.PipelineSpec{

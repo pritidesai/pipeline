@@ -4243,14 +4243,21 @@ spec:
     - name: taskWorkspaceName
       subPath: customdirectory
       workspace: ws2
+  - name: hello-world-6
+    taskRef:
+      name: hello-world
+    workspaces:
+    - name: taskWorkspaceName
+      workspace: ws3
   workspaces:
   - name: ws1
   - name: ws2
+  - name: ws3
 `)}
 
 	prs := []*v1beta1.PipelineRun{parse.MustParseV1beta1PipelineRun(t, `
 metadata:
-  name: test-pipeline-run
+  generateName: test-pipeline-run-
   namespace: foo
 spec:
   pipelineRef:
@@ -4267,6 +4274,12 @@ spec:
       metadata:
         creationTimestamp: null
         name: myclaim
+  - name: ws3
+    subPath: $(context.pipelineRun.name)
+    volumeClaimTemplate:
+      metadata:
+        creationTimestamp: null
+        name: myclaim
 `)}
 	ts := []*v1beta1.Task{simpleHelloWorldTask}
 
@@ -4278,7 +4291,7 @@ spec:
 	prt := newPipelineRunTest(t, d)
 	defer prt.Cancel()
 
-	reconciledRun, clients := prt.reconcileRun("foo", "test-pipeline-run", []string{}, false)
+	reconciledRun, clients := prt.reconcileRun("foo", prs[0].Name, []string{}, false)
 
 	taskRuns, err := clients.Pipeline.TektonV1beta1().TaskRuns("foo").List(prt.TestAssets.Ctx, metav1.ListOptions{})
 	if err != nil {

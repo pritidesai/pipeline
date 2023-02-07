@@ -25,7 +25,9 @@ spec:
   steps:
     - name: read-1
       image: ubuntu
-      script: cat $(workspaces.local-ws.path)/$(params.directory1)/foo | grep bar
+      script: |
+        echo $(workspaces.local-ws.path) 
+        cat $(workspaces.local-ws.path)/$(params.directory1)/foo | grep bar
     - name: read-2
       image: ubuntu
       script: cat $(workspaces.local-ws.path)/$(params.directory2)/foo | grep bar
@@ -77,10 +79,11 @@ spec:
     name: pipeline-using-different-subpaths
   workspaces:
     - name: ws
+      subPath: does-not-exist/
       volumeClaimTemplate:
         spec:
           accessModes:
             - ReadWriteOnce
           resources:
             requests:
-              storage: 1Gi
+              storage: 16Mi

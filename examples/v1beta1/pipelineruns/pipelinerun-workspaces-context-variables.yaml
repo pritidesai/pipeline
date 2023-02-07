@@ -1,0 +1,148 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: task-pv-volume-1
+  labels:
+    type: local
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/mnt/data"
+---
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: shared-task-storage-1
+spec:
+  storageClassName: manual
+  resources:
+    requests:
+      storage: 16Mi
+  accessModes:
+    - ReadWriteOnce
+---
+
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: write-data
+spec:
+  workspaces:
+    - name: storage
+      mountPath: /task/path
+  steps:
+    - name: write-data
+      image: bash:latest
+      script: |
+        #!/usr/bin/env bash
+        echo -n "hello" | tee $(workspaces.storage.path)/hello.txt
+        echo -e "\n"
+        echo $(workspaces.storage.path)
+        echo -e "\n"
+        ls $(workspaces.storage.path)
+---
+
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: read-data
+spec:
+  workspaces:
+    - name: storage
+      mountPath: /task/path
+  steps:
+    - name: read-data
+      image: bash:latest
+      script: |
+        #!/usr/bin/env bash
+        cat $(workspaces.storage.path)/hello.txt
+        echo -e "\n"
+        echo $(workspaces.storage.path)
+        echo -e "\n"
+        ls $(workspaces.storage.path)
+---
+
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: pipeline-with-subpath
+spec:
+  workspaces:
+    - name: shared-data
+  tasks:
+    - name: write-data
+      taskRef:
+        name: write-data
+      workspaces:
+        - name: storage
+          workspace: shared-data
+    - name: read-data
+      taskRef:
+        name: read-data
+      runAfter:
+        - write-data
+      workspaces:
+        - name: storage
+          workspace: shared-data
+
+---
+
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  generateName: pipelinerun-with-subpath-
+spec:
+  pipelineRef:
+    name: pipeline-with-subpath
+  workspaces:
+    - name: shared-data
+      subPath: $(context.pipelineRun.name)
+#      subPath: "non-existent-subpath"
+      persistentVolumeClaim:
+        claimName: shared-task-storage-1
+---
+
+#apiVersion: tekton.dev/v1beta1
+#kind: PipelineRun
+#metadata:
+#  generateName: pr-with-workspaces-
+#spec:
+#  workspaces:
+#    - name: pr-workspace
+##      subPath: html1/
+#      volumeClaimTemplate:
+#        spec:
+#          accessModes:
+#            - ReadWriteOnce
+#          resources:
+#            requests:
+#              storage: 16Mi
+#  pipelineSpec:
+#    workspaces:
+#      - name: pr-workspace
+#    tasks:
+#      - name: write-message
+#        taskSpec:
+#          steps:
+#            - image: bash:latest
+#              script: |
+#                if [ "$(workspaces.workspace1.bound)" == "true" ] ; then
+#                  echo hello! > $(workspaces.workspace1.path)/message
+#                fi
+#          workspaces:
+#            - name: workspace1
+#              mountPath: /var/www/html1
+#            - name: workspace2
+#              mountPath: /var/www/html2
+#        workspaces:
+#          - name: workspace1
+#            workspace: pr-workspace
+#            subPath: html1
+#          - name: workspace2
+#            workspace: pr-workspace
+#            subPath: html2

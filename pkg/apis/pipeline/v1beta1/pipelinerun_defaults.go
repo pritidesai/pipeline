@@ -22,8 +22,16 @@ import (
 
 	"github.com/tektoncd/pipeline/pkg/apis/config"
 	pod "github.com/tektoncd/pipeline/pkg/apis/pipeline/pod"
+	"github.com/tektoncd/pipeline/pkg/substitution"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
+)
+
+const (
+	ContextPrefix          = "context"
+	PipelineRunPrefix      = "pipelineRun"
+	ContextPipelineRunName = ContextPrefix + "." + PipelineRunPrefix + "." + "name"
+	ContextPipelineRunUid  = ContextPrefix + "." + PipelineRunPrefix + "." + "uid"
 )
 
 var _ apis.Defaultable = (*PipelineRun)(nil)
@@ -31,6 +39,15 @@ var _ apis.Defaultable = (*PipelineRun)(nil)
 // SetDefaults implements apis.Defaultable
 func (pr *PipelineRun) SetDefaults(ctx context.Context) {
 	pr.Spec.SetDefaults(ctx)
+
+	// if spec has a reference to either pipelineRun name or uid in workspaces, substitute subPath with the actual values
+	for i := range pr.Spec.Workspaces {
+		replacements := map[string]string{
+			ContextPipelineRunName: pr.ObjectMeta.Name,
+			ContextPipelineRunUid:  string(pr.ObjectMeta.UID),
+		}
+		pr.Spec.Workspaces[i].SubPath = substitution.ApplyReplacements(pr.Spec.Workspaces[i].SubPath, replacements)
+	}
 }
 
 // SetDefaults implements apis.Defaultable

@@ -131,5 +131,6 @@ spec:
       - key: brownies
         path: recipe.txt
   - name: shared-data
+    subPath: only/for/this/run/
     persistentVolumeClaim:
       claimName: shared-task-storage

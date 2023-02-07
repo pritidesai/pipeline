@@ -7,11 +7,18 @@ spec:
     steps:
       - name: list-files
         image: ubuntu
-        script: ls $(workspaces.read-allowed.path)
+        script: |
+          #!/usr/bin/env bash
+          echo $(workspaces.read-allowed.path)
+          ls /hello/
+          ls $(workspaces.read-allowed.path)/hello
+          ls /workspace/hello
     workspaces:
       - name: read-allowed
+        mountPath: /mypath/hello/
   workspaces:
     - name: read-allowed
+      subPath: hello
       volumeClaimTemplate:
         metadata:
           name: pvc

@@ -21,6 +21,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
+	"github.com/tektoncd/pipeline/pkg/substitution"
 	"path/filepath"
 	"reflect"
 	"strconv"
@@ -1089,16 +1091,28 @@ func getTaskrunWorkspaces(ctx context.Context, pr *v1beta1.PipelineRun, rpt *res
 			}
 		}
 	}
+	r := resources.GetContextReplacements(pr.Name, pr)
+	spew.Dump(r)
+	spew.Dump(pr.UID)
+	for j := range workspaces {
+		workspaces[j].SubPath = substitution.ApplyReplacements(workspaces[j].SubPath, r)
+	}
+	spew.Dump(workspaces)
 	return workspaces, pipelinePVCWorkspaceName, nil
 }
 
 // taskWorkspaceByWorkspaceVolumeSource is returning the WorkspaceBinding with the TaskRun specified name.
 // If the volume source is a volumeClaimTemplate, the template is applied and passed to TaskRun as a persistentVolumeClaim
 func taskWorkspaceByWorkspaceVolumeSource(wb v1beta1.WorkspaceBinding, taskWorkspaceName string, pipelineTaskSubPath string, owner metav1.OwnerReference) v1beta1.WorkspaceBinding {
+	spew.Dump("*****")
+	spew.Dump(wb.SubPath)
+	spew.Dump(pipelineTaskSubPath)
+	spew.Dump("******")
 	if wb.VolumeClaimTemplate == nil {
 		binding := *wb.DeepCopy()
 		binding.Name = taskWorkspaceName
 		binding.SubPath = combinedSubPath(wb.SubPath, pipelineTaskSubPath)
+		spew.Dump(binding.SubPath)
 		return binding
 	}
 
