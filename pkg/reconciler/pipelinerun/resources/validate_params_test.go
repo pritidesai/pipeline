@@ -492,12 +492,7 @@ func TestValidateParamArrayIndex_valid(t *testing.T) {
 		tt := tt // capture range variable
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			run := &v1beta1.PipelineRun{
-				Spec: v1beta1.PipelineRunSpec{
-					Params: tt.params,
-				},
-			}
-			err := ValidateParamArrayIndex(ctx, &tt.original, run)
+			err := ValidateParamArrayIndex(ctx, &tt.original, tt.params)
 			if err != nil {
 				t.Errorf("ValidateParamArrayIndex() got err %s", err)
 			}
@@ -703,12 +698,7 @@ func TestValidateParamArrayIndex_invalid(t *testing.T) {
 		tt := tt // capture range variable
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			run := &v1beta1.PipelineRun{
-				Spec: v1beta1.PipelineRunSpec{
-					Params: tt.params,
-				},
-			}
-			err := ValidateParamArrayIndex(ctx, &tt.original, run)
+			err := ValidateParamArrayIndex(ctx, &tt.original, tt.params)
 			if d := cmp.Diff(tt.expected.Error(), err.Error()); d != "" {
 				t.Errorf("ValidateParamArrayIndex() errors diff %s", diff.PrintWantGot(d))
 			}
