@@ -507,7 +507,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1beta1.PipelineRun, get
 	}
 
 	// Ensure that the array reference is not out of bound
-	if err := resources.ValidateParamArrayIndex(ctx, pipelineSpec, pr.Spec.Params); err != nil {
+	if err := pipelineSpec.ValidateParamArrayIndex(ctx, pr.Spec.Params); err != nil {
 		// This Run has failed, so we need to mark it as failed and stop reconciling it
 		pr.Status.MarkFailed(ReasonObjectParameterMissKeys,
 			"PipelineRun %s/%s parameters is missing object keys required by Pipeline %s/%s's parameters: %s",

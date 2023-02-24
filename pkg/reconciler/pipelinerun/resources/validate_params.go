@@ -17,13 +17,10 @@ limitations under the License.
 package resources
 
 import (
-	"context"
 	"fmt"
 
-	"github.com/tektoncd/pipeline/pkg/apis/config"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	"github.com/tektoncd/pipeline/pkg/list"
-	"github.com/tektoncd/pipeline/pkg/reconciler/internal/paramvalidation"
 	"github.com/tektoncd/pipeline/pkg/reconciler/taskrun"
 )
 
@@ -86,62 +83,4 @@ func ValidateObjectParamRequiredKeys(pipelineParameters []v1beta1.ParamSpec, pip
 	}
 
 	return nil
-}
-
-// ValidateParamArrayIndex validates if the param reference to an array param is out of bound.
-// error is returned when the array indexing reference is out of bound of the array param
-// e.g. if a param reference of $(params.array-param[2]) and the array param is of length 2.
-func ValidateParamArrayIndex(ctx context.Context, pipelineSpec *v1beta1.PipelineSpec, prParams []v1beta1.Param) error {
-	if !config.CheckAlphaOrBetaAPIFields(ctx) {
-		return nil
-	}
-
-	// Collect all array params lengths
-	arrayParamsLengths := paramvalidation.ExtractParamArrayLengths(pipelineSpec.Params, prParams)
-
-	paramsRefs := []string{}
-	for i := range pipelineSpec.Tasks {
-		paramsRefs = append(paramsRefs, extractParamValuesFromParams(pipelineSpec.Tasks[i].Params)...)
-		if pipelineSpec.Tasks[i].IsMatrixed() {
-			paramsRefs = append(paramsRefs, extractParamValuesFromParams(pipelineSpec.Tasks[i].Matrix.Params)...)
-		}
-		for j := range pipelineSpec.Tasks[i].Workspaces {
-			paramsRefs = append(paramsRefs, pipelineSpec.Tasks[i].Workspaces[j].SubPath)
-		}
-		for _, wes := range pipelineSpec.Tasks[i].WhenExpressions {
-			paramsRefs = append(paramsRefs, wes.Input)
-			paramsRefs = append(paramsRefs, wes.Values...)
-		}
-	}
-
-	for i := range pipelineSpec.Finally {
-		paramsRefs = append(paramsRefs, extractParamValuesFromParams(pipelineSpec.Finally[i].Params)...)
-		if pipelineSpec.Finally[i].IsMatrixed() {
-			paramsRefs = append(paramsRefs, extractParamValuesFromParams(pipelineSpec.Finally[i].Matrix.Params)...)
-		}
-		for _, wes := range pipelineSpec.Finally[i].WhenExpressions {
-			paramsRefs = append(paramsRefs, wes.Values...)
-		}
-	}
-
-	// extract all array indexing references, for example []{"$(params.array-params[1])"}
-	arrayIndexParamRefs := []string{}
-	for _, p := range paramsRefs {
-		arrayIndexParamRefs = append(arrayIndexParamRefs, paramvalidation.ExtractArrayIndexingParamRefs(p)...)
-	}
-
-	return paramvalidation.ValidateOutofBoundArrayParams(arrayIndexParamRefs, arrayParamsLengths)
-}
-
-// extractParamValuesFromParams get all param values from params
-func extractParamValuesFromParams(params []v1beta1.Param) []string {
-	ps := []string{}
-	for i := range params {
-		ps = append(ps, params[i].Value.StringVal)
-		ps = append(ps, params[i].Value.ArrayVal...)
-		for _, v := range params[i].Value.ObjectVal {
-			ps = append(ps, v)
-		}
-	}
-	return ps
 }

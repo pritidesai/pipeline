@@ -523,3 +523,48 @@ func validateResultsFromMatrixedPipelineTasksNotConsumed(tasks []PipelineTask, f
 	}
 	return errs
 }
+
+// ValidateParamArrayIndex validates if the param reference to an array param is out of bound.
+// error is returned when the array indexing reference is out of bound of the array param
+// e.g. if a param reference of $(params.array-param[2]) and the array param is of length 2.
+func (pipelineSpec *PipelineSpec) ValidateParamArrayIndex(ctx context.Context, params []Param) error {
+	if !config.CheckAlphaOrBetaAPIFields(ctx) {
+		return nil
+	}
+
+	// Collect all array params lengths
+	arrayParamsLengths := extractParamArrayLengths(pipelineSpec.Params, params)
+
+	paramsRefs := []string{}
+	for i := range pipelineSpec.Tasks {
+		paramsRefs = append(paramsRefs, extractParamValuesFromParams(pipelineSpec.Tasks[i].Params)...)
+		if pipelineSpec.Tasks[i].IsMatrixed() {
+			paramsRefs = append(paramsRefs, extractParamValuesFromParams(pipelineSpec.Tasks[i].Matrix.Params)...)
+		}
+		for j := range pipelineSpec.Tasks[i].Workspaces {
+			paramsRefs = append(paramsRefs, pipelineSpec.Tasks[i].Workspaces[j].SubPath)
+		}
+		for _, wes := range pipelineSpec.Tasks[i].WhenExpressions {
+			paramsRefs = append(paramsRefs, wes.Input)
+			paramsRefs = append(paramsRefs, wes.Values...)
+		}
+	}
+
+	for i := range pipelineSpec.Finally {
+		paramsRefs = append(paramsRefs, extractParamValuesFromParams(pipelineSpec.Finally[i].Params)...)
+		if pipelineSpec.Finally[i].IsMatrixed() {
+			paramsRefs = append(paramsRefs, extractParamValuesFromParams(pipelineSpec.Finally[i].Matrix.Params)...)
+		}
+		for _, wes := range pipelineSpec.Finally[i].WhenExpressions {
+			paramsRefs = append(paramsRefs, wes.Values...)
+		}
+	}
+
+	// extract all array indexing references, for example []{"$(params.array-params[1])"}
+	arrayIndexParamRefs := []string{}
+	for _, p := range paramsRefs {
+		arrayIndexParamRefs = append(arrayIndexParamRefs, extractArrayIndexingParamRefs(p)...)
+	}
+
+	return validateOutofBoundArrayParams(arrayIndexParamRefs, arrayParamsLengths)
+}

@@ -621,3 +621,36 @@ func validateTaskArraysIsolated(value, prefix string, arrayNames sets.String) *a
 func isParamRefs(s string) bool {
 	return strings.HasPrefix(s, "$("+ParamsPrefix)
 }
+
+// ValidateParamArrayIndex validates if the param reference to an array param is out of bound.
+// error is returned when the array indexing reference is out of bound of the array param
+// e.g. if a param reference of $(params.array-param[2]) and the array param is of length 2.
+// - `trParams` are params from taskrun.
+// - `taskSpec` contains params declarations.
+func (taskSpec *TaskSpec) ValidateParamArrayIndex(ctx context.Context, params []Param) error {
+	cfg := config.FromContextOrDefaults(ctx)
+	if cfg.FeatureFlags.EnableAPIFields != config.AlphaAPIFields {
+		return nil
+	}
+
+	// Collect all array params lengths
+	arrayParamsLengths := extractParamArrayLengths(taskSpec.Params, params)
+
+	// collect all the possible places to use param references
+	paramsRefs := []string{}
+	paramsRefs = append(paramsRefs, extractParamRefsFromSteps(taskSpec.Steps)...)
+	paramsRefs = append(paramsRefs, extractParamRefsFromStepTemplate(taskSpec.StepTemplate)...)
+	paramsRefs = append(paramsRefs, extractParamRefsFromVolumes(taskSpec.Volumes)...)
+	for _, v := range taskSpec.Workspaces {
+		paramsRefs = append(paramsRefs, v.MountPath)
+	}
+	paramsRefs = append(paramsRefs, extractParamRefsFromSidecars(taskSpec.Sidecars)...)
+
+	// extract all array indexing references, for example []{"$(params.array-params[1])"}
+	arrayIndexParamRefs := []string{}
+	for _, p := range paramsRefs {
+		arrayIndexParamRefs = append(arrayIndexParamRefs, extractArrayIndexingParamRefs(p)...)
+	}
+
+	return validateOutofBoundArrayParams(arrayIndexParamRefs, arrayParamsLengths)
+}

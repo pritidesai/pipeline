@@ -22,16 +22,13 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/tektoncd/pipeline/pkg/apis/config"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	resourcev1alpha1 "github.com/tektoncd/pipeline/pkg/apis/resource/v1alpha1"
 	"github.com/tektoncd/pipeline/pkg/list"
-	"github.com/tektoncd/pipeline/pkg/reconciler/internal/paramvalidation"
 	"github.com/tektoncd/pipeline/pkg/reconciler/taskrun/resources"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/hashicorp/go-multierror"
-	corev1 "k8s.io/api/core/v1"
 )
 
 func validateResources(requiredResources []v1beta1.TaskResource, providedResources map[string]*resourcev1alpha1.PipelineResource) error {
@@ -364,160 +361,4 @@ func missingKeysofObjectResults(tr *v1beta1.TaskRun, specResults []v1beta1.TaskR
 		}
 	}
 	return findMissingKeys(neededKeys, providedKeys)
-}
-
-// validateParamArrayIndex validates if the param reference to an array param is out of bound.
-// error is returned when the array indexing reference is out of bound of the array param
-// e.g. if a param reference of $(params.array-param[2]) and the array param is of length 2.
-// - `trParams` are params from taskrun.
-// - `taskSpec` contains params declarations.
-func validateParamArrayIndex(ctx context.Context, trParams []v1beta1.Param, taskSpec *v1beta1.TaskSpec) error {
-	cfg := config.FromContextOrDefaults(ctx)
-	if cfg.FeatureFlags.EnableAPIFields != config.AlphaAPIFields {
-		return nil
-	}
-
-	// Collect all array params lengths
-	arrayParamsLengths := paramvalidation.ExtractParamArrayLengths(taskSpec.Params, trParams)
-
-	// collect all the possible places to use param references
-	paramsRefs := []string{}
-	paramsRefs = append(paramsRefs, extractParamRefsFromSteps(taskSpec.Steps)...)
-	paramsRefs = append(paramsRefs, extractParamRefsFromStepTemplate(taskSpec.StepTemplate)...)
-	paramsRefs = append(paramsRefs, extractParamRefsFromVolumes(taskSpec.Volumes)...)
-	for _, v := range taskSpec.Workspaces {
-		paramsRefs = append(paramsRefs, v.MountPath)
-	}
-	paramsRefs = append(paramsRefs, extractParamRefsFromSidecars(taskSpec.Sidecars)...)
-
-	// extract all array indexing references, for example []{"$(params.array-params[1])"}
-	arrayIndexParamRefs := []string{}
-	for _, p := range paramsRefs {
-		arrayIndexParamRefs = append(arrayIndexParamRefs, paramvalidation.ExtractArrayIndexingParamRefs(p)...)
-	}
-
-	return paramvalidation.ValidateOutofBoundArrayParams(arrayIndexParamRefs, arrayParamsLengths)
-}
-
-// extractParamRefsFromSteps get all array indexing references from steps
-func extractParamRefsFromSteps(steps []v1beta1.Step) []string {
-	paramsRefs := []string{}
-	for _, step := range steps {
-		paramsRefs = append(paramsRefs, step.Script)
-		container := step.ToK8sContainer()
-		paramsRefs = append(paramsRefs, extractParamRefsFromContainer(container)...)
-	}
-	return paramsRefs
-}
-
-// extractParamRefsFromStepTemplate get all array indexing references from StepsTemplate
-func extractParamRefsFromStepTemplate(stepTemplate *v1beta1.StepTemplate) []string {
-	if stepTemplate == nil {
-		return nil
-	}
-	container := stepTemplate.ToK8sContainer()
-	return extractParamRefsFromContainer(container)
-}
-
-// extractParamRefsFromSidecars get all array indexing references from sidecars
-func extractParamRefsFromSidecars(sidecars []v1beta1.Sidecar) []string {
-	paramsRefs := []string{}
-	for _, s := range sidecars {
-		paramsRefs = append(paramsRefs, s.Script)
-		container := s.ToK8sContainer()
-		paramsRefs = append(paramsRefs, extractParamRefsFromContainer(container)...)
-	}
-	return paramsRefs
-}
-
-// extractParamRefsFromVolumes get all array indexing references from volumes
-func extractParamRefsFromVolumes(volumes []corev1.Volume) []string {
-	paramsRefs := []string{}
-	for i, v := range volumes {
-		paramsRefs = append(paramsRefs, v.Name)
-		if v.VolumeSource.ConfigMap != nil {
-			paramsRefs = append(paramsRefs, v.ConfigMap.Name)
-			for _, item := range v.ConfigMap.Items {
-				paramsRefs = append(paramsRefs, item.Key)
-				paramsRefs = append(paramsRefs, item.Path)
-			}
-		}
-		if v.VolumeSource.Secret != nil {
-			paramsRefs = append(paramsRefs, v.Secret.SecretName)
-			for _, item := range v.Secret.Items {
-				paramsRefs = append(paramsRefs, item.Key)
-				paramsRefs = append(paramsRefs, item.Path)
-			}
-		}
-		if v.PersistentVolumeClaim != nil {
-			paramsRefs = append(paramsRefs, v.PersistentVolumeClaim.ClaimName)
-		}
-		if v.Projected != nil {
-			for _, s := range volumes[i].Projected.Sources {
-				if s.ConfigMap != nil {
-					paramsRefs = append(paramsRefs, s.ConfigMap.Name)
-				}
-				if s.Secret != nil {
-					paramsRefs = append(paramsRefs, s.Secret.Name)
-				}
-				if s.ServiceAccountToken != nil {
-					paramsRefs = append(paramsRefs, s.ServiceAccountToken.Audience)
-				}
-			}
-		}
-		if v.CSI != nil {
-			if v.CSI.NodePublishSecretRef != nil {
-				paramsRefs = append(paramsRefs, v.CSI.NodePublishSecretRef.Name)
-			}
-			if v.CSI.VolumeAttributes != nil {
-				for _, value := range v.CSI.VolumeAttributes {
-					paramsRefs = append(paramsRefs, value)
-				}
-			}
-		}
-	}
-	return paramsRefs
-}
-
-// extractParamRefsFromContainer get all array indexing references from container
-func extractParamRefsFromContainer(c *corev1.Container) []string {
-	paramsRefs := []string{}
-	paramsRefs = append(paramsRefs, c.Name)
-	paramsRefs = append(paramsRefs, c.Image)
-	paramsRefs = append(paramsRefs, string(c.ImagePullPolicy))
-	paramsRefs = append(paramsRefs, c.Args...)
-
-	for ie, e := range c.Env {
-		paramsRefs = append(paramsRefs, e.Value)
-		if c.Env[ie].ValueFrom != nil {
-			if e.ValueFrom.SecretKeyRef != nil {
-				paramsRefs = append(paramsRefs, e.ValueFrom.SecretKeyRef.LocalObjectReference.Name)
-				paramsRefs = append(paramsRefs, e.ValueFrom.SecretKeyRef.Key)
-			}
-			if e.ValueFrom.ConfigMapKeyRef != nil {
-				paramsRefs = append(paramsRefs, e.ValueFrom.ConfigMapKeyRef.LocalObjectReference.Name)
-				paramsRefs = append(paramsRefs, e.ValueFrom.ConfigMapKeyRef.Key)
-			}
-		}
-	}
-
-	for _, e := range c.EnvFrom {
-		paramsRefs = append(paramsRefs, e.Prefix)
-		if e.ConfigMapRef != nil {
-			paramsRefs = append(paramsRefs, e.ConfigMapRef.LocalObjectReference.Name)
-		}
-		if e.SecretRef != nil {
-			paramsRefs = append(paramsRefs, e.SecretRef.LocalObjectReference.Name)
-		}
-	}
-
-	paramsRefs = append(paramsRefs, c.WorkingDir)
-	paramsRefs = append(paramsRefs, c.Command...)
-
-	for _, v := range c.VolumeMounts {
-		paramsRefs = append(paramsRefs, v.Name)
-		paramsRefs = append(paramsRefs, v.MountPath)
-		paramsRefs = append(paramsRefs, v.SubPath)
-	}
-	return paramsRefs
 }
