@@ -56,6 +56,8 @@ type ParamSpec struct {
 	Default *ParamValue `json:"default,omitempty"`
 }
 
+type ParamSpecs []ParamSpec
+
 // PropertySpec defines the struct for object keys
 type PropertySpec struct {
 	Type ParamType `json:"type,omitempty"`
@@ -111,38 +113,48 @@ type Param struct {
 	Value ParamValue `json:"value"`
 }
 
+type Params []Param
+
 // extractParamValuesFromParams get all param values from params
-func extractParamValuesFromParams(params []Param) []string {
-	ps := []string{}
-	for i := range params {
-		ps = append(ps, params[i].Value.StringVal)
-		ps = append(ps, params[i].Value.ArrayVal...)
-		for _, v := range params[i].Value.ObjectVal {
-			ps = append(ps, v)
+func (ps Params) extractParamValuesFromParams() []string {
+	pvs := []string{}
+	for i := range ps {
+		pvs = append(pvs, ps[i].Value.StringVal)
+		pvs = append(pvs, ps[i].Value.ArrayVal...)
+		for _, v := range ps[i].Value.ObjectVal {
+			pvs = append(pvs, v)
 		}
 	}
-	return ps
+	return pvs
 }
 
 // extractParamArrayLengths extract and return the lengths of all array params
 // Example of returned value: {"a-array-params": 2,"b-array-params": 2 }
-func extractParamArrayLengths(defaults []ParamSpec, params []Param) map[string]int {
+func (ps Params) extractParamArrayLengths() map[string]int {
+	// Collect all array params
+	arrayParamsLengths := make(map[string]int)
+
+	// Collect array params lengths from params
+	for _, p := range ps {
+		if p.Value.Type == ParamTypeArray {
+			arrayParamsLengths[p.Name] = len(p.Value.ArrayVal)
+		}
+	}
+	return arrayParamsLengths
+}
+
+// extractParamArrayLengths extract and return the lengths of all array params
+// Example of returned value: {"a-array-params": 2,"b-array-params": 2 }
+func (ps ParamSpecs) extractParamArrayLengths() map[string]int {
 	// Collect all array params
 	arrayParamsLengths := make(map[string]int)
 
 	// Collect array params lengths from defaults
-	for _, p := range defaults {
+	for _, p := range ps {
 		if p.Default != nil {
 			if p.Default.Type == ParamTypeArray {
 				arrayParamsLengths[p.Name] = len(p.Default.ArrayVal)
 			}
-		}
-	}
-
-	// Collect array params lengths from params
-	for _, p := range params {
-		if p.Value.Type == ParamTypeArray {
-			arrayParamsLengths[p.Name] = len(p.Value.ArrayVal)
 		}
 	}
 	return arrayParamsLengths
@@ -152,7 +164,9 @@ func extractParamArrayLengths(defaults []ParamSpec, params []Param) map[string]i
 // example of arrayIndexingParams: ["$(params.a-array-param[1])", "$(params.b-array-param[2])"]
 // example of arrayParamsLengths: {"a-array-params": 2,"b-array-params": 2 }
 func validateOutofBoundArrayParams(arrayIndexingParams []string, arrayParamsLengths map[string]int) error {
-	outofBoundParams := sets.String{}
+	var outofBoundParams map[string]int
+	var paramsLength map[string]int
+
 	for _, val := range arrayIndexingParams {
 		indexString := substitution.ExtractIndexString(val)
 		idx, _ := substitution.ExtractIndex(indexString)
@@ -162,12 +176,17 @@ func validateOutofBoundArrayParams(arrayIndexingParams []string, arrayParamsLeng
 
 		if paramLength, ok := arrayParamsLengths[paramName[0]]; ok {
 			if idx >= paramLength {
-				outofBoundParams.Insert(val)
+				outofBoundParams[paramName[0]] = idx
+				paramsLength[paramName[0]] = paramLength
 			}
 		}
 	}
-	if outofBoundParams.Len() > 0 {
-		return fmt.Errorf("non-existent param references:%v", outofBoundParams.List())
+	if len(outofBoundParams) > 0 {
+		var e string
+		for p, i := range outofBoundParams {
+			e += fmt.Sprintf("the array index \"%d\" in parameter \"%v\" is out of bound. The array length is \"%d\".", i, p, paramsLength[p])
+		}
+		return fmt.Errorf("invalid param references:%v", e)
 	}
 	return nil
 }

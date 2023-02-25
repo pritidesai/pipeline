@@ -19,6 +19,7 @@ package v1beta1
 import (
 	"context"
 	"fmt"
+	"golang.org/x/exp/maps"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -627,14 +628,15 @@ func isParamRefs(s string) bool {
 // e.g. if a param reference of $(params.array-param[2]) and the array param is of length 2.
 // - `trParams` are params from taskrun.
 // - `taskSpec` contains params declarations.
-func (taskSpec *TaskSpec) ValidateParamArrayIndex(ctx context.Context, params []Param) error {
+func (taskSpec *TaskSpec) ValidateParamArrayIndex(ctx context.Context, params Params) error {
 	cfg := config.FromContextOrDefaults(ctx)
 	if cfg.FeatureFlags.EnableAPIFields != config.AlphaAPIFields {
 		return nil
 	}
 
 	// Collect all array params lengths
-	arrayParamsLengths := extractParamArrayLengths(taskSpec.Params, params)
+	arrayParamsLengths := taskSpec.Params.extractParamArrayLengths()
+	maps.Copy(arrayParamsLengths, params.extractParamArrayLengths())
 
 	// collect all the possible places to use param references
 	paramsRefs := []string{}

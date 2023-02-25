@@ -26,6 +26,7 @@ import (
 	"github.com/tektoncd/pipeline/pkg/list"
 	"github.com/tektoncd/pipeline/pkg/reconciler/pipeline/dag"
 	"github.com/tektoncd/pipeline/pkg/substitution"
+	"golang.org/x/exp/maps"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -527,19 +528,20 @@ func validateResultsFromMatrixedPipelineTasksNotConsumed(tasks []PipelineTask, f
 // ValidateParamArrayIndex validates if the param reference to an array param is out of bound.
 // error is returned when the array indexing reference is out of bound of the array param
 // e.g. if a param reference of $(params.array-param[2]) and the array param is of length 2.
-func (pipelineSpec *PipelineSpec) ValidateParamArrayIndex(ctx context.Context, params []Param) error {
+func (pipelineSpec *PipelineSpec) ValidateParamArrayIndex(ctx context.Context, params Params) error {
 	if !config.CheckAlphaOrBetaAPIFields(ctx) {
 		return nil
 	}
 
 	// Collect all array params lengths
-	arrayParamsLengths := extractParamArrayLengths(pipelineSpec.Params, params)
+	arrayParamsLengths := pipelineSpec.Params.extractParamArrayLengths()
+	maps.Copy(arrayParamsLengths, params.extractParamArrayLengths())
 
 	paramsRefs := []string{}
 	for i := range pipelineSpec.Tasks {
-		paramsRefs = append(paramsRefs, extractParamValuesFromParams(pipelineSpec.Tasks[i].Params)...)
+		paramsRefs = append(paramsRefs, pipelineSpec.Tasks[i].Params.extractParamValuesFromParams()...)
 		if pipelineSpec.Tasks[i].IsMatrixed() {
-			paramsRefs = append(paramsRefs, extractParamValuesFromParams(pipelineSpec.Tasks[i].Matrix.Params)...)
+			paramsRefs = append(paramsRefs, pipelineSpec.Tasks[i].Matrix.Params.extractParamValuesFromParams()...)
 		}
 		for j := range pipelineSpec.Tasks[i].Workspaces {
 			paramsRefs = append(paramsRefs, pipelineSpec.Tasks[i].Workspaces[j].SubPath)
@@ -551,9 +553,9 @@ func (pipelineSpec *PipelineSpec) ValidateParamArrayIndex(ctx context.Context, p
 	}
 
 	for i := range pipelineSpec.Finally {
-		paramsRefs = append(paramsRefs, extractParamValuesFromParams(pipelineSpec.Finally[i].Params)...)
+		paramsRefs = append(paramsRefs, pipelineSpec.Finally[i].Params.extractParamValuesFromParams()...)
 		if pipelineSpec.Finally[i].IsMatrixed() {
-			paramsRefs = append(paramsRefs, extractParamValuesFromParams(pipelineSpec.Finally[i].Matrix.Params)...)
+			paramsRefs = append(paramsRefs, pipelineSpec.Finally[i].Matrix.Params.extractParamValuesFromParams()...)
 		}
 		for _, wes := range pipelineSpec.Finally[i].WhenExpressions {
 			paramsRefs = append(paramsRefs, wes.Values...)

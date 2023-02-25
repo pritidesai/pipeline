@@ -51,7 +51,7 @@ func ValidateParamTypesMatching(p *v1beta1.PipelineSpec, pr *v1beta1.PipelineRun
 
 // ValidateRequiredParametersProvided validates that all the parameters expected by the Pipeline are provided by the PipelineRun.
 // Extra Parameters are allowed, the Pipeline will use the Parameters it needs and ignore the other Parameters.
-func ValidateRequiredParametersProvided(pipelineParameters *[]v1beta1.ParamSpec, pipelineRunParameters *[]v1beta1.Param) error {
+func ValidateRequiredParametersProvided(pipelineParameters *v1beta1.ParamSpecs, pipelineRunParameters *[]v1beta1.Param) error {
 	// Build a list of parameter names declared in pr.
 	var providedParams []string
 	for _, param := range *pipelineRunParameters {
