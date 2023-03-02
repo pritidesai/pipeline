@@ -139,6 +139,18 @@ func (ps Params) extractParamMapArrVals() map[string][]string {
 	return paramsMap
 }
 
+// extractParamMapStrVals creates a param map with the key: param.Name and
+// val: param.Value.StringVal
+func (ps Params) extractParamMapStrVals() map[string]string {
+	paramsMap := make(map[string]string)
+	for _, p := range ps {
+		if p.Value.Type == ParamTypeString {
+			paramsMap[p.Name] = p.Value.StringVal
+		}
+	}
+	return paramsMap
+}
+
 // Params is a list of Param
 type Params []Param
 

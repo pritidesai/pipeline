@@ -12,7 +12,9 @@ weight: 406
   - [Concurrency Control](#concurrency-control)
   - [Parameters](#parameters)
     - [Specifying both `params` and `matrix` in a `PipelineTask`](#specifying-both-params-and-matrix-in-a-pipelinetask)
-    - [Include](#Include)
+  - [Include](#Include)
+    - [Include specific combinations in the Matrix](#include-specific-combinations-in-the-matrix)
+    - [Define explicit combinations in the Matrix](#define-explicit-combinations-in-the-matrix)
   - [Context Variables](#context-variables)
   - [Results](#results)
     - [Specifying Results in a Matrix](#specifying-results-in-a-matrix)
@@ -158,6 +160,8 @@ spec:
 > It is still in a very early stage of development and is not yet fully functional.
 The `Include` section in the `Matrix` field exists, but is not yet functional.
 
+The `Include` section in the `Matrix` can be specified with or without `Params` section adding a specific combination of input values for `Matrix Parameters` or defining explicit combinations in the `Matrix` without `Params`.
+
 The `Matrix.Include` will take `Parameters` of type `"string"` only.
 
 ```yaml
@@ -171,6 +175,98 @@ The `Matrix.Include` will take `Parameters` of type `"string"` only.
                 value: "-cover -v"
   ...
 ```
+
+#### Include specific combinations in the Matrix
+
+In the example below, `Pipeline` will need to define a `Matrix` that will execute golang-test in three different linux flavors.
+
+While running on amd64 and ppc64le, golang-test should execute `go test github.com/tektoncd/pipeline/pkg/... -race -cover -v`.
+While running on linux/s390x, golang-test should execute `go test github.com/tektoncd/pipeline/pkg/... -cover -v`.
+
+```yaml
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: pipeline-to-build-and-test-go-project
+spec:
+  workspaces:
+    - name: shared-workspace
+  tasks:
+    - ...
+    - name: golang-test
+      taskRef:
+        name: golang-test
+      workspaces:
+        - name: source
+          workspace: shared-workspace
+      params:
+        - name: package
+          value: "github.com/tektoncd/pipeline"
+        - name: packages
+          value: "./pkg/..."
+      matrix:
+        params:
+          - name: GOARCH
+            value:
+              - "linux/amd64"
+              - "linux/ppc64le"
+              - "linux/s390x"
+        include:
+          - name: s390x-no-race
+            params:
+              - name: GOARCH
+                value: "linux/s390x"
+              - name: flags
+                value: "-cover -v"
+    - ...
+```
+
+The above `Matrix` specification will create three `TaskRuns`, one for each architecture in GOARCH ("linux/amd64", "linux/ppc64le", and "linux/s390x") and with default flags. Now, when a `TaskRun` is created for the GOARCH value of linux/s390x, an additional `Parameter` called flags with the value of `-cover -v` will be included in the taskRun.
+
+The `Matrix.Include` section can list params which does not exist in the matrix.params section. In this example specification, flags was not listed in `Matrix.Params`. At the same time, `Matrix.Include` section can list params which does exist in the `Matrix.Params` section.
+
+### Define explicit combinations in the Matrix
+
+In the example below, the user needs to specify explicit mapping between IMAGE and DOCKERFILE, such as:
+
+```yaml
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: pipeline-to-build-images-from-a-single-repo
+spec:
+  workspaces:
+    - name: shared-workspace
+  tasks:
+    - ...
+    - name: kaniko-build
+      taskRef:
+        name: kaniko
+      workspaces:
+        - name: source
+          workspace: shared-workspace
+      matrix:
+        include:
+          - name: build-1
+            params:
+              - name: IMAGE
+                value: "image-1"
+              - name: DOCKERFILE
+                value: "path/to/Dockerfile1"
+          - name: build-2
+            params:
+              - name: IMAGE
+                value: "image-2"
+              - name: DOCKERFILE
+                value: "path/to/Dockerfile2"
+          - name: build-3
+            params:
+              - name: IMAGE
+                value: "image-3"
+              - name: DOCKERFILE
+                value: "path/to/Dockerfile3"
+```
+This configuration allows users to take advantage of `Matrix` to fan out without having an auto-populated `Matrix`. `Matrix` with include section without `Params` section creates the number of `TaskRuns` specified in the `Include` section with the specified `Parameters`.
 
 ### Context Variables
 
