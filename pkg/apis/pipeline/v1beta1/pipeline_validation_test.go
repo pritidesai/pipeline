@@ -2141,7 +2141,7 @@ func TestValidatePipelineParameterVariables_Failure(t *testing.T) {
 		}},
 		expectedError: apis.FieldError{
 			Message: `params names must be unique, the same param: duplicate-param is defined multiple times at`,
-			Paths:   []string{"[0].params[1].name", "[0].params[2].name"},
+			Paths:   []string{"[0].params.params[1].name, [0].params.params[2].name"},
 		},
 	}}
 	for _, tt := range tests {

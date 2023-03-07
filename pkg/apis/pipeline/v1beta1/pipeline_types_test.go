@@ -794,6 +794,21 @@ func TestPipelineTask_validateMatrix(t *testing.T) {
 		},
 		wantErrs: apis.ErrMultipleOneOf("matrix[foobar]", "params[foobar]"),
 	}, {
+		name: "duplicate parameters in matrix params",
+		pt: &PipelineTask{
+			Name: "task",
+			Matrix: &Matrix{
+				Params: []Param{{
+					Name: "foobar", Value: ParamValue{Type: ParamTypeArray, ArrayVal: []string{"foo", "bar"}},
+				}, {
+					Name: "foobar", Value: ParamValue{Type: ParamTypeArray, ArrayVal: []string{"foo-1", "bar-1"}},
+				}}},
+		},
+		wantErrs: &apis.FieldError{
+			Message: `params names must be unique, the same param: foobar is defined multiple times at`,
+			Paths:   []string{"matrix.params.params[1].name"},
+		},
+	}, {
 		name: "parameters unique in matrix and params",
 		pt: &PipelineTask{
 			Name: "task",

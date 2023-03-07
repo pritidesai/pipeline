@@ -138,6 +138,7 @@ func (m *Matrix) validateParamTypes() (errs *apis.FieldError) {
 			}
 		}
 		if m.hasParams() {
+			errs = errs.Also(m.Params.validateDuplicateParameters().ViaField("matrix.params"))
 			for _, param := range m.Params {
 				if param.Value.Type != ParamTypeArray {
 					errs = errs.Also(apis.ErrInvalidValue(fmt.Sprintf("parameters of type array only are allowed, but got param type %s", string(param.Value.Type)), "").ViaFieldKey("matrix.params", param.Name))

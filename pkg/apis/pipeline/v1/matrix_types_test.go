@@ -299,15 +299,6 @@ func TestPipelineTask_CountCombinations(t *testing.T) {
 			}}},
 		want: 2,
 	}, {
-		name: "combinations count is two from one duplicate parameter",
-		matrix: &Matrix{
-			Params: []Param{{
-				Name: "foo", Value: ParamValue{Type: ParamTypeArray, ArrayVal: []string{"foo", "bar"}},
-			}, {
-				Name: "foo", Value: ParamValue{Type: ParamTypeArray, ArrayVal: []string{"foo", "bar"}},
-			}}},
-		want: 2,
-	}, {
 		name: "combinations count is nine",
 		matrix: &Matrix{
 			Params: []Param{{
