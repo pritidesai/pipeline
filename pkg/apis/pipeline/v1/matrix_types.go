@@ -62,19 +62,57 @@ type Combinations []Combination
 // FanOut generates Combinations, which is a list of mapped Combination by fanning out matrix
 // Parameters including Matrix Include Parameters
 func (m *Matrix) FanOut() Combinations {
-	var combinations Combinations
-	// If only Matrix Include Parameters exists, generate and return explicit Combinations
+	var combinations, explicitCombinations Combinations
+	explicitCombinations = m.fanOutExplictCombinations()
 	if m.hasInclude() && !m.hasParams() {
-		return m.fanOutExplictCombinations()
+		return explicitCombinations
+	} else {
+		for _, parameter := range m.Params {
+			combinations = combinations.fanOut(parameter)
+		}
+		for _, paramCombination := range combinations {
+			for _, explicitCombination := range explicitCombinations {
+				if paramCombination.inCombination(explicitCombination) {
+					for k, v := range explicitCombination {
+						paramCombination[k] = v
+					}
+				}
+			}
+		}
+		for _, explicitCombination := range explicitCombinations {
+			if combinations.isIncludeNewCombination(explicitCombination) {
+				combinations = append(combinations, explicitCombination)
+			}
+		}
 	}
-	// Fan out Matrix Parameters
-	for _, parameter := range m.Params {
-		combinations = combinations.fanOut(parameter)
-	}
-	// Replace initial Combinations generated with Matrix Include Parameters
-	mappedMatrixIncludeParamsSlice := m.extractIncludeParams()
-	combinations = combinations.replaceCombinations(mappedMatrixIncludeParamsSlice)
 	return combinations
+}
+
+func (c Combination) inCombination(includeCombination Combination) bool {
+	for k, v := range includeCombination {
+		if _, ok := c[k]; ok {
+			if v != c[k] {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func (cs Combinations) isIncludeNewCombination(includeCombination map[string]string) bool {
+	if len(includeCombination) == 0 {
+		return false
+	}
+	for _, paramCombination := range cs {
+		for k, v := range includeCombination {
+			if _, ok := paramCombination[k]; ok {
+				if v == paramCombination[k] {
+					return false
+				}
+			}
+		}
+	}
+	return true
 }
 
 // ToParams transforms Combinations from a slice of map[string]string to a slice of Params
@@ -132,93 +170,6 @@ func (cs Combinations) distribute(param Param) Combinations {
 		}
 	}
 	return expandedCombinations
-}
-
-// replaceCombinations checks if any of the include Parameters are missing from the initial fanned out Combinations.
-// It will add any missing combinations to either the existing combination or generate a new combination if the
-// parameter value does not exist.
-func (cs Combinations) replaceCombinations(mappedMatrixIncludeParamsSlice []map[string]string) Combinations {
-	for _, matrixIncludeParamMap := range mappedMatrixIncludeParamsSlice {
-		hasMissingParamName := cs.hasMissingParamName(matrixIncludeParamMap)
-		hasMissingParamVal := cs.hasMissingParamVal(matrixIncludeParamMap)
-		for _, c := range cs {
-			hasAtLeastOneMatch := c.hasAtLeastOneMatch(matrixIncludeParamMap)
-			containsSubset := c.containsSubset(matrixIncludeParamMap)
-			if hasAtLeastOneMatch && containsSubset || hasMissingParamName {
-				// add the Matrix Include Parameters to the existing Combination
-				maps.Copy(c, matrixIncludeParamMap)
-			}
-		}
-
-		if hasMissingParamVal && !hasMissingParamName {
-			// generate a new Combination for the missing parameter value
-			if len(matrixIncludeParamMap) == 1 {
-				for name, val := range matrixIncludeParamMap {
-					cs = append(cs, map[string]string{name: val})
-				}
-			}
-		}
-	}
-	return cs
-}
-
-// hasAtLeastOneMatch returns true if at least one Matrix Include Parameter
-//
-//	name and value exist in a given Combination
-func (c Combination) hasAtLeastOneMatch(paramNamesMap map[string]string) bool {
-	for name, val := range c {
-		if paramVal, exist := paramNamesMap[name]; exist {
-			if val == paramVal {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-// containsSubset returns true if all parameter names and values that exist in Matrix
-// Include Parameters also exist in a given Combination
-func (c Combination) containsSubset(matrixIncludeParamMap map[string]string) bool {
-	matchedParamsCount := 0
-	missingParamsCount := 0
-	for name, val := range matrixIncludeParamMap {
-		if combinationVal, ok := c[name]; ok {
-			if combinationVal == val {
-				matchedParamsCount++
-			}
-		} else {
-			missingParamsCount++
-		}
-	}
-	return matchedParamsCount+missingParamsCount == len(matrixIncludeParamMap)
-}
-
-// hasMissingParamName returns true if a Matrix Include Parameter name is missing from
-// all Combinations
-func (cs Combinations) hasMissingParamName(matrixIncludeParamMap map[string]string) bool {
-	for _, c := range cs {
-		for name := range matrixIncludeParamMap {
-			if _, exist := c[name]; exist {
-				return false
-			}
-		}
-	}
-	return true
-}
-
-// hasMissingParamVal returns true if a Matrix Include Parameter value is missing from
-// all combinations
-func (cs Combinations) hasMissingParamVal(matrixIncludeParamMap map[string]string) bool {
-	for _, c := range cs {
-		for name, val := range matrixIncludeParamMap {
-			if cVal, exist := c[name]; exist {
-				if val == cVal {
-					return false
-				}
-			}
-		}
-	}
-	return true
 }
 
 // initializeCombinations generates a new Combination based on the first Parameter in the Matrix.
