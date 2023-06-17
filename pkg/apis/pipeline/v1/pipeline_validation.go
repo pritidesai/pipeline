@@ -295,9 +295,29 @@ func (pt PipelineTask) validateRefOrSpec() (errs *apis.FieldError) {
 	if pt.TaskRef != nil && pt.TaskSpec != nil {
 		errs = errs.Also(apis.ErrMultipleOneOf("taskRef", "taskSpec"))
 	}
-	// Check that one of TaskRef and TaskSpec is present
-	if pt.TaskRef == nil && pt.TaskSpec == nil {
-		errs = errs.Also(apis.ErrMissingOneOf("taskRef", "taskSpec"))
+	// can't have both taskRef and pipelineRef at the same time
+	if pt.TaskRef != nil && pt.PipelineRef != nil {
+		errs = errs.Also(apis.ErrMultipleOneOf("taskRef", "pipelineRef"))
+	}
+	// can't have both taskRef and pipelineSpec at the same time
+	if pt.TaskRef != nil && pt.PipelineSpec != nil {
+		errs = errs.Also(apis.ErrMultipleOneOf("taskRef", "pipelineSpec"))
+	}
+	// can't have both taskSpec and pipelineRef at the same time
+	if pt.TaskSpec != nil && pt.PipelineRef != nil {
+		errs = errs.Also(apis.ErrMultipleOneOf("taskSpec", "pipelineRef"))
+	}
+	// can't have both taskSpec and pipelineSpec at the same time
+	if pt.TaskSpec != nil && pt.PipelineSpec != nil {
+		errs = errs.Also(apis.ErrMultipleOneOf("taskSpec", "pipelineSpec"))
+	}
+	// can't have both pipelineRef and pipelineSpec at the same time
+	if pt.PipelineRef != nil && pt.PipelineSpec != nil {
+		errs = errs.Also(apis.ErrMultipleOneOf("pipelineRef", "pipelineSpec"))
+	}
+	// Check that one of TaskRef, TaskSpec, PipelineRef, and PipelineSpec is present
+	if pt.TaskRef == nil && pt.TaskSpec == nil && pt.PipelineRef == nil && pt.PipelineSpec == nil {
+		errs = errs.Also(apis.ErrMissingOneOf("taskRef", "taskSpec", "pipelineRef", "pipelineSpec"))
 	}
 	return errs
 }

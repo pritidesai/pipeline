@@ -1,0 +1,50 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: security-scans
+spec:
+  tasks:
+    - name: scorecards
+      taskSpec:
+        steps:
+          - image: alpine
+            name: step-1
+            script: |
+              echo "Generating scorecard report ..."
+    - name: codeql
+      taskSpec:
+        steps:
+          - image: alpine
+            name: step-1
+            script: |
+              echo "Generating codeql report ..."
+---
+
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: clone-scan-notify
+spec:
+  tasks:
+    - name: git-clone
+      taskSpec:
+        steps:
+          - image: alpine
+            name: step-1
+            script: |
+              echo "Cloning a repo to run security scans ..."
+    - name: security-scans
+      runAfter:
+        - git-clone
+      pipelineRef:
+        name: security-scans
+---
+
+
+apiVersion: tekon.dev/v1
+kind: PipelineRun
+metadata:
+  generateName: pipeline-in-pipeline-
+spec:
+  pipelineRef:
+    name: clone-scan-notify

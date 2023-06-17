@@ -206,6 +206,14 @@ type PipelineTask struct {
 	// Refer Go's ParseDuration documentation for expected format: https://golang.org/pkg/time/#ParseDuration
 	// +optional
 	Timeout *metav1.Duration `json:"timeout,omitempty"`
+
+	// PipelineRef is a reference to a pipeline definition.
+	// +optional
+	PipelineRef *PipelineRef `json:"pipelineRef,omitempty"`
+
+	// PipelineSpec is a specification of a pipeline
+	// +optional
+	PipelineSpec *PipelineSpec `json:"pipelineSpec,omitempty"`
 }
 
 // IsCustomTask checks whether an embedded TaskSpec is a Custom Task

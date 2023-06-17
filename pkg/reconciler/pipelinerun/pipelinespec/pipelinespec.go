@@ -27,9 +27,22 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// ResolvedPipeline contains the data that is needed to execute
+// the PipelineRun.
+type ResolvedPipeline struct {
+	PipelineName string
+	Kind         string
+	PipelineSpec *v1.PipelineSpec
+	// VerificationResult is the result from trusted resources if the feature is enabled.
+	VerificationResult *trustedresources.VerificationResult
+}
+
 // GetPipeline is a function used to retrieve Pipelines.
 // VerificationResult is the result from trusted resources if the feature is enabled.
 type GetPipeline func(context.Context, string) (*v1.Pipeline, *v1.RefSource, *trustedresources.VerificationResult, error)
+
+// GetPipelineRun is a function used to retrieve PipelineRun
+type GetPipelineRun func(string) (*v1.PipelineRun, error)
 
 // GetPipelineData will retrieve the Pipeline metadata and Spec associated with the
 // provided PipelineRun. This can come from a reference Pipeline or from the PipelineRun's

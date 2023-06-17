@@ -39,7 +39,8 @@ import (
 // looks up the pipeline. It uses as context a k8s client, tekton client, namespace, and service account name to return
 // the pipeline. It knows whether it needs to look in the cluster or in a remote location to fetch the reference.
 // OCI bundle and remote resolution pipelines will be verified by trusted resources if the feature is enabled
-func GetPipelineFunc(ctx context.Context, k8s kubernetes.Interface, tekton clientset.Interface, requester remoteresource.Requester, pipelineRun *v1.PipelineRun, verificationPolicies []*v1alpha1.VerificationPolicy) rprp.GetPipeline {
+func GetPipelineFunc(ctx context.Context, k8s kubernetes.Interface, tekton clientset.Interface, requester remoteresource.Requester,
+	pipelineRun *v1.PipelineRun, verificationPolicies []*v1alpha1.VerificationPolicy) rprp.GetPipeline {
 	pr := pipelineRun.Spec.PipelineRef
 	namespace := pipelineRun.Namespace
 	// if the spec is already in the status, do not try to fetch it again, just use it as source of truth.

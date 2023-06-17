@@ -336,7 +336,14 @@ func (c *Reconciler) resolvePipelineState(
 		if err != nil {
 			return nil, fmt.Errorf("failed to list VerificationPolicies from namespace %s with error %w", pr.Namespace, err)
 		}
-		fn := tresources.GetTaskFunc(ctx, c.KubeClientSet, c.PipelineClientSet, c.resolutionRequester, pr, task.TaskRef, trName, pr.Namespace, pr.Spec.TaskRunTemplate.ServiceAccountName, vp)
+		var fn tresources.GetTask
+		var pn rprp.GetPipeline
+		if task.TaskRef != nil || task.TaskSpec != nil {
+			fn = tresources.GetTaskFunc(ctx, c.KubeClientSet, c.PipelineClientSet, c.resolutionRequester, pr, task.TaskRef, trName, pr.Namespace, pr.Spec.TaskRunTemplate.ServiceAccountName, vp)
+		}
+		if task.PipelineRef != nil || task.PipelineSpec != nil {
+			pn = resources.GetPipelineFunc(ctx, c.KubeClientSet, c.PipelineClientSet, c.resolutionRequester, pr, vp)
+		}
 
 		getCustomRunFunc := func(name string) (*v1beta1.CustomRun, error) {
 			r, err := c.customRunLister.CustomRuns(pr.Namespace).Get(name)
@@ -349,6 +356,10 @@ func (c *Reconciler) resolvePipelineState(
 		resolvedTask, err := resources.ResolvePipelineTask(ctx,
 			*pr,
 			fn,
+			pn,
+			func(name string) (*v1.PipelineRun, error) {
+				return c.pipelineRunLister.PipelineRuns(pr.Namespace).Get(name)
+			},
 			func(name string) (*v1.TaskRun, error) {
 				return c.taskRunLister.TaskRuns(pr.Namespace).Get(name)
 			},
