@@ -2681,7 +2681,7 @@ func TestPipelineRunState_GetResultsFuncs(t *testing.T) {
 			"matrixed-task-run-3",
 		},
 		PipelineTask: &v1.PipelineTask{
-			Name: "matrixed-task",
+			Name: "matrixed-task-with-results-cache",
 			TaskRef: &v1.TaskRef{
 				Name:       "task",
 				Kind:       "Task",
@@ -2737,6 +2737,10 @@ func TestPipelineRunState_GetResultsFuncs(t *testing.T) {
 				}}},
 			},
 		}},
+		ResultsCache: map[string][]string{
+			"browser":  {"chrome", "safari"},
+			"platform": {"linux"},
+		},
 	}, {
 		CustomRunNames: []string{
 			"matrixed-run-0",
@@ -2845,6 +2849,15 @@ func TestPipelineRunState_GetResultsFuncs(t *testing.T) {
 			Value: *v1.NewStructuredValues("rab"),
 		}},
 		"successful-task-without-results-1": nil,
+		"matrixed-task-with-results-cache": {{
+			Name:  "browser",
+			Type:  "array",
+			Value: v1.ParamValue{Type: v1.ParamTypeArray, ArrayVal: []string{"chrome", "safari"}},
+		}, {
+			Name:  "platform",
+			Type:  "array",
+			Value: v1.ParamValue{Type: v1.ParamTypeArray, ArrayVal: []string{"linux"}},
+		}},
 	}
 	expectedRunResults := map[string][]v1beta1.CustomRunResult{
 		"successful-run-with-results-1": {{
@@ -2858,12 +2871,14 @@ func TestPipelineRunState_GetResultsFuncs(t *testing.T) {
 	}
 
 	actualTaskResults := state.GetTaskRunsResults()
-	if d := cmp.Diff(expectedTaskResults, actualTaskResults); d != "" {
+	if !cmp.Equal(expectedTaskResults, actualTaskResults) {
+		d := cmp.Diff(expectedTaskResults, actualTaskResults)
 		t.Errorf("Didn't get expected TaskRun results map: %s", diff.PrintWantGot(d))
 	}
 
 	actualRunResults := state.GetRunsResults()
-	if d := cmp.Diff(expectedRunResults, actualRunResults); d != "" {
+	if !cmp.Equal(expectedRunResults, actualRunResults) {
+		d := cmp.Diff(expectedRunResults, actualRunResults)
 		t.Errorf("Didn't get expected Run results map: %s", diff.PrintWantGot(d))
 	}
 }
@@ -3382,6 +3397,40 @@ func TestPipelineRunState_GetChildReferences(t *testing.T) {
 			}).GetChildReferences()
 			if d := cmp.Diff(tc.childRefs, childRefs); d != "" {
 				t.Errorf("Didn't get expected child references for %s: %s", tc.name, diff.PrintWantGot(d))
+			}
+		})
+	}
+}
+
+func TestConvertResultsMapToTaskRunResults(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		resultsMap map[string][]string
+		want       []v1.TaskRunResult
+	}{{
+		name: "results map",
+		resultsMap: map[string][]string{
+			"browser":  {"chrome", "safari"},
+			"platform": {"linux"},
+		},
+		want: []v1.TaskRunResult{{
+			Name:  "browser",
+			Type:  "array",
+			Value: v1.ParamValue{Type: v1.ParamTypeArray, ArrayVal: []string{"chrome", "safari"}},
+		}, {
+			Name:  "platform",
+			Type:  "array",
+			Value: v1.ParamValue{Type: v1.ParamTypeArray, ArrayVal: []string{"linux"}},
+		}},
+	}, {
+		name:       "empty results map",
+		resultsMap: map[string][]string{},
+		want:       nil,
+	}} {
+		t.Run(tc.name, func(t *testing.T) {
+			got := ConvertResultsMapToTaskRunResults(tc.resultsMap)
+			if d := cmp.Diff(got, tc.want); d != "" {
+				t.Errorf("TestConvertResultsMapToTaskRunResults() did not produce expected results for test %s: %s", tc.name, diff.PrintWantGot(d))
 			}
 		})
 	}
