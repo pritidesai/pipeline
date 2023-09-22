@@ -198,7 +198,7 @@ data:
 ```
 
 **Note:** The `_example` key in the provided [config-defaults.yaml](./../config/config-defaults.yaml)
-file lists the keys you can customize along with their default values.
+file lists the keys you can customize along with their default values. This is a test.
 
 ### Customizing the Pipelines Controller behavior
 
