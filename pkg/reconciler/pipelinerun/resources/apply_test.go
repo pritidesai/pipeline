@@ -1739,12 +1739,12 @@ func TestApplyParameters(t *testing.T) {
 		},
 	} {
 		tt := tt // capture range variable
-		ctx := context.Background()
-		if tt.wc != nil {
-			ctx = tt.wc(ctx)
-		}
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
+			ctx := context.Background()
+			if tt.wc != nil {
+				ctx = tt.wc(ctx)
+			}
 			run := &v1.PipelineRun{
 				Spec: v1.PipelineRunSpec{
 					Params: tt.params,

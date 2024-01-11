@@ -433,6 +433,12 @@ func schema_pkg_apis_pipeline_v1beta1_ChildStatusReference(ref common.ReferenceC
 							Format:      "",
 						},
 					},
+					"displayName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"pipelineTaskName": {
 						SchemaProps: spec.SchemaProps{
 							Description: "PipelineTaskName is the name of the PipelineTask this is referencing.",
@@ -1205,6 +1211,13 @@ func schema_pkg_apis_pipeline_v1beta1_Matrix(ref common.ReferenceCallback) commo
 				Description: "Matrix is used to fan out Tasks in a Pipeline",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"displayName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DisplayName is the display name of this pipelineTask within the context of a matrix. This display name may be used to populate pipelineTask name in Tekton Dashboard. And parameterized display name can work as a unique identifier for each matrix instance",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"params": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{

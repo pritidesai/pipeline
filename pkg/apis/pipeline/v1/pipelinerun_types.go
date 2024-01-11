@@ -485,6 +485,7 @@ type ChildStatusReference struct {
 	// Name is the name of the TaskRun or Run this is referencing.
 	Name string `json:"name,omitempty"`
 	// PipelineTaskName is the name of the PipelineTask this is referencing.
+	DisplayName      string `json:"displayName,omitempty"`
 	PipelineTaskName string `json:"pipelineTaskName,omitempty"`
 
 	// WhenExpressions is the list of checks guarding the execution of the PipelineTask

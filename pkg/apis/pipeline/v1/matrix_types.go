@@ -27,6 +27,11 @@ import (
 
 // Matrix is used to fan out Tasks in a Pipeline
 type Matrix struct {
+	// DisplayName is the display name of this pipelineTask within the context of a matrix.
+	// This display name may be used to populate pipelineTask name in Tekton Dashboard.
+	// And parameterized display name can work as a unique identifier for each matrix instance
+	// +optional
+	DisplayName string `json:"displayName,omitempty"`
 	// Params is a list of parameters used to fan out the pipelineTask
 	// Params takes only `Parameters` of type `"array"`
 	// Each array element is supplied to the `PipelineTask` by substituting `params` of type `"string"` in the underlying `Task`.

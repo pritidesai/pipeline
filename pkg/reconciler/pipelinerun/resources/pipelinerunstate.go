@@ -25,6 +25,7 @@ import (
 	v1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	"github.com/tektoncd/pipeline/pkg/reconciler/pipeline/dag"
+	"github.com/tektoncd/pipeline/pkg/substitution"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -253,7 +254,7 @@ func (t *ResolvedPipelineTask) getChildRefForRun(customRun *v1beta1.CustomRun) v
 }
 
 func (t *ResolvedPipelineTask) getChildRefForTaskRun(taskRun *v1.TaskRun) v1.ChildStatusReference {
-	return v1.ChildStatusReference{
+	c := v1.ChildStatusReference{
 		TypeMeta: runtime.TypeMeta{
 			APIVersion: v1.SchemeGroupVersion.String(),
 			Kind:       pipeline.TaskRunControllerName,
@@ -262,6 +263,33 @@ func (t *ResolvedPipelineTask) getChildRefForTaskRun(taskRun *v1.TaskRun) v1.Chi
 		PipelineTaskName: t.PipelineTask.Name,
 		WhenExpressions:  t.PipelineTask.When,
 	}
+	replacements := make(map[string]string)
+	for _, p := range taskRun.Spec.Params {
+		if p.Value.Type == "string" {
+			replacements[fmt.Sprintf("params.%s", p.Name)] = p.Value.StringVal
+		}
+	}
+	if t.PipelineTask.Matrix != nil {
+		if t.PipelineTask.Matrix.DisplayName != "" {
+			c.DisplayName = substitution.ApplyReplacements(t.PipelineTask.Matrix.DisplayName, replacements)
+		}
+		for _, i := range t.PipelineTask.Matrix.Include {
+			match := true
+			for _, ip := range i.Params {
+				if v, ok := replacements[ip.Name]; ok {
+					if ip.Value.Type == "string" && ip.Value.StringVal != v {
+						match = false
+						break
+					}
+				}
+			}
+			if match {
+				c.DisplayName = substitution.ApplyReplacements(i.Name, replacements)
+				break
+			}
+		}
+	}
+	return c
 }
 
 // getNextTasks returns a list of tasks which should be executed next i.e.

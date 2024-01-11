@@ -158,6 +158,10 @@
         "apiVersion": {
           "type": "string"
         },
+        "displayName": {
+          "description": "PipelineTaskName is the name of the PipelineTask this is referencing.",
+          "type": "string"
+        },
         "kind": {
           "type": "string"
         },
@@ -166,7 +170,6 @@
           "type": "string"
         },
         "pipelineTaskName": {
-          "description": "PipelineTaskName is the name of the PipelineTask this is referencing.",
           "type": "string"
         },
         "whenExpressions": {
@@ -290,6 +293,10 @@
       "description": "Matrix is used to fan out Tasks in a Pipeline",
       "type": "object",
       "properties": {
+        "displayName": {
+          "description": "DisplayName is the display name of this pipelineTask within the context of a matrix. This display name may be used to populate pipelineTask name in Tekton Dashboard. And parameterized display name can work as a unique identifier for each matrix instance",
+          "type": "string"
+        },
         "include": {
           "description": "Include is a list of IncludeParams which allows passing in specific combinations of Parameters into the Matrix.",
           "type": "array",

@@ -1333,13 +1333,23 @@ string
 </tr>
 <tr>
 <td>
-<code>pipelineTaskName</code><br/>
+<code>displayName</code><br/>
 <em>
 string
 </em>
 </td>
 <td>
 <p>PipelineTaskName is the name of the PipelineTask this is referencing.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>pipelineTaskName</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
 </td>
 </tr>
 <tr>
@@ -1512,6 +1522,20 @@ The names of the <code>params</code> must match the names of the <code>params</c
 </tr>
 </thead>
 <tbody>
+<tr>
+<td>
+<code>displayName</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>DisplayName is the display name of this pipelineTask within the context of a matrix.
+This display name may be used to populate pipelineTask name in Tekton Dashboard.
+And parameterized display name can work as a unique identifier for each matrix instance</p>
+</td>
+</tr>
 <tr>
 <td>
 <code>params</code><br/>
@@ -9503,6 +9527,16 @@ string
 </tr>
 <tr>
 <td>
+<code>displayName</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
 <code>pipelineTaskName</code><br/>
 <em>
 string
@@ -10138,6 +10172,20 @@ The names of the <code>params</code> must match the names of the <code>params</c
 </tr>
 </thead>
 <tbody>
+<tr>
+<td>
+<code>displayName</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>DisplayName is the display name of this pipelineTask within the context of a matrix.
+This display name may be used to populate pipelineTask name in Tekton Dashboard.
+And parameterized display name can work as a unique identifier for each matrix instance</p>
+</td>
+</tr>
 <tr>
 <td>
 <code>params</code><br/>
