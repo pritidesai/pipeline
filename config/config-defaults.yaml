@@ -87,6 +87,10 @@ data:
     # no default-resolver-type is specified by default
     default-resolver-type:
 
+    # default-imagepullbackoff-timeout contains the default number of minutes to wait
+    # before requeuing the TaskRun to retry
+    default-imagepullbackoff-timeout: "5"
+
     # default-container-resource-requirements allow users to update default resource requirements
     # to a init-containers and containers of a pods create by the controller
     # Onet: All the resource requirements are applied to init-containers and containers

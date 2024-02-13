@@ -171,9 +171,13 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, tr *v1.TaskRun) pkgrecon
 	}
 
 	// Check for Pod Failures
-	if failed, reason, message := c.checkPodFailed(tr); failed {
+	failed, reason, message, requeue := c.checkPodFailed(tr, ctx)
+	if failed {
 		err := c.failTaskRun(ctx, tr, reason, message)
 		return c.finishReconcileUpdateEmitEvents(ctx, tr, before, err)
+	}
+	if requeue != nil {
+		return requeue
 	}
 
 	// prepare fetches all required resources, validates them together with the
@@ -222,13 +226,19 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, tr *v1.TaskRun) pkgrecon
 	return nil
 }
 
-func (c *Reconciler) checkPodFailed(tr *v1.TaskRun) (bool, v1.TaskRunReason, string) {
+func (c *Reconciler) checkPodFailed(tr *v1.TaskRun, ctx context.Context) (bool, v1.TaskRunReason, string, pkgreconciler.Event) {
 	for _, step := range tr.Status.Steps {
 		if step.Waiting != nil {
 			if _, found := podFailureReasons[step.Waiting.Reason]; found {
+				if step.Waiting.Reason == "ImagePullBackOff" {
+					imagePullBackOffTimeOut := config.FromContextOrDefaults(ctx).Defaults.DefaultImagePullBackOffTimeout
+					if imagePullBackOffTimeOut > 0 {
+						return false, "", "", controller.NewRequeueAfter(time.Duration(imagePullBackOffTimeOut) * time.Second)
+					}
+				}
 				image := step.ImageID
 				message := fmt.Sprintf(`The step %q in TaskRun %q failed to pull the image %q. The pod errored with the message: "%s."`, step.Name, tr.Name, image, step.Waiting.Message)
-				return true, v1.TaskRunReasonImagePullFailed, message
+				return true, v1.TaskRunReasonImagePullFailed, message, nil
 			}
 		}
 	}
@@ -237,11 +247,11 @@ func (c *Reconciler) checkPodFailed(tr *v1.TaskRun) (bool, v1.TaskRunReason, str
 			if _, found := podFailureReasons[sidecar.Waiting.Reason]; found {
 				image := sidecar.ImageID
 				message := fmt.Sprintf(`The sidecar %q in TaskRun %q failed to pull the image %q. The pod errored with the message: "%s."`, sidecar.Name, tr.Name, image, sidecar.Waiting.Message)
-				return true, v1.TaskRunReasonImagePullFailed, message
+				return true, v1.TaskRunReasonImagePullFailed, message, nil
 			}
 		}
 	}
-	return false, "", ""
+	return false, "", "", nil
 }
 
 func (c *Reconciler) durationAndCountMetrics(ctx context.Context, tr *v1.TaskRun, beforeCondition *apis.Condition) {
