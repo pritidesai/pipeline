@@ -113,6 +113,7 @@ func (cfg *Defaults) Equals(other *Defaults) bool {
 		other.DefaultTaskRunWorkspaceBinding == cfg.DefaultTaskRunWorkspaceBinding &&
 		other.DefaultMaxMatrixCombinationsCount == cfg.DefaultMaxMatrixCombinationsCount &&
 		other.DefaultResolverType == cfg.DefaultResolverType &&
+		other.DefaultImagePullBackOffTimeout == cfg.DefaultImagePullBackOffTimeout &&
 		reflect.DeepEqual(other.DefaultForbiddenEnv, cfg.DefaultForbiddenEnv)
 }
 
@@ -196,8 +197,8 @@ func NewDefaultsFromMap(cfgMap map[string]string) (*Defaults, error) {
 		tc.DefaultContainerResourceRequirements = resourceRequirementsValue
 	}
 
-	if defaultTimeoutMin, ok := cfgMap[defaultImagePullBackOffTimeout]; ok {
-		timeout, err := strconv.ParseInt(defaultTimeoutMin, 10, 0)
+	if defaultImagePullBackOff, ok := cfgMap[defaultImagePullBackOffTimeout]; ok {
+		timeout, err := strconv.ParseInt(defaultImagePullBackOff, 10, 0)
 		if err != nil {
 			return nil, fmt.Errorf("failed parsing tracing config %q", defaultImagePullBackOffTimeout)
 		}

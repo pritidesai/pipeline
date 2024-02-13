@@ -94,13 +94,15 @@ type Reconciler struct {
 	tracerProvider           trace.TracerProvider
 }
 
+const ImagePullBackOff = "ImagePullBackOff"
+
 var (
 	// Check that our Reconciler implements taskrunreconciler.Interface
 	_ taskrunreconciler.Interface = (*Reconciler)(nil)
 
 	// Pod failure reasons that trigger failure of the TaskRun
 	podFailureReasons = map[string]struct{}{
-		"ImagePullBackOff": {},
+		ImagePullBackOff:   {},
 		"InvalidImageName": {},
 	}
 )
@@ -171,13 +173,9 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, tr *v1.TaskRun) pkgrecon
 	}
 
 	// Check for Pod Failures
-	failed, reason, message, requeue := c.checkPodFailed(tr, ctx)
-	if failed {
+	if failed, reason, message := c.checkPodFailed(tr, ctx); failed {
 		err := c.failTaskRun(ctx, tr, reason, message)
 		return c.finishReconcileUpdateEmitEvents(ctx, tr, before, err)
-	}
-	if requeue != nil {
-		return requeue
 	}
 
 	// prepare fetches all required resources, validates them together with the
@@ -226,19 +224,30 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, tr *v1.TaskRun) pkgrecon
 	return nil
 }
 
-func (c *Reconciler) checkPodFailed(tr *v1.TaskRun, ctx context.Context) (bool, v1.TaskRunReason, string, pkgreconciler.Event) {
+func (c *Reconciler) checkPodFailed(tr *v1.TaskRun, ctx context.Context) (bool, v1.TaskRunReason, string) {
 	for _, step := range tr.Status.Steps {
 		if step.Waiting != nil {
 			if _, found := podFailureReasons[step.Waiting.Reason]; found {
-				if step.Waiting.Reason == "ImagePullBackOff" {
+				if step.Waiting.Reason == ImagePullBackOff {
 					imagePullBackOffTimeOut := config.FromContextOrDefaults(ctx).Defaults.DefaultImagePullBackOffTimeout
 					if imagePullBackOffTimeOut > 0 {
-						return false, "", "", controller.NewRequeueAfter(time.Duration(imagePullBackOffTimeOut) * time.Second)
+						p, err := c.KubeClientSet.CoreV1().Pods(tr.Namespace).Get(ctx, tr.Status.PodName, metav1.GetOptions{})
+						if err != nil {
+							message := fmt.Sprintf(`The step %q in TaskRun %q failed to pull the image %q. The pod errored with the message: "%s."`, step.Name, tr.Name, step.ImageID, err)
+							return true, v1.TaskRunReasonImagePullFailed, message
+						}
+						for _, condition := range p.Status.Conditions {
+							if condition.Type == corev1.PodScheduled {
+								if c.Clock.Since(condition.LastTransitionTime.Time) < time.Duration(imagePullBackOffTimeOut)*time.Minute {
+									return false, "", ""
+								}
+							}
+						}
 					}
 				}
 				image := step.ImageID
 				message := fmt.Sprintf(`The step %q in TaskRun %q failed to pull the image %q. The pod errored with the message: "%s."`, step.Name, tr.Name, image, step.Waiting.Message)
-				return true, v1.TaskRunReasonImagePullFailed, message, nil
+				return true, v1.TaskRunReasonImagePullFailed, message
 			}
 		}
 	}
@@ -247,11 +256,11 @@ func (c *Reconciler) checkPodFailed(tr *v1.TaskRun, ctx context.Context) (bool, 
 			if _, found := podFailureReasons[sidecar.Waiting.Reason]; found {
 				image := sidecar.ImageID
 				message := fmt.Sprintf(`The sidecar %q in TaskRun %q failed to pull the image %q. The pod errored with the message: "%s."`, sidecar.Name, tr.Name, image, sidecar.Waiting.Message)
-				return true, v1.TaskRunReasonImagePullFailed, message, nil
+				return true, v1.TaskRunReasonImagePullFailed, message
 			}
 		}
 	}
-	return false, "", "", nil
+	return false, "", ""
 }
 
 func (c *Reconciler) durationAndCountMetrics(ctx context.Context, tr *v1.TaskRun, beforeCondition *apis.Condition) {
