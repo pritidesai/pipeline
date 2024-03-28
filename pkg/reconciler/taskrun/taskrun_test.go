@@ -3910,6 +3910,8 @@ spec:
     type: string
   - name: source-path-two
     type: string
+  - name: read-only
+    type: string
   steps:
   - args:
     - replacedArgs - $(workspaces.tr-workspace.path)
@@ -3921,7 +3923,7 @@ spec:
   - description: a test task workspace
     mountPath: /temppath/$(params.source-path)
     name: tr-workspace
-    readOnly: true
+    readOnly: $(params.read-only) 
 `)
 
 	taskRun := parse.MustParseV1TaskRun(t, `
@@ -3932,6 +3934,8 @@ spec:
   params:
   - name: source-path
     value: replaced
+  - name: read-only
+    value: true
   taskRef:
     name: test-task
   workspaces:

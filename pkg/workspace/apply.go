@@ -19,6 +19,7 @@ package workspace
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	v1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	"github.com/tektoncd/pipeline/pkg/names"
@@ -143,8 +144,23 @@ func Apply(ctx context.Context, ts v1.TaskSpec, wb []v1.WorkspaceBinding, v map[
 			Name:      vv.Name,
 			MountPath: w.GetMountPath(),
 			SubPath:   wb[i].SubPath,
-			ReadOnly:  w.ReadOnly,
 		}
+
+		var readOnly bool
+		if w.ReadOnly == nil {
+			readOnly = false
+		} else {
+			switch r := w.ReadOnly.(type) {
+			case bool:
+				readOnly = r
+			case string:
+				t, err := strconv.ParseBool(r)
+				if err == nil {
+					readOnly = t
+				}
+			}
+		}
+		volumeMount.ReadOnly = readOnly
 
 		if isolatedWorkspaces.Has(w.Name) {
 			mountAsIsolatedWorkspace(ts, w.Name, volumeMount)

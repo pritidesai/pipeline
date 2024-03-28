@@ -20,6 +20,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/google/go-cmp/cmp/cmpopts"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/tektoncd/pipeline/pkg/apis/config"
 	v1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
@@ -724,7 +726,8 @@ func TestApply_PropagatedWorkspacesFromWorkspaceBindingToDeclarations(t *testing
 		name: "propagate workspaces",
 		ts: v1.TaskSpec{
 			Workspaces: []v1.WorkspaceDeclaration{{
-				Name: "workspace1",
+				Name:     "workspace1",
+				ReadOnly: false,
 			}},
 		},
 		workspaces: []v1.WorkspaceBinding{{
@@ -762,7 +765,7 @@ func TestApply_PropagatedWorkspacesFromWorkspaceBindingToDeclarations(t *testing
 			if err != nil {
 				t.Fatalf("Did not expect error but got %v", err)
 			}
-			if d := cmp.Diff(tc.expectedTaskSpec, *ts); d != "" {
+			if d := cmp.Diff(tc.expectedTaskSpec, *ts, cmpopts.IgnoreFields(v1.WorkspaceDeclaration{}, "ReadOnly")); d != "" {
 				t.Errorf("Didn't get expected TaskSpec modifications %s", diff.PrintWantGot(d))
 			}
 		})

@@ -485,6 +485,13 @@ func ApplyReplacements(spec *v1.TaskSpec, stringReplacements map[string]string, 
 
 	for i, v := range spec.Workspaces {
 		spec.Workspaces[i].MountPath = substitution.ApplyReplacements(v.MountPath, stringReplacements)
+		switch r := spec.Workspaces[i].ReadOnly.(type) {
+		case string:
+			t, err := strconv.ParseBool(substitution.ApplyReplacements(r, stringReplacements))
+			if err == nil {
+				spec.Workspaces[i].ReadOnly = t
+			}
+		}
 	}
 
 	// Apply variable substitution to the sidecar definitions
