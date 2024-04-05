@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
-	"github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
@@ -20,7 +19,10 @@ import (
 // in the Key Management Service Developer Guide. Cross-account use: No. You cannot
 // perform this operation on a KMS key in a different Amazon Web Services account.
 // Required permissions: kms:PutKeyPolicy (https://docs.aws.amazon.com/kms/latest/developerguide/kms-api-permissions-reference.html)
-// (key policy) Related operations: GetKeyPolicy
+// (key policy) Related operations: GetKeyPolicy Eventual consistency: The KMS API
+// follows an eventual consistency model. For more information, see KMS eventual
+// consistency (https://docs.aws.amazon.com/kms/latest/developerguide/programming-eventual-consistency.html)
+// .
 func (c *Client) PutKeyPolicy(ctx context.Context, params *PutKeyPolicyInput, optFns ...func(*Options)) (*PutKeyPolicyOutput, error) {
 	if params == nil {
 		params = &PutKeyPolicyInput{}
@@ -77,19 +79,19 @@ type PutKeyPolicyInput struct {
 	// This member is required.
 	Policy *string
 
-	// The name of the key policy. The only valid value is default .
-	//
-	// This member is required.
-	PolicyName *string
-
 	// Skips ("bypasses") the key policy lockout safety check. The default value is
 	// false. Setting this value to true increases the risk that the KMS key becomes
 	// unmanageable. Do not set this value to true indiscriminately. For more
 	// information, see Default key policy (https://docs.aws.amazon.com/kms/latest/developerguide/key-policy-default.html#prevent-unmanageable-key)
 	// in the Key Management Service Developer Guide. Use this parameter only when you
 	// intend to prevent the principal that is making the request from making a
-	// subsequent PutKeyPolicy request on the KMS key.
+	// subsequent PutKeyPolicy (https://docs.aws.amazon.com/kms/latest/APIReference/API_PutKeyPolicy.html)
+	// request on the KMS key.
 	BypassPolicyLockoutSafetyCheck bool
+
+	// The name of the key policy. If no policy name is specified, the default value
+	// is default . The only valid value is default .
+	PolicyName *string
 
 	noSmithyDocumentSerde
 }
@@ -123,25 +125,25 @@ func (c *Client) addOperationPutKeyPolicyMiddlewares(stack *middleware.Stack, op
 	if err = addSetLoggerMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddClientRequestIDMiddleware(stack); err != nil {
+	if err = addClientRequestID(stack); err != nil {
 		return err
 	}
-	if err = smithyhttp.AddComputeContentLengthMiddleware(stack); err != nil {
+	if err = addComputeContentLength(stack); err != nil {
 		return err
 	}
 	if err = addResolveEndpointMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = v4.AddComputePayloadSHA256Middleware(stack); err != nil {
+	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetryMiddlewares(stack, options); err != nil {
+	if err = addRetry(stack, options); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddRawResponseToMetadata(stack); err != nil {
+	if err = addRawResponseToMetadata(stack); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddRecordResponseTiming(stack); err != nil {
+	if err = addRecordResponseTiming(stack); err != nil {
 		return err
 	}
 	if err = addClientUserAgent(stack, options); err != nil {
@@ -162,7 +164,7 @@ func (c *Client) addOperationPutKeyPolicyMiddlewares(stack *middleware.Stack, op
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opPutKeyPolicy(options.Region), middleware.Before); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
+	if err = addRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
