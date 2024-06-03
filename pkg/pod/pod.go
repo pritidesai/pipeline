@@ -421,11 +421,16 @@ func (b *Builder) Build(ctx context.Context, taskRun *v1.TaskRun, taskSpec v1.Ta
 	}
 
 	mergedPodContainers := stepContainers
+	mergedPodInitContainers := initContainers
 
 	// Merge sidecar containers with step containers.
+	// for _, sc := range sidecarContainers {
+	// 	sc.Name = names.SimpleNameGenerator.RestrictLength(fmt.Sprintf("%v%v", sidecarPrefix, sc.Name))
+	// 	mergedPodContainers = append(mergedPodContainers, sc)
+	// }
 	for _, sc := range sidecarContainers {
 		sc.Name = names.SimpleNameGenerator.RestrictLength(fmt.Sprintf("%v%v", sidecarPrefix, sc.Name))
-		mergedPodContainers = append(mergedPodContainers, sc)
+		mergedPodInitContainers = append(mergedPodInitContainers, sc)
 	}
 
 	var dnsPolicy corev1.DNSPolicy
@@ -474,7 +479,7 @@ func (b *Builder) Build(ctx context.Context, taskRun *v1.TaskRun, taskSpec v1.Ta
 		},
 		Spec: corev1.PodSpec{
 			RestartPolicy:                corev1.RestartPolicyNever,
-			InitContainers:               initContainers,
+			InitContainers:               mergedPodInitContainers,
 			Containers:                   mergedPodContainers,
 			ServiceAccountName:           taskRun.Spec.ServiceAccountName,
 			Volumes:                      volumes,
