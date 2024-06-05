@@ -589,6 +589,7 @@ func (s *Sidecar) ToK8sContainer() *corev1.Container {
 		VolumeMounts:             s.VolumeMounts,
 		VolumeDevices:            s.VolumeDevices,
 		LivenessProbe:            s.LivenessProbe,
+		ReadinessProbe:           s.ReadinessProbe,
 		RestartPolicy:            s.RestartPolicy,
 		StartupProbe:             s.StartupProbe,
 		Lifecycle:                s.Lifecycle,
