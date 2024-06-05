@@ -428,9 +428,15 @@ func (b *Builder) Build(ctx context.Context, taskRun *v1.TaskRun, taskSpec v1.Ta
 	// 	sc.Name = names.SimpleNameGenerator.RestrictLength(fmt.Sprintf("%v%v", sidecarPrefix, sc.Name))
 	// 	mergedPodContainers = append(mergedPodContainers, sc)
 	// }
-	for _, sc := range sidecarContainers {
+
+	// Add RestartPolicy and Merge into initContainer
+	for i := range sidecarContainers {
+		sc := &sidecarContainers[i]
+		always := new(corev1.ContainerRestartPolicy)
+		*always = corev1.ContainerRestartPolicyAlways
+		sc.RestartPolicy = always
 		sc.Name = names.SimpleNameGenerator.RestrictLength(fmt.Sprintf("%v%v", sidecarPrefix, sc.Name))
-		mergedPodInitContainers = append(mergedPodInitContainers, sc)
+		mergedPodInitContainers = append(mergedPodInitContainers, *sc)
 	}
 
 	var dnsPolicy corev1.DNSPolicy
