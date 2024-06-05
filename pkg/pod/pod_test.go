@@ -1,78 +1,60 @@
-// /*
-// Copyright 2019 The Tekton Authors
+/*
+Copyright 2019 The Tekton Authors
 
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-//     http://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-// */
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
 
-// package pod
+package pod
 
-// import (
-// 	"context"
-// 	"fmt"
-// 	"os"
-// 	"path/filepath"
-// 	"strconv"
-// 	"testing"
-// 	"time"
+import (
+	"os"
 
-// 	"github.com/google/go-cmp/cmp"
-// 	"github.com/google/go-cmp/cmp/cmpopts"
-// 	"github.com/tektoncd/pipeline/pkg/apis/config"
-// 	"github.com/tektoncd/pipeline/pkg/apis/pipeline"
-// 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/pod"
-// 	v1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
-// 	"github.com/tektoncd/pipeline/pkg/spire"
-// 	"github.com/tektoncd/pipeline/test/diff"
-// 	"github.com/tektoncd/pipeline/test/names"
-// 	corev1 "k8s.io/api/core/v1"
-// 	"k8s.io/apimachinery/pkg/api/resource"
-// 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-// 	fakek8s "k8s.io/client-go/kubernetes/fake"
-// 	"knative.dev/pkg/apis"
-// 	duckv1 "knative.dev/pkg/apis/duck/v1"
-// 	"knative.dev/pkg/kmeta"
-// 	logtesting "knative.dev/pkg/logging/testing"
-// 	"knative.dev/pkg/system"
-// 	_ "knative.dev/pkg/system/testing" // Setup system.Namespace()
-// )
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/tektoncd/pipeline/pkg/apis/config"
+	"github.com/tektoncd/pipeline/pkg/apis/pipeline"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	_ "knative.dev/pkg/system/testing" // Setup system.Namespace()
+)
 
-// var (
-// 	images = pipeline.Images{
-// 		EntrypointImage: "entrypoint-image",
-// 		ShellImage:      "busybox",
-// 	}
+var (
+	images = pipeline.Images{
+		EntrypointImage: "entrypoint-image",
+		ShellImage:      "busybox",
+	}
 
-// 	ignoreReleaseAnnotation = func(k string, v string) bool {
-// 		return k == ReleaseAnnotation
-// 	}
-// 	featureInjectedSidecar                   = "running-in-environment-with-injected-sidecars"
-// 	featureAwaitSidecarReadiness             = "await-sidecar-readiness"
-// 	featureFlagSetReadyAnnotationOnPodCreate = "enable-ready-annotation-on-pod-create"
+	ignoreReleaseAnnotation = func(k string, v string) bool {
+		return k == ReleaseAnnotation
+	}
+	featureInjectedSidecar                   = "running-in-environment-with-injected-sidecars"
+	featureAwaitSidecarReadiness             = "await-sidecar-readiness"
+	featureFlagSetReadyAnnotationOnPodCreate = "enable-ready-annotation-on-pod-create"
 
-// 	defaultActiveDeadlineSeconds = int64(config.DefaultTimeoutMinutes * 60 * deadlineFactor)
+	defaultActiveDeadlineSeconds = int64(config.DefaultTimeoutMinutes * 60 * deadlineFactor)
 
-// 	resourceQuantityCmp = cmp.Comparer(func(x, y resource.Quantity) bool {
-// 		return x.Cmp(y) == 0
-// 	})
-// 	volumeSort      = cmpopts.SortSlices(func(i, j corev1.Volume) bool { return i.Name < j.Name })
-// 	volumeMountSort = cmpopts.SortSlices(func(i, j corev1.VolumeMount) bool { return i.Name < j.Name })
-// )
+	resourceQuantityCmp = cmp.Comparer(func(x, y resource.Quantity) bool {
+		return x.Cmp(y) == 0
+	})
+	volumeSort      = cmpopts.SortSlices(func(i, j corev1.Volume) bool { return i.Name < j.Name })
+	volumeMountSort = cmpopts.SortSlices(func(i, j corev1.VolumeMount) bool { return i.Name < j.Name })
+)
 
-// const fakeVersion = "a728ce3"
+const fakeVersion = "a728ce3"
 
-// func init() {
-// 	os.Setenv("KO_DATA_PATH", "./testdata/")
-// }
+func init() {
+	os.Setenv("KO_DATA_PATH", "./testdata/")
+}
 
 // func TestPodBuild(t *testing.T) {
 // 	secretsVolume := corev1.Volume{
