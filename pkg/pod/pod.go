@@ -75,6 +75,9 @@ const (
 	TerminationReasonCancelled = "Cancelled"
 
 	StepArtifactPathPattern = "step.artifacts.path"
+
+	// K8s version to determine if to use native k8s sidecar or Tekton sidecar
+	SidecarK8sVersionCheck = 1.29
 )
 
 // These are effectively const, but Go doesn't have such an annotation.
@@ -168,6 +171,14 @@ func (b *Builder) Build(ctx context.Context, taskRun *v1.TaskRun, taskSpec v1.Ta
 	sidecarLogsResultsEnabled := config.FromContextOrDefaults(ctx).FeatureFlags.ResultExtractionMethod == config.ResultExtractionMethodSidecarLogs
 	enableKeepPodOnCancel := featureFlags.EnableKeepPodOnCancel
 	setSecurityContext := config.FromContextOrDefaults(ctx).FeatureFlags.SetSecurityContext
+
+	// Kubernetes Version
+	dc := b.KubeClient.Discovery()
+	sv, err := dc.ServerVersion()
+	if err != nil {
+		return nil, err
+	}
+	k8sServerVersion, err := strconv.ParseFloat(sv.Major+"."+sv.Minor, 64)
 
 	// Add our implicit volumes first, so they can be overridden by the user if they prefer.
 	volumes = append(volumes, implicitVolumes...)
@@ -423,20 +434,23 @@ func (b *Builder) Build(ctx context.Context, taskRun *v1.TaskRun, taskSpec v1.Ta
 	mergedPodContainers := stepContainers
 	mergedPodInitContainers := initContainers
 
-	// Merge sidecar containers with step containers.
-	// for _, sc := range sidecarContainers {
-	// 	sc.Name = names.SimpleNameGenerator.RestrictLength(fmt.Sprintf("%v%v", sidecarPrefix, sc.Name))
-	// 	mergedPodContainers = append(mergedPodContainers, sc)
-	// }
-
-	// Add RestartPolicy and Merge into initContainer
-	for i := range sidecarContainers {
-		sc := &sidecarContainers[i]
-		always := new(corev1.ContainerRestartPolicy)
-		*always = corev1.ContainerRestartPolicyAlways
-		sc.RestartPolicy = always
-		sc.Name = names.SimpleNameGenerator.RestrictLength(fmt.Sprintf("%v%v", sidecarPrefix, sc.Name))
-		mergedPodInitContainers = append(mergedPodInitContainers, *sc)
+	// Check if current k8s version is less than 1.29
+	if k8sServerVersion < SidecarK8sVersionCheck {
+		//Merge sidecar containers with step containers.
+		for _, sc := range sidecarContainers {
+			sc.Name = names.SimpleNameGenerator.RestrictLength(fmt.Sprintf("%v%v", sidecarPrefix, sc.Name))
+			mergedPodContainers = append(mergedPodContainers, sc)
+		}
+	} else {
+		// Add RestartPolicy and Merge into initContainer
+		for i := range sidecarContainers {
+			sc := &sidecarContainers[i]
+			always := new(corev1.ContainerRestartPolicy)
+			*always = corev1.ContainerRestartPolicyAlways
+			sc.RestartPolicy = always
+			sc.Name = names.SimpleNameGenerator.RestrictLength(fmt.Sprintf("%v%v", sidecarPrefix, sc.Name))
+			mergedPodInitContainers = append(mergedPodInitContainers, *sc)
+		}
 	}
 
 	var dnsPolicy corev1.DNSPolicy

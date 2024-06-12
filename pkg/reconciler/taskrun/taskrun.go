@@ -868,6 +868,16 @@ func (c *Reconciler) createPod(ctx context.Context, ts *v1.TaskSpec, tr *v1.Task
 		return nil, err
 	}
 
+	dc := c.KubeClientSet.Discovery()
+
+	k8sServerVersion, err := dc.ServerVersion()
+	if err != nil {
+		logger.Errorf("Failed to create a pod for taskrun: %s due to getting server version error %v", tr.Name, err)
+		return nil, err
+	}
+
+	logger.Infof("KCARR Kubernetes Version %s:%s", k8sServerVersion.Major, k8sServerVersion.Minor)
+
 	// Apply path substitutions for the legacy credentials helper (aka "creds-init")
 	ts = resources.ApplyCredentialsPath(ts, pipeline.CredsDir)
 
