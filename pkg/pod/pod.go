@@ -179,6 +179,9 @@ func (b *Builder) Build(ctx context.Context, taskRun *v1.TaskRun, taskSpec v1.Ta
 		return nil, err
 	}
 	k8sServerVersion, err := strconv.ParseFloat(sv.Major+"."+sv.Minor, 64)
+	if err != nil {
+		return nil, err
+	}
 
 	// Add our implicit volumes first, so they can be overridden by the user if they prefer.
 	volumes = append(volumes, implicitVolumes...)
@@ -436,7 +439,7 @@ func (b *Builder) Build(ctx context.Context, taskRun *v1.TaskRun, taskSpec v1.Ta
 
 	// Check if current k8s version is less than 1.29
 	if k8sServerVersion < SidecarK8sVersionCheck {
-		//Merge sidecar containers with step containers.
+		// Merge sidecar containers with step containers.
 		for _, sc := range sidecarContainers {
 			sc.Name = names.SimpleNameGenerator.RestrictLength(fmt.Sprintf("%v%v", sidecarPrefix, sc.Name))
 			mergedPodContainers = append(mergedPodContainers, sc)

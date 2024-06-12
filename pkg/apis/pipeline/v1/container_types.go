@@ -628,7 +628,6 @@ func (s *Sidecar) SetContainerFields(c corev1.Container) {
 	s.StdinOnce = c.StdinOnce
 	s.TTY = c.TTY
 	s.RestartPolicy = c.RestartPolicy
-
 }
 
 // GetVarSubstitutionExpressions walks all the places a substitution reference can be used
