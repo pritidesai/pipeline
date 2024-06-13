@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"reflect"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -301,44 +302,58 @@ func (c *Reconciler) durationAndCountMetrics(ctx context.Context, tr *v1.TaskRun
 }
 
 func (c *Reconciler) stopSidecars(ctx context.Context, tr *v1.TaskRun) error {
-	ctx, span := c.tracerProvider.Tracer(TracerName).Start(ctx, "stopSidecars")
-	defer span.End()
-	logger := logging.FromContext(ctx)
-	// do not continue without knowing the associated pod
-	if tr.Status.PodName == "" {
-		return nil
-	}
 
-	// do not continue if the TaskRun was canceled or timed out as this caused the pod to be deleted in failTaskRun
-	condition := tr.Status.GetCondition(apis.ConditionSucceeded)
-	if condition != nil {
-		reason := v1.TaskRunReason(condition.Reason)
-		if reason == v1.TaskRunReasonCancelled || reason == v1.TaskRunReasonTimedOut {
+	// Check if current k8s version is less than 1.29
+	// Since Kubernetes Major version cannot be 0 and if it's 2 then sidecar will be in
+	// we are only concerned about major version 1 and if the minor is less than 29 then
+	// we need to do the current logic
+	dc := c.KubeClientSet.Discovery()
+	sv, err := dc.ServerVersion()
+	if err != nil {
+		return err
+	}
+	svMinorInt, _ := strconv.Atoi(sv.Minor)
+	if sv.Major == "1" && svMinorInt < 29 {
+		ctx, span := c.tracerProvider.Tracer(TracerName).Start(ctx, "stopSidecars")
+		defer span.End()
+		logger := logging.FromContext(ctx)
+		// do not continue without knowing the associated pod
+		if tr.Status.PodName == "" {
 			return nil
 		}
-	}
 
-	pod, err := podconvert.StopSidecars(ctx, c.Images.NopImage, c.KubeClientSet, tr.Namespace, tr.Status.PodName)
-	if err == nil {
-		// Check if any SidecarStatuses are still shown as Running after stopping
-		// Sidecars. If any Running, update SidecarStatuses based on Pod ContainerStatuses.
-		if podconvert.IsSidecarStatusRunning(tr) {
-			err = updateStoppedSidecarStatus(pod, tr)
+		// do not continue if the TaskRun was canceled or timed out as this caused the pod to be deleted in failTaskRun
+		condition := tr.Status.GetCondition(apis.ConditionSucceeded)
+		if condition != nil {
+			reason := v1.TaskRunReason(condition.Reason)
+			if reason == v1.TaskRunReasonCancelled || reason == v1.TaskRunReasonTimedOut {
+				return nil
+			}
 		}
-	}
-	if k8serrors.IsNotFound(err) {
-		// At this stage the TaskRun has been completed if the pod is not found, it won't come back,
-		// it has probably evicted. We can return the error, but we consider it a permanent one.
-		return controller.NewPermanentError(err)
-	} else if err != nil {
-		// It is admissible for Pods to fail with concurrentModification errors
-		// when stopping sideCars. Instead of failing the TaskRun, we shall just
-		// let the reconciler requeue.
-		if isConcurrentModificationError(err) {
-			return controller.NewRequeueAfter(time.Second)
+
+		pod, err := podconvert.StopSidecars(ctx, c.Images.NopImage, c.KubeClientSet, tr.Namespace, tr.Status.PodName)
+		if err == nil {
+			// Check if any SidecarStatuses are still shown as Running after stopping
+			// Sidecars. If any Running, update SidecarStatuses based on Pod ContainerStatuses.
+			if podconvert.IsSidecarStatusRunning(tr) {
+				err = updateStoppedSidecarStatus(pod, tr)
+			}
 		}
-		logger.Errorf("Error stopping sidecars for TaskRun %q: %v", tr.Name, err)
-		tr.Status.MarkResourceFailed(v1.TaskRunReasonStopSidecarFailed, err)
+		if k8serrors.IsNotFound(err) {
+			// At this stage the TaskRun has been completed if the pod is not found, it won't come back,
+			// it has probably evicted. We can return the error, but we consider it a permanent one.
+			return controller.NewPermanentError(err)
+		} else if err != nil {
+			// It is admissible for Pods to fail with concurrentModification errors
+			// when stopping sideCars. Instead of failing the TaskRun, we shall just
+			// let the reconciler requeue.
+			if isConcurrentModificationError(err) {
+				return controller.NewRequeueAfter(time.Second)
+			}
+			logger.Errorf("Error stopping sidecars for TaskRun %q: %v", tr.Name, err)
+			tr.Status.MarkResourceFailed(v1.TaskRunReasonStopSidecarFailed, err)
+		}
+
 	}
 	return nil
 }
