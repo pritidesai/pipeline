@@ -302,7 +302,6 @@ func (c *Reconciler) durationAndCountMetrics(ctx context.Context, tr *v1.TaskRun
 }
 
 func (c *Reconciler) stopSidecars(ctx context.Context, tr *v1.TaskRun) error {
-
 	// Check if current k8s version is less than 1.29
 	// Since Kubernetes Major version cannot be 0 and if it's 2 then sidecar will be in
 	// we are only concerned about major version 1 and if the minor is less than 29 then
@@ -353,7 +352,6 @@ func (c *Reconciler) stopSidecars(ctx context.Context, tr *v1.TaskRun) error {
 			logger.Errorf("Error stopping sidecars for TaskRun %q: %v", tr.Name, err)
 			tr.Status.MarkResourceFailed(v1.TaskRunReasonStopSidecarFailed, err)
 		}
-
 	}
 	return nil
 }
