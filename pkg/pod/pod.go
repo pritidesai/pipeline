@@ -439,13 +439,12 @@ func (b *Builder) Build(ctx context.Context, taskRun *v1.TaskRun, taskSpec v1.Ta
 	// we need to do the current logic
 	svMinorInt, _ := strconv.Atoi(sv.Minor)
 	svMajorInt, _ := strconv.Atoi(sv.Major)
-	if svMajorInt == 1 && svMinorInt >= SidecarK8sMinorVersionCheck {
+	if svMajorInt >= 1 && svMinorInt >= SidecarK8sMinorVersionCheck {
 		// Add RestartPolicy and Merge into initContainer
 		for i := range sidecarContainers {
 			sc := &sidecarContainers[i]
-			always := new(corev1.ContainerRestartPolicy)
-			*always = corev1.ContainerRestartPolicyAlways
-			sc.RestartPolicy = always
+			always := corev1.ContainerRestartPolicyAlways
+			sc.RestartPolicy = &always
 			sc.Name = names.SimpleNameGenerator.RestrictLength(fmt.Sprintf("%v%v", sidecarPrefix, sc.Name))
 			mergedPodInitContainers = append(mergedPodInitContainers, *sc)
 		}
