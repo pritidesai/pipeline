@@ -222,6 +222,23 @@ func (ps Params) ExtractNames() sets.String {
 	return names
 }
 
+func (ps Params) ExtracNameValues() map[string]interface{} {
+	values := make(map[string]interface{})
+	for _, p := range ps {
+		var v interface{}
+		switch p.Value.Type {
+		case ParamTypeString:
+			v = p.Value.StringVal
+		case ParamTypeArray:
+			v = p.Value.ArrayVal
+		case ParamTypeObject:
+			v = p.Value.ObjectVal
+		}
+		values[p.Name] = v
+	}
+	return values
+}
+
 func (ps Params) extractValues() []string {
 	pvs := []string{}
 	for i := range ps {

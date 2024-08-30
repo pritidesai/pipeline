@@ -23,6 +23,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/google/cel-go/checker/decls"
+
 	"github.com/google/cel-go/cel"
 	"github.com/tektoncd/pipeline/pkg/apis/config"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline"
@@ -88,7 +90,15 @@ func (t *ResolvedPipelineTask) EvaluateCEL() error {
 			if !ok {
 				// Create a program environment configured with the standard library of CEL functions and macros
 				// The error is omitted because not environment declarations are passed in.
-				env, _ := cel.NewEnv()
+				celVariables := []cel.EnvOption{
+					cel.Declarations(
+						decls.NewVar("params", decls.NewMapType(decls.String, decls.Dyn)),
+					),
+				}
+				env, err := cel.NewEnv(celVariables...)
+				if err != nil {
+					return fmt.Errorf("CEL enviornment creation failed with an error: %s", err)
+				}
 				// Parse and Check the CEL to get the Abstract Syntax Tree
 				ast, iss := env.Compile(we.CEL)
 				if iss.Err() != nil {
@@ -100,7 +110,10 @@ func (t *ResolvedPipelineTask) EvaluateCEL() error {
 					return err
 				}
 				// Evaluate the CEL expression
-				out, _, err := prg.Eval(map[string]interface{}{})
+				out, _, err := prg.Eval(map[string]interface{}{"params": t.PipelineTask.Params.ExtracNameValues()})
+				//out, _, err := prg.Eval(map[string]interface{}{"params": map[string]interface{}{
+				//	"foo": "foo",
+				//}})
 				if err != nil {
 					return err
 				}

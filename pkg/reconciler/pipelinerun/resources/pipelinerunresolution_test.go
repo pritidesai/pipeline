@@ -5214,6 +5214,25 @@ func TestEvaluateCEL_valid(t *testing.T) {
 			"'foo'!='foo'": false,
 			"'foo'=='foo'": true,
 		},
+	}, {
+		name: "params in CEL when expressions",
+		rpt: &ResolvedPipelineTask{
+			PipelineTask: &v1.PipelineTask{
+				When: v1.WhenExpressions{{
+					CEL: "params.foo == 'foo'",
+				}},
+				Params: v1.Params{{
+					Name: "foo",
+					Value: v1.ParamValue{
+						Type:      "string",
+						StringVal: "foo",
+					},
+				}},
+			},
+		},
+		want: map[string]bool{
+			"params.foo == 'foo'": true,
+		},
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
 			err := tc.rpt.EvaluateCEL()
