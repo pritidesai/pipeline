@@ -26,6 +26,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/tektoncd/pipeline/pkg/apis/config"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline"
@@ -103,6 +104,7 @@ func waitForStepsToFinish(runDir string) error {
 				return err
 			}
 		}
+		time.Sleep(100 * time.Millisecond)
 	}
 	return nil
 }
