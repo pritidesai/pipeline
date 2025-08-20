@@ -125,7 +125,7 @@ func MakeTaskRunStatus(ctx context.Context, logger *zap.SugaredLogger, tr v1.Tas
 
 	sortPodContainerStatuses(pod.Status.ContainerStatuses, pod.Spec.Containers)
 
-	complete := areContainersCompleted(ctx, pod) || isPodCompleted(pod)
+	complete := (areContainersCompleted(ctx, pod) && areInitContainersCompleted(ctx, pod)) || isPodCompleted(pod)
 
 	if complete {
 		onError, ok := tr.Annotations[v1.PipelineTaskOnErrorAnnotation]
@@ -161,7 +161,7 @@ func MakeTaskRunStatus(ctx context.Context, logger *zap.SugaredLogger, tr v1.Tas
 		merr = multierror.Append(merr, err)
 	}
 
-	setTaskRunStatusBasedOnSidecarStatus(sidecarStatuses, trs)
+	setTaskRunStatusBasedOnSidecarStatus(sidecarStatuses, &tr.Status)
 
 	trs.Results = removeDuplicateResults(trs.Results)
 
@@ -698,6 +698,34 @@ func isMatchingAnyFilter(name string, filters []containerNameFilter) bool {
 		}
 	}
 	return false
+}
+
+// areInitContainersCompleted returns true if all init containers in the pod are completed.
+func areInitContainersCompleted(ctx context.Context, pod *corev1.Pod) bool {
+	nameFilters := []containerNameFilter{IsContainerSidecar}
+	if config.FromContextOrDefaults(ctx).FeatureFlags.ResultExtractionMethod == config.ResultExtractionMethodSidecarLogs {
+		// If we are using sidecar logs to extract results, we need to wait for the sidecar to complete.
+		// Avoid failing to obtain the final result from the sidecar because the sidecar is not yet complete.
+		nameFilters = append(nameFilters, func(name string) bool {
+			return name == pipeline.ReservedResultsSidecarContainerName
+		})
+	}
+	return checkInitContainersCompleted(pod, nameFilters)
+}
+
+// checkInitContainersCompleted returns true if init containers in the pod are completed.
+func checkInitContainersCompleted(pod *corev1.Pod, nameFilters []containerNameFilter) bool {
+	if len(pod.Status.InitContainerStatuses) == 0 ||
+		!(pod.Status.Phase == corev1.PodRunning || pod.Status.Phase == corev1.PodSucceeded) {
+		return false
+	}
+	for _, containerStatus := range pod.Status.InitContainerStatuses {
+		if isMatchingAnyFilter(containerStatus.Name, nameFilters) && containerStatus.State.Terminated == nil {
+			// if any container is not completed, return false
+			return false
+		}
+	}
+	return true
 }
 
 // areContainersCompleted returns true if all related containers in the pod are completed.
