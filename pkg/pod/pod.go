@@ -83,6 +83,9 @@ const (
 
 	// K8s version to determine if to use native k8s sidecar or Tekton sidecar
 	SidecarK8sMinorVersionCheck = 29
+
+	// Environment variable name for the Kubernetes sidecar feature flag
+	KubernetesNativeSidecarEnvVar = "ENABLE_KUBERNETES_SIDECAR"
 )
 
 // These are effectively const, but Go doesn't have such an annotation.
@@ -208,7 +211,7 @@ func (b *Builder) Build(ctx context.Context, taskRun *v1.TaskRun, taskSpec v1.Ta
 	if sidecarLogsResultsEnabled {
 		if taskSpec.Results != nil || artifactsPathReferenced(steps) {
 			// create a results sidecar
-			resultsSidecar, err := createResultsSidecar(taskSpec, b.Images.SidecarLogResultsImage, securityContextConfig, windows, pollingInterval)
+			resultsSidecar, err := createResultsSidecar(ctx, taskSpec, b.Images.SidecarLogResultsImage, securityContextConfig, windows, pollingInterval)
 			if err != nil {
 				return nil, err
 			}
@@ -617,59 +620,56 @@ func entrypointInitContainer(image string, steps []v1.Step, securityContext Secu
 
 // createResultsSidecar creates a sidecar that will run the sidecarlogresults binary,
 // based on the spec of the Task, the image that should run in the results sidecar,
-// whether it will run on a windows node, and whether the sidecar should include a security context
-// that will allow it to run in namespaces with "restricted" pod security admission.
-// It will also provide arguments to the binary that allow it to surface the step results.
-func createResultsSidecar(taskSpec v1.TaskSpec, image string, securityContext SecurityContextConfig, windows bool, pollingInterval time.Duration) (v1.Sidecar, error) {
-	names := make([]string, 0, len(taskSpec.Results))
+// whether the pod will run on a windows node, and the polling interval for checking results.
+// It also passes the Kubernetes native sidecar feature flag value to the sidecar container.
+func createResultsSidecar(ctx context.Context, taskSpec v1.TaskSpec, image string, securityContext SecurityContextConfig, windows bool, pollingInterval time.Duration) (v1.Sidecar, error) {
+	resultNames := []string{}
 	for _, r := range taskSpec.Results {
-		names = append(names, r.Name)
+		resultNames = append(resultNames, r.Name)
 	}
 
-	stepNames := make([]string, 0, len(taskSpec.Steps))
-	var artifactProducerSteps []string
-	for i, s := range taskSpec.Steps {
-		stepName := StepName(s.Name, i)
-		stepNames = append(stepNames, stepName)
-		if artifactPathReferencedInStep(s) {
-			artifactProducerSteps = append(artifactProducerSteps, GetContainerName(s.Name))
-		}
-	}
-
-	resultsStr := strings.Join(names, ",")
-	command := []string{"/ko-app/sidecarlogresults", "-results-dir", pipeline.DefaultResultPath, "-result-names", resultsStr, "-step-names", strings.Join(artifactProducerSteps, ",")}
-
-	// create a map of container Name to step results
 	stepResults := map[string][]string{}
-	for i, s := range taskSpec.Steps {
+	for _, s := range taskSpec.Steps {
 		if len(s.Results) > 0 {
-			stepName := StepName(s.Name, i)
-			stepResults[stepName] = make([]string, 0, len(s.Results))
+			stepResultNames := []string{}
 			for _, r := range s.Results {
-				stepResults[stepName] = append(stepResults[stepName], r.Name)
+				stepResultNames = append(stepResultNames, r.Name)
 			}
+			stepResults[s.Name] = stepResultNames
 		}
 	}
 
-	stepResultsBytes, err := json.Marshal(stepResults)
+	stepResultsJSON, err := json.Marshal(stepResults)
 	if err != nil {
 		return v1.Sidecar{}, err
 	}
-	if len(stepResultsBytes) > 0 {
-		command = append(command, "-step-results", string(stepResultsBytes))
+
+	stepNames := []string{}
+	for _, s := range taskSpec.Steps {
+		stepNames = append(stepNames, s.Name)
 	}
+
+	args := []string{
+		"--result-names", strings.Join(resultNames, ","),
+		"--step-results", string(stepResultsJSON),
+		"--step-names", strings.Join(stepNames, ","),
+	}
+
+	// Create the sidecar container
 	sidecar := v1.Sidecar{
-		Name:    pipeline.ReservedResultsSidecarName,
-		Image:   image,
-		Command: command,
+		Name:  pipeline.ReservedResultsSidecarName,
+		Image: image,
+		Args:  args,
 		Env: []corev1.EnvVar{
 			{
-				Name:  "SIDECAR_LOG_POLLING_INTERVAL",
-				Value: pollingInterval.String(),
+				// Pass the Kubernetes native sidecar feature flag value to the sidecar container
+				Name:  KubernetesNativeSidecarEnvVar,
+				Value: strconv.FormatBool(config.FromContextOrDefaults(ctx).FeatureFlags.EnableKubernetesSidecar),
 			},
 		},
 	}
 
+	// Set security context if needed
 	if securityContext.SetSecurityContext {
 		sidecar.SecurityContext = securityContext.GetSecurityContext(windows)
 	}
@@ -677,62 +677,70 @@ func createResultsSidecar(taskSpec v1.TaskSpec, image string, securityContext Se
 	return sidecar, nil
 }
 
-// usesWindows returns true if the TaskRun will run on a windows node,
-// based on its node selector.
-// See https://kubernetes.io/docs/concepts/windows/user-guide/ for more info.
-func usesWindows(tr *v1.TaskRun) bool {
-	if tr.Spec.PodTemplate == nil || tr.Spec.PodTemplate.NodeSelector == nil {
-		return false
+// usesWindows determines if the TaskRun will run on a Windows node
+func usesWindows(taskRun *v1.TaskRun) bool {
+	if taskRun.Spec.PodTemplate != nil && taskRun.Spec.PodTemplate.NodeSelector != nil {
+		if os, ok := taskRun.Spec.PodTemplate.NodeSelector[OsSelectorLabel]; ok {
+			return os == "windows"
+		}
 	}
-	osSelector := tr.Spec.PodTemplate.NodeSelector[OsSelectorLabel]
-	return osSelector == "windows"
+	return false
 }
 
+// artifactsPathReferenced checks if any step in the task references the artifacts path pattern
 func artifactsPathReferenced(steps []v1.Step) bool {
 	for _, step := range steps {
-		if artifactPathReferencedInStep(step) {
+		// Check if the step has any environment variables that reference the artifacts path
+		for _, env := range step.Env {
+			if strings.Contains(env.Value, StepArtifactPathPattern) ||
+			   strings.Contains(env.Value, artifactref.StepArtifactPathPattern) {
+				return true
+			}
+		}
+		
+		// Check if the step has any arguments that reference the artifacts path
+		for _, arg := range step.Args {
+			if strings.Contains(arg, StepArtifactPathPattern) ||
+			   strings.Contains(arg, artifactref.StepArtifactPathPattern) {
+				return true
+			}
+		}
+		
+		// Check if the step has any commands that reference the artifacts path
+		for _, cmd := range step.Command {
+			if strings.Contains(cmd, StepArtifactPathPattern) ||
+			   strings.Contains(cmd, artifactref.StepArtifactPathPattern) {
+				return true
+			}
+		}
+		
+		// Check if the step has a script that references the artifacts path
+		if strings.Contains(step.Script, StepArtifactPathPattern) ||
+		   strings.Contains(step.Script, artifactref.StepArtifactPathPattern) {
 			return true
 		}
 	}
 	return false
 }
 
-func artifactPathReferencedInStep(step v1.Step) bool {
-	// `$(step.artifacts.path)` in  taskRun.Spec.TaskSpec.Steps and `taskSpec.steps` are substituted when building the pod while when setting status for taskRun
-	// neither of them is substituted, so we need two forms to check if artifactsPath is referenced in steps.
-	unresolvedPath := "$(" + artifactref.StepArtifactPathPattern + ")"
-
-	path := filepath.Join(pipeline.StepsDir, GetContainerName(step.Name), "artifacts", "provenance.json")
-	if strings.Contains(step.Script, path) || strings.Contains(step.Script, unresolvedPath) {
-		return true
-	}
-	for _, arg := range step.Args {
-		if strings.Contains(arg, path) || strings.Contains(arg, unresolvedPath) {
-			return true
+// IsNativeSidecarSupport checks if the Kubernetes server version supports native sidecars
+// based on the minor version number
+func IsNativeSidecarSupport(sv *version.Info) bool {
+	// Extract the minor version number
+	minorVersion := sv.Minor
+	// Remove any non-numeric characters (like "+" in "29+")
+	for i, c := range minorVersion {
+		if c < '0' || c > '9' {
+			minorVersion = minorVersion[:i]
+			break
 		}
 	}
-	for _, c := range step.Command {
-		if strings.Contains(c, path) || strings.Contains(c, unresolvedPath) {
-			return true
-		}
+	// Convert to integer and compare
+	minor, err := strconv.Atoi(minorVersion)
+	if err != nil {
+		return false
 	}
-	for _, e := range step.Env {
-		if strings.Contains(e.Value, path) || strings.Contains(e.Value, unresolvedPath) {
-			return true
-		}
-	}
-	return false
+	return minor >= SidecarK8sMinorVersionCheck
 }
 
-// isNativeSidecarSupport returns true if k8s api has native sidecar support
-// based on the k8s version (1.29+).
-// See https://kubernetes.io/docs/concepts/workloads/pods/sidecar-containers/ for more info.
-func IsNativeSidecarSupport(serverVersion *version.Info) bool {
-	minor := strings.TrimSuffix(serverVersion.Minor, "+") // Remove '+' if present
-	majorInt, _ := strconv.Atoi(serverVersion.Major)
-	minorInt, _ := strconv.Atoi(minor)
-	if (majorInt == 1 && minorInt >= SidecarK8sMinorVersionCheck) || majorInt > 1 {
-		return true
-	}
-	return false
-}
+// Made with Bob
