@@ -37,6 +37,13 @@ type TaskResult struct {
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:Schemaless
+
+	// This is an alpha field. You must set the "enable-api-fields" feature flag to "alpha"
+	// for this field to be supported.
+	//
+	// Default is the value a result produces if no result is produced by Task
+	// +optional
+	Default *ResultValue `json:"default,omitempty"`
 	Value *ResultValue `json:"value,omitempty"`
 }
 

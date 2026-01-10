@@ -36,6 +36,23 @@ func (r TaskResult) convertTo(ctx context.Context, sink *v1.TaskResult) {
 	if r.Value != nil {
 		sink.Value = &v1.ParamValue{}
 		r.Value.convertTo(ctx, sink.Value)
+	if r.Default != nil {
+		sink.Default = &v1.ParamValue{
+			Type: v1.ParamType(r.Default.Type),
+		}
+		switch r.Default.Type {
+		case ParamTypeString:
+			sink.Default.StringVal = r.Default.StringVal
+		case ParamTypeArray:
+			sink.Default.ArrayVal = r.Default.ArrayVal
+		default: // In case of ParamTypeObject
+			defaults := make(map[string]string)
+			for k, v := range r.Default.ObjectVal {
+				defaults[k] = v
+			}
+			sink.Default.ObjectVal = defaults
+		}
+	}
 	}
 }
 
@@ -52,6 +69,23 @@ func (r *TaskResult) convertFrom(ctx context.Context, source v1.TaskResult) {
 	}
 	if source.Value != nil {
 		r.Value = &ParamValue{}
+	if source.Default != nil {
+		r.Default = &ParamValue{
+			Type: ParamType(source.Default.Type),
+		}
+		switch source.Default.Type {
+		case v1.ParamTypeString:
+			r.Default.StringVal = source.Default.StringVal
+		case v1.ParamTypeArray:
+			r.Default.ArrayVal = source.Default.ArrayVal
+		default:
+			defaults := make(map[string]string)
+			for k, v := range source.Default.ObjectVal {
+				defaults[k] = v
+			}
+			r.Default.ObjectVal = defaults
+		}
+	}
 		r.Value.convertFrom(ctx, *source.Value)
 	}
 }

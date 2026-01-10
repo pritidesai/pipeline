@@ -1,0 +1,75 @@
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  generateName: pipeline-default-results-
+spec:
+  pipelineSpec:
+    results:
+      - name: array-results
+        type: array
+        description: Array results from task1
+        value: $(tasks.task1.results.array-results[*])
+      - name: object-results
+        type: object
+        description: Object results from task2
+        value: $(tasks.task2.results.object-results[*])
+      - name: string-result
+        description: String result from task3
+        value: $(tasks.task3.results.string-result)
+    tasks:
+      - name: task1
+        taskSpec:
+          results:
+            - name: array-results
+              type: array
+              description: Array result with default value
+              default:
+                - "default-1"
+                - "default-2"
+                - "default-3"
+          steps:
+            - name: step-that-fails
+              image: bash:latest
+              onError: continue
+              script: |
+                #!/usr/bin/env bash
+                echo "This step fails, so default array result will be used"
+                exit 1
+                # This won't execute
+                echo -n '["actual-1","actual-2"]' | tee $(results.array-results.path)
+      - name: task2
+        taskSpec:
+          results:
+            - name: object-results
+              type: object
+              description: Object result with default value
+              properties:
+                status:
+                  type: string
+                message:
+                  type: string
+              default:
+                status: "default-status"
+                message: "default-message"
+          steps:
+            - name: step-that-fails
+              image: bash:latest
+              onError: continue
+              script: |
+                #!/usr/bin/env bash
+                echo "This step fails, so default object result will be used"
+                exit 1
+                # This won't execute
+                echo -n '{"status":"success","message":"completed"}' | tee $(results.object-results.path)
+      - name: task3
+        taskSpec:
+          results:
+            - name: string-result
+              description: String result that will be produced
+              default: "default-string"
+          steps:
+            - name: produce-result
+              image: bash:latest
+              script: |
+                #!/usr/bin/env bash
+                echo -n "actual-string-value" | tee $(results.string-result.path)
