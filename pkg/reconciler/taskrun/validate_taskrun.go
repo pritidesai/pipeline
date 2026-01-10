@@ -290,6 +290,12 @@ func validateTaskRunResults(tr *v1.TaskRun, resolvedTaskSpec *v1.TaskSpec) error
 	if missingKeysObjectNames := missingKeysofObjectResults(tr, specResults); len(missingKeysObjectNames) != 0 {
 		return pipelineErrors.WrapUserError(fmt.Errorf("missing keys for these results which are required in TaskResult's properties %v", missingKeysObjectNames))
 	}
+
+	// Check if all required results (without defaults) were produced
+	if missingResults := missingRequiredResults(tr, specResults); len(missingResults) != 0 {
+		return pipelineErrors.WrapUserError(fmt.Errorf("Task declared results without default values but did not produce them: %v", missingResults))
+	}
+
 	return nil
 }
 
@@ -340,4 +346,21 @@ func missingKeysofObjectResults(tr *v1.TaskRun, specResults []v1.TaskResult) map
 		}
 	}
 	return findMissingKeys(neededKeys, providedKeys)
+}
+
+// missingRequiredResults checks if any results without default values were not produced
+func missingRequiredResults(tr *v1.TaskRun, specResults []v1.TaskResult) []string {
+	providedResults := make(map[string]bool)
+	for _, trr := range tr.Status.Results {
+		providedResults[trr.Name] = true
+	}
+
+	var missingResults []string
+	for _, r := range specResults {
+		// Only check results that don't have a default value
+		if r.Default == nil && !providedResults[r.Name] {
+			missingResults = append(missingResults, r.Name)
+		}
+	}
+	return missingResults
 }

@@ -5362,6 +5362,22 @@ ParamValue
 <em>(Optional)</em>
 <p>Value the expression used to retrieve the value of the result from an underlying Step.</p>
 </td>
+<tr>
+<td>
+<code>default</code><br/>
+<em>
+<a href="#tekton.dev/v1.ParamValue">
+ParamValue
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>This is an alpha field. You must set the &ldquo;enable-api-fields&rdquo; feature flag to &ldquo;alpha&rdquo;
+for this field to be supported.</p>
+<p>Default is the value a result produces if no result is produced by Task</p>
+</td>
+</tr>
 </tr>
 </tbody>
 </table>
@@ -15112,14 +15128,30 @@ ParamValue
 <em>(Optional)</em>
 <p>Value the expression used to retrieve the value of the result from an underlying Step.</p>
 </td>
+<tr>
+<td>
+<code>default</code><br/>
+<em>
+<a href="#tekton.dev/v1beta1.ParamValue">
+ParamValue
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>This is an alpha field. You must set the &ldquo;enable-api-fields&rdquo; feature flag to &ldquo;alpha&rdquo;
+for this field to be supported.</p>
+<p>Default is the value a result produces if no result is produced by Task</p>
+</td>
+</tr>
 </tr>
 </tbody>
 </table>
 <h3 id="tekton.dev/v1beta1.TaskRunConditionType">TaskRunConditionType
 (<code>string</code> alias)</h3>
 <div>
-<p>TaskRunConditionType is an enum used to store TaskRun custom
-conditions such as one used in spire results verification</p>
+<p>TaskRunConditionType is an enum used to store TaskRun custom conditions
+such as one used in spire results verification</p>
 </div>
 <h3 id="tekton.dev/v1beta1.TaskRunDebug">TaskRunDebug
 </h3>

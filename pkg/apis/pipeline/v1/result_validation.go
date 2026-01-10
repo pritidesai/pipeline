@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"regexp"
 
+	"github.com/tektoncd/pipeline/pkg/apis/config"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"knative.dev/pkg/apis"
 )
@@ -26,6 +27,11 @@ import (
 func (tr TaskResult) Validate(ctx context.Context) (errs *apis.FieldError) {
 	if !resultNameFormatRegex.MatchString(tr.Name) {
 		return apis.ErrInvalidKeyName(tr.Name, "name", fmt.Sprintf("Name must consist of alphanumeric characters, '-', '_', and must start and end with an alphanumeric character (e.g. 'MyName',  or 'my-name',  or 'my_name', regex used for validation is '%s')", ResultNameFormat))
+	}
+
+	// Default results in alpha feature
+	if tr.Default != nil {
+		errs = errs.Also(config.ValidateEnabledAPIFields(ctx, "default results", config.AlphaAPIFields))
 	}
 
 	switch {
