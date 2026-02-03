@@ -2164,6 +2164,8 @@ spec:
                           type: boolean
                         enableConciseResolverSyntax:
                           type: boolean
+                        enableDefaultResults:
+                          type: boolean
                         enableKeepPodOnCancel:
                           type: boolean
                         enableKubernetesSidecar:
@@ -2536,6 +2538,8 @@ spec:
                                     type: boolean
                                   enableConciseResolverSyntax:
                                     type: boolean
+                                  enableDefaultResults:
+                                    type: boolean
                                   enableKeepPodOnCancel:
                                     type: boolean
                                   enableKubernetesSidecar:
@@ -2798,6 +2802,8 @@ spec:
                                         enableCELInWhenExpression:
                                           type: boolean
                                         enableConciseResolverSyntax:
+                                          type: boolean
+                                        enableDefaultResults:
                                           type: boolean
                                         enableKeepPodOnCancel:
                                           type: boolean
@@ -5038,6 +5044,8 @@ spec:
                         enableCELInWhenExpression:
                           type: boolean
                         enableConciseResolverSyntax:
+                          type: boolean
+                        enableDefaultResults:
                           type: boolean
                         enableKeepPodOnCancel:
                           type: boolean

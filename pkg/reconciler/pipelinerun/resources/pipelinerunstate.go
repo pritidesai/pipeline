@@ -167,6 +167,34 @@ func (state PipelineRunState) AdjustStartTime(unadjustedStartTime *metav1.Time) 
 	return adjustedStartTime.DeepCopy()
 }
 
+// GetTaskResultDefaults returns a map of task result defaults from the resolved tasks.
+// The map is keyed by pipeline task name, and the value is a map of result name to default value.
+// This is used to populate pipeline results when a task result is not initialized but has a default defined.
+func (state PipelineRunState) GetTaskResultDefaults() map[string]map[string]*v1.ResultValue {
+	defaults := make(map[string]map[string]*v1.ResultValue)
+	for _, rpt := range state {
+		if rpt.IsChildPipeline() {
+			continue
+		}
+		if rpt.IsCustomTask() {
+			continue
+		}
+		if rpt.ResolvedTask == nil || rpt.ResolvedTask.TaskSpec == nil {
+			continue
+		}
+		taskDefaults := make(map[string]*v1.ResultValue)
+		for _, result := range rpt.ResolvedTask.TaskSpec.Results {
+			if result.Default != nil {
+				taskDefaults[result.Name] = result.Default
+			}
+		}
+		if len(taskDefaults) > 0 {
+			defaults[rpt.PipelineTask.Name] = taskDefaults
+		}
+	}
+	return defaults
+}
+
 // GetTaskRunsResults returns a map of all successfully completed TaskRuns in the state, with the pipeline task name as
 // the key and the results from the corresponding TaskRun as the value. It only includes tasks which have completed successfully.
 func (state PipelineRunState) GetTaskRunsResults() map[string][]v1.TaskRunResult {
@@ -261,13 +289,13 @@ func (state PipelineRunState) GetRunsResults() map[string][]v1beta1.CustomRunRes
 
 // GetChildReferences returns a slice of references, including version, kind, name, and pipeline task name, for all
 // child PipelineRuns, TaskRuns and Runs in the state.
-func (facts *PipelineRunFacts) GetChildReferences() []v1.ChildStatusReference {
+func (facts *PipelineRunFacts) GetChildReferences(ctx context.Context) []v1.ChildStatusReference {
 	var childRefs []v1.ChildStatusReference
 
 	for _, rpt := range facts.State {
 		// try to replace the parameters of the reference result of when expression in the TaskRun that has ended
 		if rpt.isDone(facts) {
-			resolvedResultRefs, _, err := ResolveResultRefs(facts.State, PipelineRunState{rpt})
+			resolvedResultRefs, _, err := ResolveResultRefs(ctx, facts.State, PipelineRunState{rpt})
 			if err == nil {
 				ApplyTaskResults(facts.State, resolvedResultRefs)
 			}
@@ -637,10 +665,11 @@ func (facts *PipelineRunFacts) GetPipelineConditionStatus(ctx context.Context, p
 func (facts *PipelineRunFacts) GetSkippedTasks() []v1.SkippedTask {
 	var skipped []v1.SkippedTask
 	for _, rpt := range facts.State {
-		if rpt.Skip(facts).IsSkipped {
+		if rpt.Skip(context.Background(), facts).IsSkipped {
+			skipStatus := rpt.Skip(context.Background(), facts)
 			skippedTask := v1.SkippedTask{
 				Name:            rpt.PipelineTask.Name,
-				Reason:          rpt.Skip(facts).SkippingReason,
+				Reason:          skipStatus.SkippingReason,
 				WhenExpressions: rpt.PipelineTask.When,
 			}
 			skipped = append(skipped, skippedTask)
@@ -713,7 +742,7 @@ func (facts *PipelineRunFacts) GetPipelineTaskStatus() map[string]string {
 				}
 				// if any of the dag task skipped, change the aggregate status to completed
 				// but continue checking for any other failure
-				if t.Skip(facts).IsSkipped {
+				if t.Skip(context.Background(), facts).IsSkipped {
 					aggregateStatus = v1.PipelineRunReasonCompleted.String()
 				}
 			}
@@ -818,13 +847,13 @@ func (facts *PipelineRunFacts) getPipelineTasksCount() pipelineRunStatusCount {
 		case t.isValidationFailed(facts.ValidationFailedTask):
 			s.ValidationFailed++
 		// increment skipped and skipped due to timeout counters since the task was skipped due to the pipeline, tasks, or finally timeout being reached before the task was launched
-		case t.Skip(facts).SkippingReason == v1.PipelineTimedOutSkip ||
-			t.Skip(facts).SkippingReason == v1.TasksTimedOutSkip ||
+		case t.Skip(context.Background(), facts).SkippingReason == v1.PipelineTimedOutSkip ||
+			t.Skip(context.Background(), facts).SkippingReason == v1.TasksTimedOutSkip ||
 			t.IsFinallySkipped(facts).SkippingReason == v1.FinallyTimedOutSkip:
 			s.Skipped++
 			s.SkippedDueToTimeout++
 		// increment skip counter since the task is skipped
-		case t.Skip(facts).IsSkipped:
+		case t.Skip(context.Background(), facts).IsSkipped:
 			s.Skipped++
 		// checking if any finally tasks were referring to invalid/missing task results
 		case t.IsFinallySkipped(facts).IsSkipped:

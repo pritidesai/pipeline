@@ -131,7 +131,7 @@ func (t *ResolvedPipelineTask) EvaluateCEL() error {
 
 // isDone returns true only if the task is skipped, succeeded or failed
 func (t ResolvedPipelineTask) isDone(facts *PipelineRunFacts) bool {
-	return t.Skip(facts).IsSkipped || t.isSuccessful() || t.isFailure() || t.isValidationFailed(facts.ValidationFailedTask)
+	return t.Skip(context.Background(), facts).IsSkipped || t.isSuccessful() || t.isFailure() || t.isValidationFailed(facts.ValidationFailedTask)
 }
 
 // IsRunning returns true only if the task is neither succeeded, cancelled nor failed
@@ -420,7 +420,7 @@ func (t *ResolvedPipelineTask) checkParentsDone(facts *PipelineRunFacts) bool {
 	return true
 }
 
-func (t *ResolvedPipelineTask) skip(facts *PipelineRunFacts) TaskSkipStatus {
+func (t *ResolvedPipelineTask) skip(ctx context.Context, facts *PipelineRunFacts) TaskSkipStatus {
 	var skippingReason v1.SkippingReason
 
 	switch {
@@ -436,7 +436,7 @@ func (t *ResolvedPipelineTask) skip(facts *PipelineRunFacts) TaskSkipStatus {
 		skippingReason = v1.WhenExpressionsSkip
 	case t.skipBecauseParentTaskWasSkipped(facts):
 		skippingReason = v1.ParentTasksSkip
-	case t.skipBecauseResultReferencesAreMissing(facts):
+	case t.skipBecauseResultReferencesAreMissing(ctx, facts):
 		skippingReason = v1.MissingResultsSkip
 	case t.skipBecausePipelineRunPipelineTimeoutReached(facts):
 		skippingReason = v1.PipelineTimedOutSkip
@@ -460,12 +460,14 @@ func (t *ResolvedPipelineTask) skip(facts *PipelineRunFacts) TaskSkipStatus {
 // (3) its parent task was skipped
 // (4) Pipeline is in stopping state (one of the PipelineTasks failed)
 // (5) Pipeline is gracefully cancelled or stopped
-func (t *ResolvedPipelineTask) Skip(facts *PipelineRunFacts) TaskSkipStatus {
+func (t *ResolvedPipelineTask) Skip(ctx context.Context, facts *PipelineRunFacts) TaskSkipStatus {
 	if facts.SkipCache == nil {
 		facts.SkipCache = make(map[string]TaskSkipStatus)
 	}
 	if _, cached := facts.SkipCache[t.PipelineTask.Name]; !cached {
-		facts.SkipCache[t.PipelineTask.Name] = t.skip(facts)
+		// Use background context with defaults for skip evaluation
+		// The feature flag check in skipBecauseResultReferencesAreMissing will use defaults if context is not available
+		facts.SkipCache[t.PipelineTask.Name] = t.skip(context.Background(), facts)
 	}
 	return facts.SkipCache[t.PipelineTask.Name]
 }
@@ -492,7 +494,7 @@ func (t *ResolvedPipelineTask) skipBecauseParentTaskWasSkipped(facts *PipelineRu
 	node := facts.TasksGraph.Nodes[t.PipelineTask.Name]
 	for _, p := range node.Prev {
 		parentTask := stateMap[p.Key]
-		if parentSkipStatus := parentTask.Skip(facts); parentSkipStatus.IsSkipped {
+		if parentSkipStatus := parentTask.Skip(context.Background(), facts); parentSkipStatus.IsSkipped {
 			// if the parent task was skipped due to its `when` expressions,
 			// then we should ignore that and continue evaluating if we should skip because of other parent tasks
 			if parentSkipStatus.SkippingReason == v1.WhenExpressionsSkip {
@@ -506,14 +508,14 @@ func (t *ResolvedPipelineTask) skipBecauseParentTaskWasSkipped(facts *PipelineRu
 
 // skipBecauseResultReferencesAreMissing checks if the task references results that cannot be resolved, which is a
 // reason for skipping the task, and applies result references if found
-func (t *ResolvedPipelineTask) skipBecauseResultReferencesAreMissing(facts *PipelineRunFacts) bool {
+func (t *ResolvedPipelineTask) skipBecauseResultReferencesAreMissing(ctx context.Context, facts *PipelineRunFacts) bool {
 	if t.checkParentsDone(facts) && t.hasResultReferences() {
-		resolvedResultRefs, pt, err := ResolveResultRefs(facts.State, PipelineRunState{t})
+		resolvedResultRefs, pt, err := ResolveResultRefs(ctx, facts.State, PipelineRunState{t})
 		rpt := facts.State.ToMap()[pt]
 		if rpt != nil {
 			if err != nil &&
 				(t.PipelineTask.OnError == v1.PipelineTaskContinue ||
-					(t.IsFinalTask(facts) || rpt.Skip(facts).SkippingReason == v1.WhenExpressionsSkip)) {
+					(t.IsFinalTask(facts) || rpt.Skip(context.Background(), facts).SkippingReason == v1.WhenExpressionsSkip)) {
 				return true
 			}
 		}
@@ -589,7 +591,7 @@ func (t *ResolvedPipelineTask) IsFinallySkipped(facts *PipelineRunFacts) TaskSki
 		skippingReason = v1.None
 	case facts.checkDAGTasksDone() && facts.isFinalTask(t.PipelineTask.Name):
 		switch {
-		case t.skipBecauseResultReferencesAreMissing(facts):
+		case t.skipBecauseResultReferencesAreMissing(context.Background(), facts):
 			skippingReason = v1.MissingResultsSkip
 		case t.skipBecauseWhenExpressionsEvaluatedToFalse(facts):
 			skippingReason = v1.WhenExpressionsSkip
@@ -683,7 +685,7 @@ func ResolvePipelineTask(
 	// We want to resolve all of the result references and ignore any errors at this point since there could be
 	// instances where result references are missing here, but will be later skipped and resolved in
 	// skipBecauseResultReferencesAreMissing. The final validation is handled in CheckMissingResultReferences.
-	resolvedResultRefs, _, _ := ResolveResultRefs(pst, PipelineRunState{&rpt})
+	resolvedResultRefs, _, _ := ResolveResultRefs(ctx, pst, PipelineRunState{&rpt})
 	if err := validateArrayResultsIndex(resolvedResultRefs); err != nil {
 		return nil, err
 	}
@@ -989,7 +991,7 @@ func isCustomRunCancelledByPipelineRunTimeout(cr *v1beta1.CustomRun) bool {
 // CheckMissingResultReferences returns an error if it is missing any result references.
 // Missing result references can occur if task fails to produce a result but has
 // OnError: continue (ie TestMissingResultWhenStepErrorIsIgnored)
-func CheckMissingResultReferences(pipelineRunState PipelineRunState, target *ResolvedPipelineTask) error {
+func CheckMissingResultReferences(ctx context.Context, pipelineRunState PipelineRunState, target *ResolvedPipelineTask) error {
 	for _, resultRef := range v1.PipelineTaskResultRefs(target.PipelineTask) {
 		referencedPipelineTask, ok := pipelineRunState.ToMap()[resultRef.PipelineTask]
 		if !ok {
@@ -1009,7 +1011,7 @@ func CheckMissingResultReferences(pipelineRunState PipelineRunState, target *Res
 				return fmt.Errorf("Result reference error: Internal result ref \"%s\" has zero-length TaskRuns", resultRef.PipelineTask)
 			}
 			taskRun := referencedPipelineTask.TaskRuns[0]
-			_, err := findTaskResultForParam(taskRun, resultRef)
+			_, err := findTaskResultForParam(ctx, taskRun, resultRef, referencedPipelineTask.ResolvedTask)
 			if err != nil {
 				return err
 			}
