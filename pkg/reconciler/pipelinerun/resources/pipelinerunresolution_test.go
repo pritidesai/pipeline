@@ -1445,7 +1445,7 @@ func TestIsSkipped(t *testing.T) {
 				if rpt == nil {
 					t.Fatalf("Could not get task %s from the state: %v", taskName, tc.state)
 				}
-				if d := cmp.Diff(isSkipped, rpt.Skip(&facts).IsSkipped); d != "" {
+				if d := cmp.Diff(isSkipped, rpt.Skip(context.Background(), &facts).IsSkipped); d != "" {
 					t.Errorf("Didn't get expected isSkipped from task %s: %s", taskName, diff.PrintWantGot(d))
 				}
 			}
