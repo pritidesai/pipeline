@@ -575,7 +575,7 @@ spec:
 	// Parse and validate output YAML
 	resolvedTR := parse.MustParseV1TaskRun(t, outputYAML)
 
-	if err := checkTaskRunConditionSucceeded(resolvedTR.Status, SucceedConditionStatus, "Succeeded"); err != nil {
+	if err := checkTaskRunConditionSucceeded(resolvedTR.Status, succeedConditionStatus, "Succeeded"); err != nil {
 		t.Error(err)
 	}
 
@@ -635,7 +635,7 @@ spec:
 	// Parse and validate output YAML
 	succeededResolvedTR := parse.MustParseV1TaskRun(t, succeedOutputYAML)
 
-	if err := checkTaskRunConditionSucceeded(succeededResolvedTR.Status, SucceedConditionStatus, "Succeeded"); err != nil {
+	if err := checkTaskRunConditionSucceeded(succeededResolvedTR.Status, succeedConditionStatus, "Succeeded"); err != nil {
 		t.Error(err)
 	}
 }
@@ -735,7 +735,7 @@ spec:
 		t.Errorf("Expect vendor service to provide 1 Sidcar but it has: %v", len(failResolvedTR.Spec.TaskSpec.Sidecars))
 	}
 
-	if err := checkTaskRunConditionSucceeded(failResolvedTR.Status, SucceedConditionStatus, "Succeeded"); err != nil {
+	if err := checkTaskRunConditionSucceeded(failResolvedTR.Status, succeedConditionStatus, "Succeeded"); err != nil {
 		t.Error(err)
 	}
 }
@@ -779,7 +779,7 @@ spec:
 		t.Errorf("Expect vendor service to provide 1 Param but it has: %v", len(resolvedTR.Spec.Params))
 	}
 
-	if err := checkTaskRunConditionSucceeded(resolvedTR.Status, SucceedConditionStatus, "Succeeded"); err != nil {
+	if err := checkTaskRunConditionSucceeded(resolvedTR.Status, succeedConditionStatus, "Succeeded"); err != nil {
 		t.Error(err)
 	}
 
@@ -1026,7 +1026,7 @@ spec:
 	// Parse and validate output YAML
 	resolvedTR := parse.MustParseV1TaskRun(t, outputYAML)
 
-	if err := checkTaskRunConditionSucceeded(resolvedTR.Status, SucceedConditionStatus, "Succeeded"); err != nil {
+	if err := checkTaskRunConditionSucceeded(resolvedTR.Status, succeedConditionStatus, "Succeeded"); err != nil {
 		t.Error(err)
 	}
 
@@ -1106,7 +1106,7 @@ spec:
 	// Parse and validate output YAML
 	resolvedTR := parse.MustParseV1TaskRun(t, outputYAML)
 
-	if err := checkTaskRunConditionSucceeded(resolvedTR.Status, SucceedConditionStatus, "Succeeded"); err != nil {
+	if err := checkTaskRunConditionSucceeded(resolvedTR.Status, succeedConditionStatus, "Succeeded"); err != nil {
 		t.Error(err)
 	}
 }
@@ -1313,7 +1313,7 @@ spec:
 	// Parse and validate output YAML
 	resolvedPR := parse.MustParseV1PipelineRun(t, outputYAML)
 
-	if err := checkPipelineRunConditionSucceeded(resolvedPR.Status, SucceedConditionStatus, "Succeeded"); err != nil {
+	if err := checkPipelineRunConditionSucceeded(resolvedPR.Status, succeedConditionStatus, "Succeeded"); err != nil {
 		t.Error(err)
 	}
 
@@ -1358,7 +1358,7 @@ spec:
 	resolvedPR := parse.MustParseV1PipelineRun(t, outputYAML)
 
 	// TODO to examine PipelineRunReason when https://github.com/tektoncd/pipeline/issues/7573 is fixed - PipelineTaskTimeout
-	if err := checkPipelineRunConditionSucceeded(resolvedPR.Status, FailureConditionStatus, "Failed"); err != nil {
+	if err := checkPipelineRunConditionSucceeded(resolvedPR.Status, failureConditionStatus, "Failed"); err != nil {
 		t.Error(err)
 	}
 }
@@ -1397,7 +1397,7 @@ spec:
 	// Parse and validate output YAML
 	resolvedPR := parse.MustParseV1PipelineRun(t, outputYAML)
 
-	if err := checkPipelineRunConditionSucceeded(resolvedPR.Status, FailureConditionStatus, "PipelineRunTimeout"); err != nil {
+	if err := checkPipelineRunConditionSucceeded(resolvedPR.Status, failureConditionStatus, "PipelineRunTimeout"); err != nil {
 		t.Error(err)
 	}
 
@@ -1491,42 +1491,6 @@ spec:
 	}
 }
 
-// TestPipelineRunConditions examines population of Conditions
-// fields. It creates the a PipelineRun with minimal specifications and checks the
-// required Condition Status and Type.
-// @test:execution=parallel
-func TestPipelineRunConditions(t *testing.T) {
-	inputYAML := fmt.Sprintf(`
-apiVersion: tekton.dev/v1
-kind: PipelineRun
-metadata:
-  name: %s
-spec:
-  pipelineSpec:
-    tasks:
-    - name: pipeline-task-0
-      taskSpec:
-        steps:
-        - name: add
-          image: mirror.gcr.io/ubuntu
-          script:
-            echo Hello world!
-`, helpers.ObjectNameForTest(t))
-
-	// The execution of Pipeline CRDs that should be implemented by Vendor service
-	outputYAML, err := ProcessAndSendToTekton(inputYAML, PipelineRunInputType, t)
-	if err != nil {
-		t.Fatalf("Vendor service failed processing inputYAML: %s", err)
-	}
-
-	// Parse and validate output YAML
-	resolvedPR := parse.MustParseV1PipelineRun(t, outputYAML)
-
-	if err := checkPipelineRunConditionSucceeded(resolvedPR.Status, SucceedConditionStatus, "Succeeded"); err != nil {
-		t.Error(err)
-	}
-}
-
 // @test:execution=parallel
 func TestPipelineRunChildReferences(t *testing.T) {
 	prName := helpers.ObjectNameForTest(t)
@@ -1569,7 +1533,7 @@ spec:
 	// Parse and validate output YAML
 	resolvedPR := parse.MustParseV1PipelineRun(t, outputYAML)
 
-	if err := checkPipelineRunConditionSucceeded(resolvedPR.Status, SucceedConditionStatus, "Succeeded"); err != nil {
+	if err := checkPipelineRunConditionSucceeded(resolvedPR.Status, succeedConditionStatus, "Succeeded"); err != nil {
 		t.Error(err)
 	}
 
